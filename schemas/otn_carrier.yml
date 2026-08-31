@@ -1,0 +1,162 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/schema/latest.json
+#
+# One kind, and the smallest one that can answer "how full is this section".
+#
+# A carrier is the only kind in this model that holds a wavelength, so section
+# capacity is a count of carriers against real objects rather than a stored
+# number.
+version: "1.0"
+
+nodes:
+  - name: OpticalCarrier
+    namespace: Otn
+    description: One provisioned wavelength. Occupies its channel on every section it crosses.
+    label: Optical carrier
+    icon: mdi:waves
+    include_in_menu: false
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        parameters:
+          max_length: 64
+          regex: "^[A-Za-z0-9._-]+$"
+        optional: false
+        order_weight: 1000
+      - name: description
+        kind: Text
+        parameters:
+          max_length: 256
+        optional: true
+        order_weight: 1100
+      # A carrier the generator writes on a branch stays `planned` until the
+      # change merges; a pre-provisioned one is `active`.
+      - name: status
+        kind: Dropdown
+        default_value: active
+        choices:
+          - name: planned
+            label: Planned
+            color: "#2196f3"
+          - name: active
+            label: Active
+            color: "#4caf50"
+          - name: decommissioned
+            label: Decommissioned
+            color: "#9e9e9e"
+        optional: false
+        order_weight: 1200
+    relationships:
+      - name: channel
+        peer: OtnFrequencyGrid
+        kind: Attribute
+        cardinality: one
+        optional: false
+        identifier: otn_carrier__channel
+        on_delete: no-action
+        order_weight: 800
+      - name: optical_mode
+        peer: OtnOpticalMode
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_carrier__optical_mode
+        on_delete: no-action
+        order_weight: 810
+      # Many, not one, and the change is the grooming model showing through. A
+      # wavelength used to carry one service, so one optical path per carrier was
+      # the truth. Once two services groom their client containers into the same
+      # line container, both of their paths ride this carrier. Each service still
+      # has exactly one path of its own, which is `otn_service__optical_path` and
+      # is untouched.
+      #
+      # The name stays singular although the cardinality is now many, a
+      # deliberate ugliness rather than an oversight. See the identifier below.
+      - name: optical_path
+        peer: OtnOpticalPath
+        kind: Attribute
+        # Measured rather than assumed: with cardinality one, the second service
+        # to groom into a shared wavelength failed provisioning outright with
+        # "Node <id> has 2 peers for otn_carrier__optical_path, maximum of 1
+        # allowed". That is the schema refusing the thing the feature exists to
+        # do.
+        cardinality: many
+        optional: true
+        # Renaming to `optical_paths` is a relationship rename, and Infrahub
+        # reads the old and the new as two relationships on one identifier:
+        # "Identifier of relationships must be unique for a given direction".
+        # Widening a cardinality migrates cleanly, renaming does not, and the
+        # rename would cost a re-bootstrap of every branch to buy a plural.
+        identifier: otn_carrier__optical_path
+        on_delete: no-action
+        order_weight: 820
+      # Unordered, and it does not need to be: occupancy is a set membership
+      # question. Ordering along a route lives on the path hops.
+      - name: sections
+        peer: OtnOpticalMultiplexSection
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_carrier__sections
+        on_delete: no-action
+        order_weight: 900
+      # What the wavelength carries, so "what dies if this carrier dies" is a
+      # read of the carrier rather than a reverse filter.
+      - name: containers
+        peer: OtnContainer
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_carrier__containers
+        on_delete: no-action
+        order_weight: 910
+      # The inverse of OtnOduSwitch.carriers, and both sides write
+      # `otn_odu_switch__carriers` by hand. Leaving it off would have Infrahub
+      # derive one per side from that side's own kind and peer, which agrees
+      # only when the two pairs mirror each other, and the derived string is
+      # frozen the moment a load succeeds. Changing it afterwards is rejected
+      # with `not_supported` and costs a remove-and-re-add on both sides.
+      #
+      # Many, because a wavelength is terminated at each of its ends: the
+      # junction before this carrier and the junction after it are two different
+      # devices.
+      - name: odu_switches
+        peer: OtnOduSwitch
+        label: ODU switches terminating this carrier
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_odu_switch__carriers
+        on_delete: no-action
+        order_weight: 920
+      # The inverse of OtnLinePort.carrier, both sides writing
+      # otn_carrier__line_ports by hand, on the same argument odu_switches above
+      # makes: a derived identifier is frozen the moment a load succeeds and
+      # changing it afterwards costs a remove-and-re-add on both sides.
+      #
+      # Many, because a wavelength is terminated at each of its ends, and those
+      # are two ports on two devices at two sites.
+      #
+      # on_delete: no-action, and here the case is plainer than on the port side:
+      # cascade would mean deleting a wavelength deletes the physical ports that
+      # terminated it, so retiring a service would remove hardware from the
+      # inventory.
+      #
+      # Optional, and it is genuinely reachable: generators/optical_service.py
+      # provisions a wavelength and binds no line port, so a freshly provisioned
+      # carrier has an empty list here.
+      - name: line_ports
+        peer: OtnLinePort
+        label: Line ports terminating this wavelength
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_carrier__line_ports
+        on_delete: no-action
+        order_weight: 930

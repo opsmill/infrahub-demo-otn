@@ -1,0 +1,208 @@
+# Every carrier, and the plant once.
+#
+# **Flat top-level collections rather than one nested tree, and this is the one
+# copy of why.** Nesting the sections under each carrier would fetch
+# `oms-fra-mil` seventy-one times, because all seventy-one carriers cross it.
+# The check joins them by name in Python, which is a dict lookup against a
+# fan-out. `queries/optical_service.gql` cites this paragraph.
+#
+# The fiber type is nested under the span because that relationship is one to
+# one, and a span without its attenuation coefficient cannot be budgeted at all.
+query OsnrMargin {
+  # A fourth collection, unfiltered on purpose. The check's section sweep
+  # budgets all 21 sections in both directions against one named reference
+  # mode, and reaching that mode only through a carrier that happens to use it
+  # would leave the sweep with nothing to budget against on any branch where
+  # the mode is unused. The name lives in the check, so this query asks for the
+  # catalog and lets the check choose.
+  OtnOpticalMode {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        required_osnr_mdb {
+          value
+        }
+        cd_tolerance_fs_per_nm {
+          value
+        }
+        fec_latency_ns {
+          value
+        }
+      }
+    }
+  }
+  OtnOpticalCarrier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        optical_mode {
+          node {
+            name {
+              value
+            }
+            required_osnr_mdb {
+              value
+            }
+            cd_tolerance_fs_per_nm {
+              value
+            }
+            fec_latency_ns {
+              value
+            }
+          }
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnOpticalMultiplexSection {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        roadm_a {
+          node {
+            name {
+              value
+            }
+            insertion_loss_mdb {
+              value
+            }
+          }
+        }
+        roadm_b {
+          node {
+            name {
+              value
+            }
+            insertion_loss_mdb {
+              value
+            }
+          }
+        }
+        spans {
+          edges {
+            node {
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              length_m {
+                value
+              }
+              splice_count {
+                value
+              }
+              splice_loss_mdb {
+                value
+              }
+              connector_count {
+                value
+              }
+              connector_loss_mdb {
+                value
+              }
+              aging_margin_mdb {
+                value
+              }
+              fiber_type {
+                node {
+                  name {
+                    value
+                  }
+                  attenuation_mdb_per_km {
+                    value
+                  }
+                  dispersion_fs_per_nm_km {
+                    value
+                  }
+                  group_index_milli {
+                    value
+                  }
+                }
+              }
+              raman_pumps {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    injection_end {
+                      value
+                    }
+                    propagation {
+                      value
+                    }
+                    on_off_gain_mdb {
+                      value
+                    }
+                    insertion_loss_mdb {
+                      value
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        amplifiers_a2b {
+          edges {
+            node {
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              noise_figure_mdb {
+                value
+              }
+              gain_mdb {
+                value
+              }
+            }
+          }
+        }
+        amplifiers_b2a {
+          edges {
+            node {
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              noise_figure_mdb {
+                value
+              }
+              gain_mdb {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

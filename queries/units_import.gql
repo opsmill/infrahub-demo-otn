@@ -1,0 +1,16 @@
+# Placeholder query. The check does not read this data: it exists only because
+# InfrahubCheck requires `query` to name a registered query. Selecting a core
+# kind that always exists keeps repo-sync clean.
+#
+# `__typename` is selected for the same reason the other ten queries select it:
+# the SDK keys its response on the kind as well as the id.
+query UnitsImport {
+  CoreAccount(limit: 1) {
+    edges {
+      node {
+        id
+        __typename
+      }
+    }
+  }
+}

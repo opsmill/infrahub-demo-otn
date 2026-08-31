@@ -1,0 +1,63 @@
+# Configured gain beside the gain the monitor reports, for every stage that has
+# both.
+#
+# The monitor is reached through the device's own `ports`, so an inline union
+# fragment is what picks it out of the other ports on the same device. Without
+# the fragment the reading is not selectable at all.
+#
+# Each fragment names a monitor kind rather than one shared kind, which makes it
+# more precise at the same size: it cannot match a monitor of the wrong family,
+# and a match always carries a number, because the reading is mandatory on the
+# kind that declares it. So a null reading here can only mean no monitor at all.
+query MonitorDrift {
+  OtnAmplifier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        gain_mdb {
+          value
+        }
+        ports {
+          edges {
+            node {
+              ... on OtnAmplifierMonitor {
+                measured_gain_mdb {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnRamanPump {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        on_off_gain_mdb {
+          value
+        }
+        ports {
+          edges {
+            node {
+              ... on OtnRamanMonitor {
+                measured_gain_mdb {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

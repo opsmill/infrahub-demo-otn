@@ -1,0 +1,241 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Scenario input: every band on the ODU map at once.
+#
+# **What this demonstrates.** The five bands are five different sentences about a
+# section, and a map showing one of them proves nothing about the other four.
+# This file puts at least one section in each, on one branch, so the legend can
+# be read against the picture.
+#
+# **Re-derived after the spectral-width re-seed.** The carriers this file used to
+# name were the old 71-wavelength plan and none of them survived. A wavelength
+# occupies a width rather than a channel number now, so the re-seed left 40
+# carriers spread over five sections, and the file below names those. The purpose
+# is unchanged: a spread of fill levels, not a particular set of names.
+#
+# **How each band is reached, and what it costs.**
+#
+# `no-odu` is free and nothing here engineers it. Sixteen of the twenty-one
+# sections carry no wavelength at all, so they have no lit carrier and therefore
+# no free-slot figure. The band split on a clean `main` is already `odu4` 5 and
+# `no-odu` 16. What that band does not mean is "empty and available", which is
+# the whole reason it is drawn as an unknown rather than as headroom.
+#
+# `odu4` is free too. `oms-ams-fra` keeps all seven of its `ODUC4` wavelengths
+# empty at 320 free, so it stays where a 100G client still fits.
+#
+# `full`, `odu0` and `odu2` are earned, one section each, and the section chosen
+# for each is the one whose wavelengths can actually be filled. A section is
+# banded on its **roomiest** lit carrier, not its tightest, so it leaves `odu4`
+# only when every lit carrier on it drops below 80 free. That makes the choice
+# arithmetic rather than taste:
+#
+# - `oms-vie-mil` takes `full`. Its three wavelengths carry the only `ODU4` line
+#   containers in the dataset, 80 slots each, so one 100G client fills one
+#   outright. Three client containers, three wavelengths at 0 free, and the
+#   roomiest of them is 0.
+# - `oms-par-fra` takes `odu0`. Three `ODUC4` at 320. Two are filled to 0 free by
+#   a single 400G client each, and `oc-ch044-par-mil` is filled to 313 by a mix
+#   of smaller clients, which leaves 7 free: enough for a 1G client and nothing
+#   above it.
+# - `oms-ber-fra` takes `odu2`. Five `ODUC4` at 320. Four are filled to 0 free
+#   the same way, and `oc-ch035-ber-mil` is filled to 272, which leaves 48 free:
+#   a 10G or a 40G client fits there and a 100G does not.
+#
+# **`oms-fra-mil` is left in `odu4`, and stating why is the point.** Every one of
+# the forty wavelengths crosses it, eleven of them are filled by this file, and
+# twenty-nine are still empty at 320 free, so the section reads `odu4` and will
+# keep reading `odu4` until the last of the twenty-nine is filled. That is
+# roughly a thousand client containers. The model does not pretend otherwise and
+# neither does this file.
+#
+# **No service in here, and that is deliberate.** Twenty provisioning runs would
+# say nothing about grooming that `demo/04_odu_ten_in_one.yml` does not already
+# say with eleven, and this scenario is about what the map states, not about how
+# the containers arrived. So the clients are written as containers directly, the
+# same way `demo/90_fra_mil_saturated.yml` writes its tenants. Load this file and
+# the bands are there; no generator has to run.
+#
+# `tributary_slots` on each client is the figure the slot table gives its type,
+# and `tributary_slot_capacity` is left at the schema default of 0, which is what
+# the generator writes for a client container: it occupies slots in its parent
+# and offers none of its own. Every client also names a real signal from
+# `objects/04_client_signals.yml`, with the mapping that catalog pairs with it,
+# so a reader can check any figure here against the catalog rather than taking it
+# from this file.
+#
+# **The measured split on this branch is `odu4` 2, `odu2` 1, `odu0` 1, `full` 1,
+# `no-odu` 16.** Twenty-one sections, all five bands.
+#
+# This file can share a branch with `demo/04_odu_ten_in_one.yml`, which adds no
+# container to any wavelength either file touches. It creates no carrier and takes
+# no channel, so it collides with nothing.
+#
+# None of this is a fact about the network, which is why it is not in `objects/`.
+# `tests/unit/test_repository_config.py` asserts that `.infrahub.yml` does not
+# reference this directory.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnContainer
+  data:
+    # `full` on oms-vie-mil. One 100G client per wavelength, and an ODU4 client
+    # in an ODU4 line container is the one case where a single client fills its
+    # parent: both are 80 slots.
+    - name: odu-mix-ch091-fra-vie-100g
+      description: 100G client filling oc-ch091-fra-vie outright, 80 of 80.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch091-fra-vie
+    - name: odu-mix-ch092-fra-vie-100g
+      description: 100G client filling oc-ch092-fra-vie outright, 80 of 80.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch092-fra-vie
+    - name: odu-mix-ch093-fra-vie-100g
+      description: 100G client filling oc-ch093-fra-vie outright, 80 of 80.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch093-fra-vie
+
+    # `odu0` on oms-par-fra. Two wavelengths taken to 0 free by one 400G client
+    # each, which is the other single-client fill: an ODUC4 client is 320 slots
+    # and an ODUC4 line container offers 320.
+    - name: odu-mix-ch038-par-mil-400g
+      description: 400G client filling oc-ch038-par-mil outright, 320 of 320.
+      odu_type: ODUC4
+      mapping_mode: GMP
+      tributary_slots: 320
+      client_signal: 400GBASE-FR4
+      parent_container: odu-line-oc-ch038-par-mil
+    - name: odu-mix-ch041-par-mil-400g
+      description: 400G client filling oc-ch041-par-mil outright, 320 of 320.
+      odu_type: ODUC4
+      mapping_mode: GMP
+      tributary_slots: 320
+      client_signal: 400GBASE-FR4
+      parent_container: odu-line-oc-ch041-par-mil
+
+    # The one wavelength on oms-par-fra with a sliver left, and the sliver is
+    # what puts the section in `odu0`. Seven clients commit 240 plus 64 plus 8
+    # plus 1, which is 313 of 320 and leaves 7 free. Only a 1G or a 2.5G client
+    # fits in 7 slots.
+    - name: odu-mix-ch044-par-mil-100g-a
+      description: First of three 100G clients on oc-ch044-par-mil, 80 slots.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch044-par-mil
+    - name: odu-mix-ch044-par-mil-100g-b
+      description: Second of three 100G clients on oc-ch044-par-mil, 80 slots.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch044-par-mil
+    - name: odu-mix-ch044-par-mil-100g-c
+      description: Third of three 100G clients on oc-ch044-par-mil, 80 slots.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch044-par-mil
+    - name: odu-mix-ch044-par-mil-stm256-a
+      description: First STM-256 on oc-ch044-par-mil, 32 slots, mapped asynchronously.
+      odu_type: ODU3
+      mapping_mode: AMP
+      tributary_slots: 32
+      client_signal: STM-256
+      parent_container: odu-line-oc-ch044-par-mil
+    - name: odu-mix-ch044-par-mil-stm256-b
+      description: Second STM-256 on oc-ch044-par-mil, 32 slots, mapped asynchronously.
+      odu_type: ODU3
+      mapping_mode: AMP
+      tributary_slots: 32
+      client_signal: STM-256
+      parent_container: odu-line-oc-ch044-par-mil
+    - name: odu-mix-ch044-par-mil-stm64
+      description: STM-64 on oc-ch044-par-mil, 8 slots, mapped asynchronously.
+      odu_type: ODU2
+      mapping_mode: AMP
+      tributary_slots: 8
+      client_signal: STM-64
+      parent_container: odu-line-oc-ch044-par-mil
+    - name: odu-mix-ch044-par-mil-1g
+      description: 1G client on oc-ch044-par-mil, 1 slot, the last one that fitted.
+      odu_type: ODU0
+      mapping_mode: GMP
+      tributary_slots: 1
+      client_signal: 1000BASE-T
+      parent_container: odu-line-oc-ch044-par-mil
+
+    # `odu2` on oms-ber-fra. Four wavelengths at 0 free.
+    - name: odu-mix-ch023-ber-mil-400g
+      description: 400G client filling oc-ch023-ber-mil outright, 320 of 320.
+      odu_type: ODUC4
+      mapping_mode: GMP
+      tributary_slots: 320
+      client_signal: 400GBASE-FR4
+      parent_container: odu-line-oc-ch023-ber-mil
+    - name: odu-mix-ch026-ber-mil-400g
+      description: 400G client filling oc-ch026-ber-mil outright, 320 of 320.
+      odu_type: ODUC4
+      mapping_mode: GMP
+      tributary_slots: 320
+      client_signal: 400GBASE-FR4
+      parent_container: odu-line-oc-ch026-ber-mil
+    - name: odu-mix-ch029-ber-mil-400g
+      description: 400G client filling oc-ch029-ber-mil outright, 320 of 320.
+      odu_type: ODUC4
+      mapping_mode: GMP
+      tributary_slots: 320
+      client_signal: 400GBASE-FR4
+      parent_container: odu-line-oc-ch029-ber-mil
+    - name: odu-mix-ch032-ber-mil-400g
+      description: 400G client filling oc-ch032-ber-mil outright, 320 of 320.
+      odu_type: ODUC4
+      mapping_mode: GMP
+      tributary_slots: 320
+      client_signal: 400GBASE-FR4
+      parent_container: odu-line-oc-ch032-ber-mil
+
+    # The one wavelength on oms-ber-fra with room left, and 48 free is what puts
+    # that section in `odu2`. Three 100G clients and one STM-256 commit 272 of
+    # 320. A 10G or a 40G client still fits in what is left; a 100G one needs 80
+    # and does not.
+    - name: odu-mix-ch035-ber-mil-100g-a
+      description: First of three 100G clients on oc-ch035-ber-mil, 80 slots.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch035-ber-mil
+    - name: odu-mix-ch035-ber-mil-100g-b
+      description: Second of three 100G clients on oc-ch035-ber-mil, 80 slots.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch035-ber-mil
+    - name: odu-mix-ch035-ber-mil-100g-c
+      description: Third of three 100G clients on oc-ch035-ber-mil, 80 slots.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch035-ber-mil
+    - name: odu-mix-ch035-ber-mil-stm256
+      description: STM-256 on oc-ch035-ber-mil, 32 slots, mapped asynchronously.
+      odu_type: ODU3
+      mapping_mode: AMP
+      tributary_slots: 32
+      client_signal: STM-256
+      parent_container: odu-line-oc-ch035-ber-mil

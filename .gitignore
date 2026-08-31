@@ -1,0 +1,50 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+docs/node_modules/
+docs/build/
+docs/.docusaurus/
+.rumdl_cache/
+
+# How the demo was built, kept on disk and out of the clone. None of it has ever
+# been in a commit here. This repository starts from a single commit holding the
+# tree as it stands, so there is no earlier revision to go looking in either.
+# A prospect evaluating the demo has no use for any of it.
+specs/
+docs/superpowers/
+.specify/
+.claude/
+CLAUDE.md
+.agents/
+skills-lock.json
+
+# The export invoke load-repository writes for the containers to clone.
+.remote/
+
+# macOS and editor droppings. None are here today, one `open .` away tomorrow.
+.DS_Store
+.idea/
+.vscode/
+
+# Python build and coverage artifacts. `uv build` writes dist/, pytest-cov the rest.
+build/
+dist/
+*.egg-info/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Local overrides of the env file. .env.example is the tracked one and stays.
+.env.*
+!.env.example
+
+# node_modules anywhere, not only under docs/.
+node_modules/
+
+*.log

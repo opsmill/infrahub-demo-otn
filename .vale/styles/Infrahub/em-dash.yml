@@ -1,0 +1,7 @@
+---
+extends: existence
+message: "Remove '%s'. Use a comma, a colon, a full stop or parentheses instead of an em or en dash."
+level: error
+nonword: true
+tokens:
+  - '[\x{2014}\x{2013}]'

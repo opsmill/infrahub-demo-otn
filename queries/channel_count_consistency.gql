@@ -1,0 +1,164 @@
+# Every monitor that reports a channel count, and the two things a count is
+# judged against: the carriers on a section, and the wavelengths a coarse
+# multiplexer lights.
+#
+# **Sections and carriers are separate collections.**
+# `OtnOpticalMultiplexSection` declares no inverse of `OtnOpticalCarrier.sections`,
+# so a section cannot be asked what rides it and the correlation runs from the
+# carrier side. `queries/channel_occupancy.gql` is shaped this way for the same
+# reason. The section collection stays even though the carriers imply it: most of
+# the twenty-one sections carry no wavelength, and a section absent from the
+# payload is a monitor nobody compared rather than a monitor that passed.
+#
+# `channel { node { center_frequency_mhz } }` is the anchor, and selecting it is
+# what makes the count a count of channels rather than of carrier records. Two
+# carriers on one anchor are one channel to a monitor looking at the fibre. They
+# are also a fault, and `checks/channel_collision.py` already reports it.
+#
+# **The ROADM collection carries both the degree ports and the degree monitors.**
+# A ROADM holds one monitor per degree rather than one per device, so the two
+# come back together and are paired by name in `infrahub_demo_otn.monitors`. The
+# ROADM's `site` is here because the section collection names its two ROADMs and
+# not their sites, and the degree-to-section join needs the site at each end.
+#
+# The inline fragments are what pick a monitor out of the other ports on the same
+# device. `ports` peers the generic `OtnGenericPort` and Infrahub cannot filter a
+# relationship to a generic by kind, which is measured in
+# `specs/feature-gaps/03-filter-a-nested-relationship-by-kind.md`. Without the
+# fragment the reading is not selectable at all. This is the pattern
+# `queries/monitor_drift.gql` already uses.
+#
+# `cwdm_channels` is how a coarse multiplexer says which wavelengths it lights. A
+# dense AWG lights none of them and is not comparable at all: the model holds no
+# relationship from such a unit to the carriers passing through it, so the check
+# says so rather than inventing a figure.
+#
+# `id` and `__typename` are selected on every node a finding may name, because
+# `log_error` takes both.
+query ChannelCountConsistency {
+  OtnOpticalMultiplexSection {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        roadm_a {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        roadm_b {
+          node {
+            name {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnOpticalCarrier {
+    edges {
+      node {
+        name {
+          value
+        }
+        channel {
+          node {
+            center_frequency_mhz {
+              value
+            }
+          }
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnRoadm {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        site {
+          node {
+            shortname {
+              value
+            }
+          }
+        }
+        ports {
+          edges {
+            node {
+              id
+              __typename
+              ... on OtnRoadmDegreePort {
+                name {
+                  value
+                }
+              }
+              ... on OtnRoadmDegreeMonitor {
+                name {
+                  value
+                }
+                channel_count {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnMuxDemux {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        cwdm_channels {
+          edges {
+            node {
+              center_wavelength_nm {
+                value
+              }
+            }
+          }
+        }
+        ports {
+          edges {
+            node {
+              id
+              __typename
+              ... on OtnMuxDemuxMonitor {
+                name {
+                  value
+                }
+                channel_count {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

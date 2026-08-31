@@ -1,0 +1,90 @@
+# Every optical mode, and the length of every section it might be asked to cross.
+#
+# The cheapest query that answers a procurement question: ten modes, twenty-one
+# sections, and one integer comparison per pair. Both sides are already metres,
+# so nothing here needs a scale factor.
+#
+# `required_osnr_mdb` is selected and is not compared against anything. It is
+# printed next to the reach so the report can say, in the row, that reach and the
+# OSNR budget are two different tests and only one of them is being run here.
+# `budget.evaluate_path` runs the other one.
+query ModeReach {
+  OtnOpticalMode {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        mode_class {
+          value
+        }
+        modulation {
+          value
+        }
+        description {
+          value
+        }
+        line_rate_gbps {
+          value
+        }
+        baud_mbaud {
+          value
+        }
+        nominal_reach_m {
+          value
+        }
+        required_osnr_mdb {
+          value
+        }
+        cd_tolerance_fs_per_nm {
+          value
+        }
+        fec_type {
+          value
+        }
+        fec_latency_ns {
+          value
+        }
+      }
+    }
+  }
+  OtnOpticalMultiplexSection {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        roadm_a {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        roadm_b {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        spans {
+          edges {
+            node {
+              name {
+                value
+              }
+              length_m {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

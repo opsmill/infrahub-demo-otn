@@ -1,0 +1,348 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Scenario input: ten SDH circuits in one ODU4, and an eleventh with nowhere to
+# put itself.
+#
+# **What this demonstrates.** Grooming packs clients into a wavelength that is
+# already lit rather than lighting one per client. Ten STM-64 circuits from
+# London to Milan each map into an `ODU2` taking 8 tributary slots, and all ten
+# land in the same `ODU4` line container, which offers 80. Ten eights are eighty,
+# so after the tenth that container reads 80 of 80, and the eleventh circuit is
+# refused. This is the story `docs/docs/demo-otn/client-mapping.mdx` narrates
+# under "SDH over OTN, ten customers in one ODU4".
+#
+# **Why London to Milan, and not Frankfurt to Vienna.** The story needs an
+# 80-slot parent. The dataset ships three, the `ODU4` line containers on the
+# three `fra-vie` wavelengths, and no service reaches them: a Frankfurt to Vienna
+# service ranks `oms-prg-fra|oms-prg-vie` first at 760 km and +12.350 dB over
+# `oms-fra-mil|oms-vie-mil` at 1580 km and +8.389 dB, and takes the Prague route,
+# whose section set matches no carrier. The other thirty-seven line containers
+# are `ODUC4` offering 320 slots, and ten `ODU2` in one of those is 80 of 320, which
+# demonstrates nothing. So this scenario writes the 80-slot parent it needs and
+# puts it where the services actually route.
+#
+# London to Milan was measured rather than assumed. Path traversal returns
+# exactly two routes for it, `oms-ams-lon|oms-ams-fra|oms-fra-mil` at 1710 km and
+# +8.703 dB, and `oms-lon-par|oms-par-fra|oms-fra-mil` at 1860 km and +7.852 dB.
+# Grooming matches a carrier to a route on set equality, no pre-provisioned
+# wavelength carries either set, and both routes cross `oms-fra-mil`, the one
+# corridor that already holds 4,134,400 MHz of a 4,800,000 MHz C-band. So one
+# file can give both routes exactly one line container and close the lighting
+# escape on both.
+#
+# **Which half of the refusal this file engineers: both, because one is not
+# enough.** The eleventh service is routed where only a full container is
+# reachable, since there is exactly one line container on either of its two
+# routes and the ten before it fill that one to 80 of 80. And no wavelength can
+# be lit for it either, because `oc-ch094-lon-mil` and the two carriers after it
+# spend the last usable block on `oms-fra-mil`, the 152,800 MHz run above
+# 195,972,200 MHz that the re-seeded plan leaves. After the three, that section
+# holds 4,267,600 MHz and the 532,400 MHz left over is 29 blocks of which the
+# widest is 38,000 MHz, too narrow for the narrowest seeded mode. Grooming is
+# tried first and lighting second, so a refusal needs both to fail. Take either
+# half out and the eleventh service provisions instead of refusing.
+#
+# **What each object here is expected to do.**
+#
+# `oc-ch094-lon-mil` and `odu-line-oc-ch094-lon-mil` are the wavelength the ten
+# circuits share. Lit and empty on load, 0 of 80 committed.
+#
+# `svc-lon-mil-sdh-01` through `-10` **provision**, each grooming an `ODU2` of 8
+# slots into `odu-line-oc-ch094-lon-mil` and consuming no spectrum at all. The
+# first one grooms rather than lights because the container is already there;
+# best fit then keeps the following nine on the same wavelength, since a partly
+# filled container is tighter than nothing else on offer. After the tenth the
+# container is 80 of 80.
+#
+# On the ODU map that turns `oms-ams-lon` from `no-odu` to `full`, because this
+# wavelength is the only lit carrier on it. `oms-ams-fra` and `oms-fra-mil` stay
+# in `odu4`, and that is the correct reading rather than a disappointment: a
+# section is banded on its roomiest lit carrier, and both of those still carry
+# empty `ODUC4` wavelengths offering 320 slots. The measured split on this branch
+# is `odu4` 5, `full` 1, `no-odu` 15.
+#
+# `svc-lon-mil-sdh-11` is **refused, reason `no-slots`**, and that is the outcome
+# it exists for. It is the same size as the ten before it and it asks for the
+# same corridor. The refusal names the container it did not fit, with both slot
+# figures on it, and then says no wavelength could be lit either. Verbatim from
+# a live run, before spectrum became a width:
+#
+#   no-slots: odu-line-oc-ch094-lon-mil is the tightest of 1 line containers on
+#   oms-ams-lon|oms-ams-fra|oms-fra-mil and offers 80 slots with 0 free, and
+#   none of the 1 has room for the 8 slots ODU2 takes, and no wavelength can be
+#   lit either, because no anchor puts a carrier of the chosen mode inside a
+#   free block on oms-ams-lon|oms-ams-fra|oms-fra-mil
+#
+# The last clause has moved and the container name with it. A carrier occupies a
+# width now, so `channel=None` means either no spectrum at all is free on the
+# route or no anchor puts a carrier of the chosen mode inside a free block, and
+# the refusal names which. Here it is the second. The container half of the
+# sentence is unchanged, and it is the half this file exists to demonstrate.
+#
+# **This branch ends in an accepted refusal, not a blocked merge.**
+# `svc-lon-mil-sdh-11` carries `refusal_accepted: true`, so
+# `checks/provisionable.py` reads the refusal, sees it signed for and says
+# nothing. The eleventh circuit stays on the record as refused and the branch
+# merges. That is the right ending here because the file exists to show that
+# grooming is tried before lighting and that a refusal has to close both
+# escapes, and none of that needs a red pipeline to land.
+# `demo/06_mad_waw_16qam.yml` is the scenario that blocks.
+#
+# **Do not load this file and `demo/90_fra_mil_saturated.yml` onto one branch.**
+# Both saturate the same corridor, and they disagree about channel 94: 90 lights
+# it as a Frankfurt to Milan carrier and this file lights it from London across
+# the same section. Two carriers whose intervals overlap on one section is
+# exactly what `checks/channel_collision.py` exists to catch. The two fill
+# carriers below carry the names, channels, mode and description 90 gives the
+# same wavelengths, so those records at least read as one set rather than two.
+#
+# **`rate_gbps` is 9, not 10.** STM-64 runs at 9,950,000 kbps, and a stated
+# client signal slower than the requested rate is refused outright rather than
+# substituted, so a 10 Gbps request naming STM-64 fails before any route is
+# considered. Naming the signal is documentation rather than a lever: at 9 Gbps
+# the rate rule picks STM-64 anyway, as the smallest signal on an
+# auto-selectable layer that carries the rate. It is written out because the
+# story is about SDH circuits and a reader should not have to derive that from
+# the rate.
+#
+# None of this is a fact about the network, which is why it is not in `objects/`:
+# loading it with the dataset would make the published 4,134,400 MHz false and
+# would fail `tests/unit/test_geant_dataset.py`.
+# `tests/unit/test_repository_config.py` asserts that `.infrahub.yml` does not
+# reference this directory.
+#
+# Channel references are quoted strings: a bare integer is rejected before the
+# write.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnOpticalCarrier
+  data:
+    # The one wavelength this scenario lights by hand. Channel 94 is the lowest
+    # anchor that puts a 44,400 MHz carrier inside a free block on all three of
+    # its sections, which is the anchor the planner would have picked itself.
+    # Its mode is the 100G one, because the line container that rides a 100G
+    # carrier is the ODU4 offering 80 slots and the whole scenario turns on that
+    # number.
+    - name: oc-ch094-lon-mil
+      description: London to Milan on channel 94, the wavelength ten SDH circuits share.
+      status: active
+      channel: '94'
+      optical_mode: DP-QPSK 32GBd 100G
+      sections:
+        - oms-ams-lon
+        - oms-ams-fra
+        - oms-fra-mil
+
+---
+# The line container on that wavelength, written the way
+# `objects/18_geant_line_containers.yml` writes the forty it ships: it occupies
+# nothing in a parent it does not have, offers the full slot count of the
+# carrier's line rate, and names no client signal, because a line container
+# carries a wavelength and the client is named by whatever nests inside it.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnContainer
+  data:
+    - name: odu-line-oc-ch094-lon-mil
+      description: ODU4 on oc-ch094-lon-mil. Ten STM-64 circuits fill it to 80 of 80.
+      odu_type: ODU4
+      tributary_slots: 0
+      tributary_slot_capacity: 80
+      carrier: oc-ch094-lon-mil
+---
+# The two carriers that close the lighting escape. With channel 94 taken by the
+# carrier above, these are the rest of the one usable block `oms-fra-mil` had
+# left, so no route across it can light a wavelength. Both of the eleventh
+# service's routes cross it.
+#
+# Two, and it used to be twenty-four. The corridor was read as 71 of 96 channels
+# before feature 021 and this file added the 25 that were unclaimed. A carrier
+# occupies a width, so what is left on the re-seeded corridor is one block of
+# 152,800 MHz and three 44,400 MHz carriers spend it.
+#
+# Neither of these carries a line container, and that is the point of them. They
+# are spectrum and not capacity: an anchor nobody can use for a new wavelength,
+# and no slots for anybody to groom into. An unlit carrier contributes to no
+# headroom figure either, so these two leave the ODU map's reading of
+# `oms-fra-mil` exactly as it was.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnOpticalCarrier
+  data:
+    - name: oc-ch095-fra-mil
+      description: Frankfurt to Milan on channel 95, corridor fill.
+      status: active
+      channel: '95'
+      optical_mode: DP-QPSK 32GBd 100G
+      sections:
+        - oms-fra-mil
+    - name: oc-ch096-fra-mil
+      description: Frankfurt to Milan on channel 96, corridor fill.
+      status: active
+      channel: '96'
+      optical_mode: DP-QPSK 32GBd 100G
+      sections:
+        - oms-fra-mil
+
+---
+# The eleven circuits. Ten fit and one does not, and the eleventh is as much the
+# point as the ten.
+#
+# None carries a status, so each starts `planned` from the schema default and the
+# generator writes what it decided, the same as every other scenario service.
+# None carries a latency budget either: both London routes stay in the candidate
+# set, and neither can light, so the refusal does not need geography to help it.
+#
+# Provision them in name order. Ten identical services against one 80-slot
+# container is a queue, and running the eleventh before the tenth would refuse
+# whichever one arrived last, which is the same demonstration with a confusing
+# name on it.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnService
+  data:
+    - name: svc-lon-mil-sdh-01
+      description: London to Milan, STM-64 circuit 1 of ten in one ODU4.
+      customer: NREN-UK
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    - name: svc-lon-mil-sdh-02
+      description: London to Milan, STM-64 circuit 2 of ten in one ODU4.
+      customer: NREN-IE
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    - name: svc-lon-mil-sdh-03
+      description: London to Milan, STM-64 circuit 3 of ten in one ODU4.
+      customer: NREN-NL
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    - name: svc-lon-mil-sdh-04
+      description: London to Milan, STM-64 circuit 4 of ten in one ODU4.
+      customer: NREN-BE
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    - name: svc-lon-mil-sdh-05
+      description: London to Milan, STM-64 circuit 5 of ten in one ODU4.
+      customer: NREN-FR
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    - name: svc-lon-mil-sdh-06
+      description: London to Milan, STM-64 circuit 6 of ten in one ODU4.
+      customer: NREN-ES
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    - name: svc-lon-mil-sdh-07
+      description: London to Milan, STM-64 circuit 7 of ten in one ODU4.
+      customer: NREN-PT
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    - name: svc-lon-mil-sdh-08
+      description: London to Milan, STM-64 circuit 8 of ten in one ODU4.
+      customer: NREN-CH
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    - name: svc-lon-mil-sdh-09
+      description: London to Milan, STM-64 circuit 9 of ten in one ODU4.
+      customer: NREN-AT
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    # The tenth takes the container to 80 of 80. Nothing about it differs from
+    # the nine before it, which is what makes the eleventh a slot story rather
+    # than a story about this service.
+    - name: svc-lon-mil-sdh-10
+      description: London to Milan, STM-64 circuit 10 of ten, the one that fills the ODU4.
+      customer: NREN-SI
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+    # Expected to be refused, reason `no-slots`. Same rate, same signal, same
+    # endpoints as the ten above, and no room left on either of its two routes.
+    #
+    # `refusal_accepted: true` is set here and nowhere else in this file. It is
+    # the one field the generator never writes: a person sets it, and on a
+    # scenario file the person is whoever authored the scenario. Signing it in
+    # the input says the refusal below is the expected answer and not a fault,
+    # so `checks/provisionable.py` stays quiet about it and the branch merges.
+    # Without it this branch would not merge, and the scenario's point is the
+    # recorded refusal rather than the blocked merge, which
+    # `demo/06_mad_waw_16qam.yml` demonstrates instead.
+    #
+    # The ten services above must not carry it. They provision, and an
+    # acceptance flag on a service that was never refused is itself an error the
+    # same check reports.
+    - name: svc-lon-mil-sdh-11
+      description: London to Milan, an eleventh STM-64 circuit. Expected to be refused for slots.
+      customer: NREN-GR
+      rate_gbps: 9
+      sla: silver
+      service_profile: legacy-sdh
+      client_signal: STM-64
+      endpoint_a: rtr-lon-01
+      endpoint_z: rtr-mil-01
+      refusal_accepted: true
+      member_of_groups:
+        - optical_services

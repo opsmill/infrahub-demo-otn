@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# The kind must be `CoreGeneratorGroup`. The dispatcher does not recognise a
+# `CoreStandardGroup` for this and a group of the wrong kind fails silently by
+# never firing. The group is created empty: `CoreGroup.members` peers the
+# `CoreNode` generic, which carries no human friendly ID, so services join from
+# their own side with `member_of_groups`. `00_` is load order, because a service
+# cannot join a group that does not exist yet.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: CoreGeneratorGroup
+  data:
+    - name: optical_services
+      label: Optical services
+      description: Services the optical_service generator provisions and the service_trace artifact renders.
+---
+# The plainer kind is right here, and the paragraph above does not carry over.
+# `CoreGeneratorGroup` is what the *generator* dispatcher demands; an artifact
+# definition's `targets` peers the `CoreGroup` generic, so any group kind
+# resolves. That was read back off the running instance rather than assumed.
+#
+# The membership rule above does carry over. The sites join from their own side,
+# written by `scripts/generate_geant_dataset.py` into `objects/11_geant_sites.yml`.
+#
+# Membership is the fourteen PoPs and not every OtnSite. Every site is an
+# artifact target now, so an unscoped group would render the core map onto the
+# customer campus: a node the map does not draw, on a tail that belongs to no
+# section. The generator filters on `site_type` and the count follows.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: CoreStandardGroup
+  data:
+    - name: otn_sites
+      label: OTN sites
+      description: PoPs the network_map artifact renders, one copy of the map per site with that site highlighted.

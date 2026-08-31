@@ -1,0 +1,62 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# The two demo services, and nothing else.
+#
+# This directory is deliberately absent from `.infrahub.yml`. `objects/` is the
+# GEANT dataset: generated from a seed, guarded by tests/unit/test_geant_dataset.py,
+# and loaded by the repository config. These two are scenario input for a
+# walkthrough, not facts about the network, and
+# tests/unit/test_repository_config.py asserts the separation.
+#
+# Neither carries a status: both start `planned` from the schema default, and
+# the generator writes what it decided.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnService
+  data:
+    # The headline. No latency budget, because only the AI and HPC profiles
+    # carry one. Four candidate routes, two at two sections, and Hamburg wins on
+    # margin.
+    - name: svc-ber-ams-400g
+      description: Berlin to Amsterdam, 400G IP transit.
+      customer: NREN-DE
+      rate_gbps: 400
+      sla: gold
+      service_profile: ip-transit
+      endpoint_a: rtr-ber-01
+      endpoint_z: rtr-ams-01
+      member_of_groups:
+        - optical_services
+
+    # The refusal, once demo/90_fra_mil_saturated.yml has filled both layers of
+    # the Frankfurt to Milan corridor. 4,000,000 ns is four milliseconds one way:
+    # the direct route takes 3824.741 us and fits, the Geneva detour takes
+    # 4853.605 us and does not, so the direct corridor is the only candidate this
+    # service has. tests/unit/test_routing_claims.py asserts both figures.
+    #
+    # On a branch without that file loaded it provisions on the direct route like
+    # anything else. Its refusal is `no-slots`: a 400GBASE-FR4 maps into an ODUC4
+    # and needs all 320 tributary slots of a wavelength, and the scenario leaves
+    # the roomiest wavelength there with 240.
+    #
+    # **The acceptance for that refusal is set in `90`, not here, and the reason
+    # is timing.** `checks/provisionable.py` blocks a merge on a refused service
+    # nobody signed for, and `refusal_accepted` is the signature. Setting it in
+    # this file would not survive: the service provisions at step 4 and the
+    # generator clears the flag on the provisioning path, and until then it would
+    # sit on a `planned` service with no refusal on it, which the same check
+    # reports as an error. `90` sets it seconds before the refusal happens, which
+    # is both correct and where a reader looking for the cause will be.
+    - name: svc-fra-mil-ai-400g
+      description: Frankfurt to Milan, 400G distributed training interconnect.
+      customer: EuroHPC-Leonardo
+      rate_gbps: 400
+      sla: gold
+      service_profile: ai-training-dci
+      max_latency_ns: 4000000
+      endpoint_a: rtr-fra-01
+      endpoint_z: rtr-leonardo-mil-01
+      member_of_groups:
+        - optical_services

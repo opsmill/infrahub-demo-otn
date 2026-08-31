@@ -1,0 +1,45 @@
+---
+x-infrahub-custom-build: &infrahub_custom_build
+  image: opsmill/infrahub-demo-otn:${INFRAHUB_BASE_VERSION:-1.11.0}
+  environment:
+    INFRAHUB_GIT_USER_NAME: "infrahub"
+    INFRAHUB_GIT_EMAIL: "no-reply@opsmill.com"
+    INFRAHUB_GIT_USE_EXPLICIT_MERGE_COMMIT: true
+    INFRAHUB_TIMEOUT: 180
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      INFRAHUB_BASE_VERSION: "${INFRAHUB_BASE_VERSION:-1.11.0}"
+
+# `./.remote` is where `invoke load-repository` writes an export of the committed
+# tree, and `/remote` is where the containers read it. Infrahub clones a
+# repository by its `location`, and a location is resolved inside the container,
+# so a path on the host is a path the server cannot reach.
+#
+# The remote this repository has is the wrong source to point the stack at. The
+# containers need the tree you are working on, not the last thing you pushed,
+# and cloning a private repository would need credentials inside the container.
+# A bind mount is what makes the proposed-change pipeline work against a local
+# stack at all, and the testcontainers stack the integration tests use mounts
+# the same `/remote` for the same reason.
+#
+# The server clones it and the workers run checks and transforms out of their
+# own clones, so all three need the mount.
+x-remote-mount: &remote_mount
+  - ./.remote:/remote
+
+services:
+  infrahub-server:
+    <<: *infrahub_custom_build
+    volumes: *remote_mount
+  task-manager:
+    <<: *infrahub_custom_build
+    volumes: *remote_mount
+  task-worker:
+    <<: *infrahub_custom_build
+    volumes: *remote_mount
+  database:
+    ports:
+      - 7474:7474
+      - 7687:7687

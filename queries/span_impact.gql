@@ -1,0 +1,371 @@
+# One optical multiplex section, and everything that dies with it.
+#
+# Two top-level collections, both filtered on the same `$section`. The second
+# walks backwards, from the section to the services that cross it, and
+# `OtnOpticalMultiplexSection` declares no inverse of `otn_carrier__sections`,
+# so that walk is a GraphQL filter, `sections__name__value`, not a traversal.
+#
+# Both are needed even though the second implies the first: a section that
+# exists and carries nothing and a section name that does not exist both return
+# zero carriers, and for an impact tool those must not look the same. "Empty" is
+# a common and legitimate answer here.
+query SpanImpact($section: String!) {
+  OtnOpticalMultiplexSection(name__value: $section) {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        description {
+          value
+        }
+        roadm_a {
+          node {
+            name {
+              value
+            }
+            site {
+              node {
+                name {
+                  value
+                }
+              }
+            }
+          }
+        }
+        roadm_b {
+          node {
+            name {
+              value
+            }
+            site {
+              node {
+                name {
+                  value
+                }
+              }
+            }
+          }
+        }
+        spans {
+          edges {
+            node {
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              length_m {
+                value
+              }
+              conduit {
+                node {
+                  name {
+                    value
+                  }
+                  owner {
+                    value
+                  }
+                  spans {
+                    edges {
+                      node {
+                        name {
+                          value
+                        }
+                        oms {
+                          node {
+                            name {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        # This report counts amplifiers, it does not budget them, so the name is
+        # the whole selection. Both relationships are here because a bare total
+        # answers nothing once a section carries two chains: "8 amplifiers
+        # affected" reads the same for a four-span section in both directions
+        # and for a section with a chain missing. Which list a record came out
+        # of is the direction, so nothing on the record has to say it.
+        amplifiers_a2b {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+        amplifiers_b2a {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnOpticalCarrier(sections__name__value: $section) {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        description {
+          value
+        }
+        status {
+          value
+        }
+        channel {
+          node {
+            channel_number {
+              value
+            }
+            center_frequency_mhz {
+              value
+            }
+          }
+        }
+        optical_mode {
+          node {
+            name {
+              value
+            }
+            line_rate_gbps {
+              value
+            }
+            # The symbol rate, which is what the width comes from. The rate is
+            # what the outage is measured in and the baud is what the spectrum
+            # is measured in, and neither is derivable from the other: two modes
+            # at 400G occupy 79,600 and 150,000 MHz.
+            baud_mbaud {
+              value
+            }
+          }
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+        # Two levels: grooming nests a client container under a line container,
+        # so the clients are its `child_containers`. Selecting only the first
+        # level leaves the report counting no client signals on a busy
+        # wavelength and raising nothing, which is R-006's silent failure.
+        #
+        # **`client_signal` on both levels, and this is the one copy of why.** It
+        # tells the two roles apart, since both are `OtnContainer` and neither
+        # carries a type field, and it keeps container data written before
+        # grooming readable: such a container sits directly on its carrier and
+        # carries its own signal. `impact.client_containers` is the one walk this
+        # report and `queries/service_trace.gql` share. Verified in R-008
+        # against the schema: `OtnContainer` and `OtnClientSignal`, no fragment.
+        containers {
+          edges {
+            node {
+              name {
+                value
+              }
+              odu_type {
+                value
+              }
+              mapping_mode {
+                value
+              }
+              client_signal {
+                node {
+                  name {
+                    value
+                  }
+                  layer {
+                    value
+                  }
+                }
+              }
+              child_containers {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    odu_type {
+                      value
+                    }
+                    mapping_mode {
+                      value
+                    }
+                    client_signal {
+                      node {
+                        name {
+                          value
+                        }
+                        layer {
+                          value
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        # `edges`, not a bare `node`, on `OtnOpticalCarrier.optical_path`, which
+        # is cardinality many since grooming: `queries/service_trace.gql` says
+        # what a bare `node` costs. The chain reaches the service through the
+        # path and not the container, because `OtnOpticalPath` already relates
+        # to the service.
+        #
+        # `segment_sequence` is selected because a cut on one segment of a
+        # chained circuit is not the loss of a single-segment circuit. The
+        # service's own `optical_path` below names the segments that stayed lit;
+        # without it a chained circuit reads as though the cut took the whole
+        # route, which is the right verdict and the wrong reason.
+        optical_path {
+          edges {
+            node {
+              name {
+                value
+              }
+              segment_sequence {
+                value
+              }
+              total_length_m {
+                value
+              }
+              latency_ns {
+                value
+              }
+              service {
+                node {
+                  name {
+                    value
+                  }
+                  # Back down to the circuit's other segments. One more level of
+                  # `optical_path`, which is not a cycle: the walk arrives at the
+                  # service through one of its paths and reads the rest of them,
+                  # and each is a leaf here carrying nothing but its sequence and
+                  # its wavelength.
+                  #
+                  # The carrier's name is what tells a cut segment from a
+                  # surviving one, by testing it against the carriers this query
+                  # already returned for the section. A chain may not repeat a
+                  # section, so at most one segment of a circuit is ever cut by
+                  # one section, and the report says so rather than assuming it.
+                  optical_path {
+                    edges {
+                      node {
+                        name {
+                          value
+                        }
+                        segment_sequence {
+                          value
+                        }
+                        carrier {
+                          node {
+                            name {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  customer {
+                    value
+                  }
+                  rate_gbps {
+                    value
+                  }
+                  sla {
+                    value
+                  }
+                  status {
+                    value
+                  }
+                  service_profile {
+                    value
+                  }
+                  max_latency_ns {
+                    value
+                  }
+                  endpoint_a {
+                    node {
+                      name {
+                        value
+                      }
+                      site {
+                        node {
+                          name {
+                            value
+                          }
+                        }
+                      }
+                      ports {
+                        edges {
+                          node {
+                            name {
+                              value
+                            }
+                            role {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  endpoint_z {
+                    node {
+                      name {
+                        value
+                      }
+                      site {
+                        node {
+                          name {
+                            value
+                          }
+                        }
+                      }
+                      ports {
+                        edges {
+                          node {
+                            name {
+                              value
+                            }
+                            role {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

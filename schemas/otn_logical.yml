@@ -1,0 +1,584 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/schema/latest.json
+#
+# The logical layer: the grid a wavelength sits on, what a transponder can do,
+# what a customer hands over, and what that turns into.
+#
+# OtnContainer is the one kind here with a self-reference, and it is the one
+# that is easiest to get wrong. parent_container and child_containers share one
+# identifier and must declare opposite directions, or the load is rejected with
+# "Identifier of relationships must be unique for a given direction". The
+# identifier is immutable once a load has succeeded.
+version: "1.0"
+
+nodes:
+  - name: FrequencyGrid
+    namespace: Otn
+    description: One ITU-T G.694.1 channel. 50 GHz fixed grid, 191.35 to 196.10 THz.
+    label: Frequency grid channel
+    icon: mdi:sine-wave
+    include_in_menu: false
+    human_friendly_id:
+      - channel_number__value
+    order_by:
+      - channel_number__value
+    display_label: "Ch{{ channel_number__value }}"
+    attributes:
+      - name: channel_number
+        kind: Number
+        unique: true
+        parameters:
+          min_value: 1
+          max_value: 96
+        optional: false
+        description: ITU channel number, 1 to 96. Channel 1 is 191.35 THz.
+        order_weight: 1000
+      # Stored rather than computed so that "which channel is 193.5 THz" is a
+      # GraphQL range filter instead of a Python loop. A guard test recomputes
+      # all 96 from units.py.
+      - name: center_frequency_mhz
+        kind: Number
+        unique: true
+        parameters:
+          min_value: 191350000
+          max_value: 196100000
+        optional: false
+        description: Centre frequency in MHz. Channel n is 191350000 + (n - 1) x 50000.
+        order_weight: 1500
+      - name: center_frequency_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if center_frequency_mhz__value is not none %}{{ center_frequency_mhz__value / 1000000 }} THz{% endif %}
+        optional: true
+        description: Centre frequency in THz. Byte-identical to the optical-port rendering.
+        order_weight: 1510
+    # The inverse of OtnOpticalCarrier.channel, on the same identifier, so a
+    # channel's page answers "who holds this wavelength".
+    relationships:
+      - name: carriers
+        peer: OtnOpticalCarrier
+        label: Carriers on this channel
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_carrier__channel
+        on_delete: no-action
+        order_weight: 900
+
+  # The coarse plan, G.694.2, in its own kind. `OtnOpticalCarrier.channel` is
+  # mandatory, cardinality one, and peers `OtnFrequencyGrid`, so the server
+  # rejects a carrier pointed at a coarse wavelength with "must be of type:
+  # ['OtnFrequencyGrid']". Holding both plans in one kind would turn that
+  # write-time rejection into a check that runs in a pipeline.
+  - name: CwdmChannel
+    namespace: Otn
+    description: One ITU-T G.694.2 coarse wavelength. 20 nm spacing, 1271 to 1611 nm.
+    label: CWDM wavelength
+    icon: mdi:palette-swatch-variant
+    include_in_menu: false
+    human_friendly_id:
+      - center_wavelength_nm__value
+    order_by:
+      - center_wavelength_nm__value
+    display_label: "{{ center_wavelength_nm__value }} nm"
+    attributes:
+      - name: center_wavelength_nm
+        kind: Number
+        unique: true
+        parameters:
+          min_value: 1271
+          max_value: 1611
+        optional: false
+        description: Nominal central wavelength in nm. Wavelength n is 1271 + (n - 1) x 20.
+        order_weight: 1000
+      # Stored rather than computed, for the reason center_frequency_mhz is
+      # stored above: "which coarse wavelengths could an erbium amplifier reach"
+      # is then a GraphQL filter instead of a Python loop. A guard test
+      # recomputes all eighteen wavelengths and all eighteen bands from units.py.
+      - name: band
+        kind: Dropdown
+        choices:
+          - name: o
+            label: O band
+            color: "#607d8b"
+          - name: e
+            label: E band
+            color: "#795548"
+          - name: s
+            label: S band
+            color: "#009688"
+          - name: c
+            label: C band
+            color: "#2196f3"
+          - name: l
+            label: L band
+            color: "#9c27b0"
+        optional: false
+        description: ITU band. Only the two C-band wavelengths sit in the erbium window.
+        order_weight: 1100
+
+  - name: OpticalMode
+    namespace: Otn
+    description: What a transponder or coherent pluggable can do. Reach and required OSNR are data, not assumptions.
+    label: Optical mode
+    icon: mdi:waveform
+    include_in_menu: false
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      # The regex admits a space, a plus and a slash, which the device-name
+      # regex does not: "OpenZR+ 400G" and "DP-16QAM 64GBd 400G" both need it.
+      # A human_friendly_id tolerates both characters.
+      - name: name
+        kind: Text
+        unique: true
+        parameters:
+          max_length: 64
+          regex: "^[A-Za-z0-9 .+/_-]+$"
+        optional: false
+        order_weight: 1000
+      - name: mode_class
+        kind: Dropdown
+        default_value: transponder
+        choices:
+          - name: transponder
+            label: Transponder
+            color: "#2196f3"
+          - name: pluggable
+            label: Coherent pluggable
+            color: "#4caf50"
+        optional: false
+        description: Two values, and the pluggable-reach report filters on it.
+        order_weight: 1100
+      - name: modulation
+        kind: Text
+        enum:
+          - DP-QPSK
+          - DP-8QAM
+          - DP-16QAM
+          - DP-64QAM
+        optional: false
+        order_weight: 1200
+      - name: description
+        kind: Text
+        parameters:
+          max_length: 256
+        optional: true
+        order_weight: 1300
+      - name: line_rate_gbps
+        kind: Number
+        parameters:
+          min_value: 1
+          max_value: 1600
+        optional: false
+        description: Client-side capacity in Gbps. Already a whole number in its natural unit.
+        order_weight: 1500
+      - name: baud_mbaud
+        kind: Number
+        parameters:
+          min_value: 1000
+          max_value: 200000
+        optional: false
+        description: Symbol rate in megabaud. 59.84 GBd is 59840. Sets the spectral width.
+        order_weight: 1600
+      - name: required_osnr_mdb
+        kind: Number
+        parameters:
+          min_value: 5000
+          max_value: 40000
+        optional: false
+        description: OSNR needed at the receiver, in millidecibels. 26 dB is 26000.
+        order_weight: 1700
+      - name: required_osnr_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if required_osnr_mdb__value is not none %}{{ required_osnr_mdb__value / 1000 }} dB{% endif %}
+        optional: true
+        description: Required OSNR in dB. Read-only, derived from required_osnr_mdb.
+        order_weight: 1710
+      - name: cd_tolerance_fs_per_nm
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 200000000
+        optional: false
+        description: Chromatic dispersion the receiver compensates, in fs/nm. 100000 ps/nm is 100000000.
+        order_weight: 1800
+      - name: nominal_reach_m
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 5000000
+        optional: false
+        description: Vendor-quoted reach in metres. A starting point for the budget, not a guarantee.
+        order_weight: 1900
+      - name: nominal_reach_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if nominal_reach_m__value is not none %}{{ nominal_reach_m__value / 1000 }} km{% endif %}
+        optional: true
+        description: Nominal reach in km. Read-only, derived from nominal_reach_m.
+        order_weight: 1910
+      - name: fec_type
+        kind: Text
+        default_value: SD-FEC
+        enum:
+          - none
+          - GFEC
+          - SD-FEC
+          - cFEC
+          - oFEC
+        optional: false
+        order_weight: 1950
+      - name: fec_latency_ns
+        kind: Number
+        default_value: 0
+        parameters:
+          min_value: 0
+          max_value: 100000
+        optional: false
+        description: Encoder and decoder latency in nanoseconds. Small next to propagation, but not zero.
+        order_weight: 1960
+    # The inverse of OtnOpticalCarrier.optical_mode, on the same identifier, so
+    # a mode's page answers which carriers use it.
+    relationships:
+      - name: carriers
+        peer: OtnOpticalCarrier
+        label: Carriers using this mode
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_carrier__optical_mode
+        on_delete: no-action
+        order_weight: 900
+
+  - name: ClientSignal
+    namespace: Otn
+    description: What a customer hands over, and the container it maps into.
+    label: Client signal
+    icon: mdi:import
+    include_in_menu: false
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        parameters:
+          max_length: 32
+          regex: "^[A-Za-z0-9./_-]+$"
+        optional: false
+        order_weight: 1000
+      - name: alias
+        kind: Text
+        parameters:
+          max_length: 32
+        optional: true
+        description: The SONET name where one exists. STM-16 is OC-48.
+        order_weight: 1100
+      - name: layer
+        kind: Dropdown
+        choices:
+          - name: ethernet
+            label: Ethernet
+            color: "#2196f3"
+          - name: sdh
+            label: SDH / SONET
+            color: "#9c27b0"
+          - name: pdh
+            label: PDH
+            color: "#795548"
+          - name: fibre_channel
+            label: Fibre Channel
+            color: "#ff9800"
+          # Being declared here says nothing about automatic selection. That
+          # is `auto_selectable` below, and it is per signal, not per layer.
+          - name: infiniband
+            label: InfiniBand
+            color: "#673ab7"
+        optional: false
+        description: Grouping the catalog by layer is the first thing a reader does.
+        order_weight: 1200
+      # Whether the rate rule may pick this signal when a service states none.
+      #
+      # Per signal, where the Python allow-list it replaces was per layer.
+      # Finer, and strictly more expressive: two rows on one layer may differ.
+      # The measured reason every InfiniBand row is false is recorded in
+      # `objects/04_client_signals.yml`.
+      - name: auto_selectable
+        kind: Boolean
+        # `default_value: false` with `optional: false` fails closed: a row added
+        # without a decision is unreachable by the automatic path until somebody
+        # writes `true` in a diff. A default of true would fail open, and the
+        # next specialised signal would be handed to a service that never asked
+        # for it, silently. That is the defect this flag exists to prevent.
+        default_value: false
+        optional: false
+        description: May the rate rule pick this signal when a service states none.
+        order_weight: 1250
+      - name: description
+        kind: Text
+        parameters:
+          max_length: 256
+        optional: true
+        order_weight: 1300
+      # kbps, not Mbps, for the same reason OtnCopperPort.speed_kbps is: E1 is
+      # 2.048 Mbps and rounds to 2 as an integer.
+      - name: bit_rate_kbps
+        kind: Number
+        parameters:
+          min_value: 64
+          max_value: 1600000000
+        optional: false
+        description: Nominal line rate in kbps. E1 is 2048, 100GBASE-LR4 is 103100000.
+        order_weight: 1500
+      # Two divisors in one template. The catalog spans seven orders of
+      # magnitude, so a single divisor renders E1 as 0.002048 Gbps or
+      # 400GBASE-FR4 as 412500.0 Mbps.
+      - name: bit_rate_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if bit_rate_kbps__value is none %}{% elif bit_rate_kbps__value
+            >= 1000000 %}{{ bit_rate_kbps__value / 1000000 }} Gbps{% else %}{{ bit_rate_kbps__value / 1000 }} Mbps{% endif %}
+        optional: true
+        description: Bit rate in Mbps below one gigabit, Gbps at or above it.
+        order_weight: 1510
+      - name: default_container_type
+        kind: Text
+        enum:
+          - ODU0
+          - ODU1
+          - ODU2
+          - ODU2e
+          - ODU3
+          - ODU4
+          - ODUC1
+          - ODUC2
+          - ODUC3
+          - ODUC4
+          - ODUflex
+          - VC-12
+          - VC-4
+          - STM-N
+        optional: false
+        description: The first step of the mapping chain, not the last. E1 maps into VC-12, not ODU1.
+        order_weight: 1600
+      - name: default_mapping
+        kind: Text
+        enum:
+          - GMP
+          - BMP
+          - AMP
+        optional: false
+        description: ITU-T G.709 mapping procedure. Generic, bit-synchronous or asynchronous.
+        order_weight: 1700
+    relationships:
+      - name: containers
+        peer: OtnContainer
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_client_signal__containers
+        on_delete: no-action
+        order_weight: 900
+      # The inverse of OtnService.client_signal, so a catalog row's page answers
+      # "which services hand this over".
+      - name: services
+        peer: OtnService
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_service__client_signal
+        on_delete: no-action
+        order_weight: 910
+
+  - name: Container
+    namespace: Otn
+    description: ODU or SDH virtual container. The digital adaptation layer between a client and a wavelength.
+    label: Container
+    icon: mdi:package-variant-closed
+    include_in_menu: false
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        parameters:
+          max_length: 64
+          regex: "^[A-Za-z0-9._-]+$"
+        optional: false
+        order_weight: 1000
+      # Sixteen values: ClientSignal.default_container_type's fourteen, plus
+      # ODUC6 and ODUC8. Those two are line containers for the 600G and 800G
+      # modes and no client maps directly into one, so they belong here and not
+      # in the client enum.
+      # VC-12, VC-4 and STM-N are here because an E1 maps into VC-12 into STM-N
+      # into ODU1, and without them that chain cannot be written at all.
+      - name: odu_type
+        kind: Text
+        enum:
+          - ODU0
+          - ODU1
+          - ODU2
+          - ODU2e
+          - ODU3
+          - ODU4
+          - ODUC1
+          - ODUC2
+          - ODUC3
+          - ODUC4
+          - ODUC6
+          - ODUC8
+          - ODUflex
+          - VC-12
+          - VC-4
+          - STM-N
+        optional: false
+        order_weight: 1100
+      - name: mapping_mode
+        kind: Text
+        default_value: GMP
+        enum:
+          - GMP
+          - BMP
+          - AMP
+        optional: false
+        order_weight: 1200
+      - name: description
+        kind: Text
+        parameters:
+          max_length: 256
+        optional: true
+        order_weight: 1300
+      # Which segment of its circuit this container rides. The same field and
+      # the same default as OtnOpticalPath.segment_sequence, and read the same
+      # way: a container written before this feature rode the one and only
+      # segment, so 1 is the correct value and not just a value that loads.
+      #
+      # A circuit is therefore its containers ordered by this, and its
+      # wavelengths are its paths ordered by this. Two readings of one sequence
+      # from two places, and a test asserts they agree.
+      - name: segment_sequence
+        kind: Number
+        default_value: 1
+        parameters:
+          min_value: 1
+          max_value: 50
+        optional: false
+        description: Which segment of its circuit this container rides. 1 for a circuit that spans one wavelength.
+        order_weight: 1400
+      # Two numbers, not one. tributary_slots is what this container occupies in
+      # its parent; tributary_slot_capacity is what it offers to its children.
+      # The capacity check sums the first across children and compares it to
+      # the second on the parent, which needs both to exist.
+      #
+      # 640 on both bounds is ODUC8, the widest row in containers.SLOT_TABLE and
+      # the line container for the fastest mode in the catalog. A bound below the
+      # widest row rejects a container the slot arithmetic considers legal, so
+      # `tests/unit/test_containers.py` recomputes 640 from the table and fails
+      # if either number moves alone.
+      - name: tributary_slots
+        kind: Number
+        default_value: 0
+        parameters:
+          min_value: 0
+          max_value: 640
+        optional: false
+        description: Slots this container occupies in its parent. An ODU2 in an ODU4 takes 8.
+        order_weight: 1500
+      - name: tributary_slot_capacity
+        kind: Number
+        default_value: 0
+        parameters:
+          min_value: 0
+          max_value: 640
+        optional: false
+        description: Slots this container offers to its children. An ODU4 offers 80.
+        order_weight: 1600
+    # The two `direction` keys are mandatory. Both sides default to
+    # bidirectional, which collides on a shared identifier and is rejected at
+    # load time. outbound on the parent side and inbound on the child side
+    # resolves to one edge: write only the child's parent_container and the
+    # parent reports the child with no second write.
+    relationships:
+      # The wavelength this container rides. Optional, because a container may
+      # be multiplexed into a parent that holds the carrier instead.
+      - name: carrier
+        peer: OtnOpticalCarrier
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_carrier__containers
+        on_delete: no-action
+        order_weight: 790
+      - name: client_signal
+        peer: OtnClientSignal
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_client_signal__containers
+        on_delete: no-action
+        order_weight: 800
+      - name: parent_container
+        peer: OtnContainer
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_container__children
+        direction: outbound
+        on_delete: no-action
+        order_weight: 810
+      # Which circuit owns this container. Only a client container carries one. A
+      # line container leaves it empty on purpose: it belongs to a wavelength,
+      # and naming a service on it would claim that one of the several services
+      # groomed into that wavelength owns the whole of it.
+      - name: service
+        # Stored, not derived, and it cannot be derived. The chain container to
+        # parent_container to carrier to optical_path to service does exist, but
+        # `OtnOpticalCarrier.optical_path` is cardinality many since grooming
+        # let two services share a wavelength, so that walk yields every service
+        # on the wavelength rather than the one that owns this container. That
+        # is the right answer for `transforms/impact_report.py`, whose question
+        # is who is affected by a cut, and the wrong one for
+        # `transforms/service_trace.py`, which listed a neighbour's containers
+        # as part of a service's own circuit with nothing raised. The naming
+        # convention `odu-<service>` was the only link before this, and nothing
+        # read it.
+        peer: OtnService
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_service__containers
+        on_delete: no-action
+        order_weight: 820
+      - name: child_containers
+        peer: OtnContainer
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_container__children
+        direction: inbound
+        on_delete: no-action
+        order_weight: 900

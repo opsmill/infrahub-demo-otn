@@ -1,0 +1,56 @@
+---
+# yamllint disable rule:truthy rule:line-length
+name: Update infrahub-sdk
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve the latest infrahub-sdk release
+        id: latest
+        run: |
+          LATEST=$(curl -sf https://pypi.org/pypi/infrahub-sdk/json | jq -r '.info.version')
+          CURRENT=$(grep -oE 'infrahub-sdk\[all,ctl\]==[0-9.]+' pyproject.toml | cut -d= -f3)
+          echo "latest=${LATEST}" >> "$GITHUB_OUTPUT"
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "Current ${CURRENT}, latest ${LATEST}"
+
+      - name: Bump the pin
+        if: steps.latest.outputs.latest != steps.latest.outputs.current
+        run: |
+          LATEST="${{ steps.latest.outputs.latest }}"
+          CURRENT="${{ steps.latest.outputs.current }}"
+          MINOR=$(echo "${LATEST}" | cut -d. -f1,2)
+          sed -i "s|infrahub-sdk\[all,ctl\]==${CURRENT}|infrahub-sdk[all,ctl]==${LATEST}|" pyproject.toml
+          # Keep the assertion in test_pins.py aligned with the pin.
+          sed -i -E "s|startswith\(\"[0-9]+\.[0-9]+\"\)|startswith(\"${MINOR}\")|" tests/unit/test_pins.py
+          sed -i -E "s|pinned_to_[0-9]+_[0-9]+|pinned_to_$(echo "${MINOR}" | tr '.' '_')|" tests/unit/test_pins.py
+
+      - name: Open a pull request
+        if: steps.latest.outputs.latest != steps.latest.outputs.current
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: "chore/infrahub-sdk-${{ steps.latest.outputs.latest }}"
+          title: "Bump infrahub-sdk to ${{ steps.latest.outputs.latest }}"
+          commit-message: "Bump infrahub-sdk to ${{ steps.latest.outputs.latest }}"
+          labels: dependencies
+          body: |
+            Automated bump from ${{ steps.latest.outputs.current }} to ${{ steps.latest.outputs.latest }}.
+
+            Check `traverse_paths()` signatures before merging. The routing and
+            impact features depend on them.
+
+            The `docker-build` CI job will confirm the new SDK still coexists
+            with the one in the Infrahub base image.

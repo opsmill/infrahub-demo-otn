@@ -1,0 +1,123 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# What the line-side optics can actually do. Five transponder modes and five
+# coherent pluggables.
+#
+# Scaled forms: required_osnr_mdb is dB x 1000, nominal_reach_m is km x 1000,
+# baud_mbaud is GBd x 1000, cd_tolerance_fs_per_nm is ps/nm x 1000.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnOpticalMode
+  data:
+    - name: DP-QPSK 32GBd 100G
+      mode_class: transponder
+      modulation: DP-QPSK
+      description: The long-haul workhorse. Lowest OSNR requirement of any mode in the catalog.
+      line_rate_gbps: 100
+      baud_mbaud: 32000
+      required_osnr_mdb: 14000
+      cd_tolerance_fs_per_nm: 100000000
+      nominal_reach_m: 3000000
+      fec_type: SD-FEC
+      fec_latency_ns: 4000
+    - name: DP-16QAM 32GBd 200G
+      mode_class: transponder
+      modulation: DP-16QAM
+      description: Twice the capacity of 100G on the same symbol rate, at half the reach.
+      line_rate_gbps: 200
+      baud_mbaud: 32000
+      required_osnr_mdb: 18500
+      cd_tolerance_fs_per_nm: 60000000
+      nominal_reach_m: 1500000
+      fec_type: SD-FEC
+      fec_latency_ns: 4000
+    - name: DP-QPSK 128GBd 400G
+      mode_class: transponder
+      modulation: DP-QPSK
+      description: 400G at QPSK by raising the baud rate rather than the constellation. Wide, but reaches.
+      line_rate_gbps: 400
+      baud_mbaud: 128000
+      required_osnr_mdb: 19000
+      cd_tolerance_fs_per_nm: 50000000
+      nominal_reach_m: 2500000
+      fec_type: SD-FEC
+      fec_latency_ns: 4000
+    - name: DP-16QAM 64GBd 400G
+      mode_class: transponder
+      modulation: DP-16QAM
+      description: The spectrally efficient 400G. Half the width of the QPSK variant, 5.5 dB more OSNR.
+      line_rate_gbps: 400
+      baud_mbaud: 64000
+      required_osnr_mdb: 24500
+      cd_tolerance_fs_per_nm: 50000000
+      nominal_reach_m: 1000000
+      fec_type: SD-FEC
+      fec_latency_ns: 4000
+    - name: DP-64QAM 64GBd 600G
+      mode_class: transponder
+      modulation: DP-64QAM
+      description: Metro and regional only. The highest capacity per wavelength and the shortest transponder reach.
+      line_rate_gbps: 600
+      baud_mbaud: 64000
+      required_osnr_mdb: 29000
+      cd_tolerance_fs_per_nm: 30000000
+      nominal_reach_m: 400000
+      fec_type: SD-FEC
+      fec_latency_ns: 4000
+    - name: 400ZR
+      mode_class: pluggable
+      modulation: DP-16QAM
+      description: OIF 400ZR. Amplified point to point, 120 km, and the lowest dispersion tolerance here.
+      line_rate_gbps: 400
+      baud_mbaud: 59840
+      required_osnr_mdb: 26000
+      cd_tolerance_fs_per_nm: 2400000
+      nominal_reach_m: 120000
+      fec_type: cFEC
+      fec_latency_ns: 5000
+    - name: OpenZR+ 400G
+      mode_class: pluggable
+      modulation: DP-16QAM
+      description: OpenZR+ at 400G. The oFEC gain buys an order of magnitude more reach than 400ZR.
+      line_rate_gbps: 400
+      baud_mbaud: 60140
+      required_osnr_mdb: 23000
+      cd_tolerance_fs_per_nm: 50000000
+      nominal_reach_m: 1000000
+      fec_type: oFEC
+      fec_latency_ns: 9000
+    - name: OpenZR+ 300G
+      mode_class: pluggable
+      modulation: DP-8QAM
+      description: OpenZR+ at 300G. The middle rung between 400G and 200G on the same optics.
+      line_rate_gbps: 300
+      baud_mbaud: 60140
+      required_osnr_mdb: 20500
+      cd_tolerance_fs_per_nm: 60000000
+      nominal_reach_m: 2000000
+      fec_type: oFEC
+      fec_latency_ns: 9000
+    - name: OpenZR+ 200G
+      mode_class: pluggable
+      modulation: DP-QPSK
+      description: OpenZR+ at 200G. A pluggable that reaches as far as a 100G transponder.
+      line_rate_gbps: 200
+      baud_mbaud: 60140
+      required_osnr_mdb: 17500
+      cd_tolerance_fs_per_nm: 80000000
+      nominal_reach_m: 3000000
+      fec_type: oFEC
+      fec_latency_ns: 9000
+    - name: 800ZR
+      mode_class: pluggable
+      modulation: DP-16QAM
+      description: 800G in a pluggable, at twice the baud rate of 400ZR and the same 120 km.
+      line_rate_gbps: 800
+      baud_mbaud: 118000
+      required_osnr_mdb: 29000
+      cd_tolerance_fs_per_nm: 1400000
+      nominal_reach_m: 120000
+      fec_type: cFEC
+      fec_latency_ns: 5000

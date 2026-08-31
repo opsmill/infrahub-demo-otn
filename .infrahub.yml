@@ -1,0 +1,392 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/repository-config/latest.json
+schemas:
+  - schemas
+
+menus:
+  - menus/otn.yml
+
+objects:
+  - objects
+
+queries:
+  - name: units_import
+    file_path: "./queries/units_import.gql"
+  - name: osnr_margin
+    file_path: "./queries/osnr_margin.gql"
+  - name: budget_report
+    file_path: "./queries/budget_report.gql"
+  - name: optical_service
+    file_path: "./queries/optical_service.gql"
+  - name: channel_collision
+    file_path: "./queries/channel_collision.gql"
+  - name: monitor_drift
+    file_path: "./queries/monitor_drift.gql"
+  # One query per report, even where two overlap: a query two artifacts share is
+  # a query neither can change.
+  - name: service_trace
+    file_path: "./queries/service_trace.gql"
+  - name: span_impact
+    file_path: "./queries/span_impact.gql"
+  - name: channel_occupancy
+    file_path: "./queries/channel_occupancy.gql"
+  - name: mode_reach
+    file_path: "./queries/mode_reach.gql"
+  - name: service_latency
+    file_path: "./queries/service_latency.gql"
+  - name: srlg_exposure
+    file_path: "./queries/srlg_exposure.gql"
+  - name: network_map
+    file_path: "./queries/network_map.gql"
+  # Its own query, not a widening of network_map's. That one carries spans,
+  # fibre types, both amplifier chains and the mode catalog for a margin the ODU
+  # map states nothing about, and fifteen renders per PoP would pay for it.
+  - name: odu_map
+    file_path: "./queries/odu_map.gql"
+  # Rooted on the container kind, not on the carrier, so every parent is measured
+  # once at whatever depth it sits. The map's query walks carriers instead,
+  # because a map draws a wavelength and a capacity verdict needs none.
+  - name: container_capacity
+    file_path: "./queries/container_capacity.gql"
+  # Rooted on OtnDiversityGroup, not on OtnService. A service that declared no
+  # group is not in the payload at all, which is where the check's silence comes
+  # from. srlg_exposure.gql is the query that fetches every service.
+  - name: diversity
+    file_path: "./queries/diversity.gql"
+  # Rooted on OtnService and unfiltered, which is the opposite of diversity.gql
+  # and deliberate: two of the five states the check judges are states where a
+  # field is empty, and a filter on `status: rejected` would fetch neither.
+  - name: provisionable
+    file_path: "./queries/provisionable.gql"
+  # Sections and carriers are two collections rather than one nesting, because
+  # OtnOpticalMultiplexSection declares no inverse of OtnOpticalCarrier.sections
+  # and a section cannot be asked what rides it. channel_occupancy.gql is shaped
+  # this way for the same reason. Both ROADM degree ports and degree monitors
+  # come back, through inline fragments on `ports`, because that relationship
+  # peers a generic and cannot be filtered by kind.
+  - name: channel_count_consistency
+    file_path: "./queries/channel_count_consistency.gql"
+  # Five collections, one per pairing in monitors.MONITOR_BY_DEVICE_KIND. It
+  # fetches every port on every device of those kinds and discriminates in
+  # Python, which is not a preference: `ports` peers OtnGenericPort and Infrahub
+  # cannot filter a relationship to a generic by the kind of its peers, so
+  # "amplifiers carrying no OtnAmplifierMonitor" is not a query anybody can
+  # write. specs/feature-gaps/03-filter-a-nested-relationship-by-kind.md
+  # measures it, and the over-fetch is roughly 918 port nodes to answer 306
+  # booleans.
+  - name: monitor_completeness
+    file_path: "./queries/monitor_completeness.gql"
+
+# Every `watch.files` list below this line is generated. Run
+# `uv run python scripts/generate_watch_lists.py` after any import changes under
+# `src/`, `transforms/` or `generators/`; `tests/unit/test_repository_config.py`
+# runs the script with `--check`, so a hand edit or a new import fails there.
+#
+# Each list is one definition's transitive import closure over the shared
+# package, so a change to `odudraw.py` re-renders the ODU map and nothing else.
+# The whole folder was the previous declaration, and it meant any one of the
+# fourteen modules re-fingerprinted all eleven definitions.
+#
+# This is the one section that takes a top-level `query:`. `optical_service` is
+# named here and NOT on the Python class; the other way round leaves the
+# generator with no query at all.
+#
+# `targets` names a CoreGeneratorGroup. The dispatcher does not recognise a
+# CoreStandardGroup, and a group of the wrong kind fails silently by never
+# firing. Local runs bind `service=` on the command line and do not consult the
+# group at all, so the pipeline path has to be verified separately from
+# `infrahubctl generator`.
+generator_definitions:
+  - name: optical_service
+    file_path: "./generators/optical_service.py"
+    class_name: OpticalServiceGenerator
+    query: optical_service
+    targets: optical_services
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/chains.py
+        - src/infrahub_demo_otn/containers.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+    parameters:
+      service: name__value
+
+# No `query:` key under check_definitions. The Python class binds the query with
+# its `query = "..."` attribute, and the repository config model uses
+# extra="forbid", so a `query:` here fails the whole file. generator_definitions
+# is the one that takes a top-level query, and the two are not interchangeable.
+# No `watch:` key here either, and for the same reason: the model has no such
+# field on a check, so a generated watch list on one of these entries fails the
+# whole file at sync. scripts/generate_watch_lists.py knows this and skips the
+# section.
+#
+# Nine checks, and one of the nine carries a name this file once recorded as
+# deleted. There was a monitor_completeness check here, and it asserted that a
+# monitor carried the readings its family reports and none it cannot take. Both
+# halves are now schema constraints: the readings are mandatory on each monitor
+# kind, and a kind has no field for a reading its hardware cannot produce. A
+# check that can never fail is worse than no check, because a green result reads
+# as evidence. That removal was correct and it stands.
+#
+# The monitor_completeness registered below is not that check brought back. It
+# asks a different question: whether a device has a monitor at all. The deleted
+# one iterated over monitors, so a device carrying none was invisible to it, and
+# no schema constraint reaches the case either, because `ports` peers a generic
+# and Infrahub cannot filter a relationship to a generic by kind.
+# demo/10_amplifier_without_monitor.yml is a branch that answers the new question
+# "no", which is the standard the sentence above holds it to.
+check_definitions:
+  # Exempt from the watch narrowing above, and it would be even if it could
+  # declare one: this check exists to prove the task worker can import the
+  # shared package at all, so the package is its dependency and a narrowed list
+  # would defeat the probe. `scripts/generate_watch_lists.py` names it exempt so
+  # the rule survives the check moving to a section that can watch.
+  - name: units_import
+    file_path: "./checks/units_import.py"
+    class_name: UnitsImportCheck
+  - name: osnr_margin
+    file_path: "./checks/osnr_margin.py"
+    class_name: OsnrMarginCheck
+  # Global, not targeted. A collision is a property of a pair, and the pair may
+  # be one carrier this change touched and one it did not.
+  - name: channel_collision
+    file_path: "./checks/channel_collision.py"
+    class_name: ChannelCollisionCheck
+  # Global too, and for the same shape of reason: overfilling is a property of a
+  # parent plus all of its children, and a change may add one child while the
+  # parent and its siblings sit outside it. The check calls
+  # `containers.free_slots` and subtracts nothing itself, so it cannot reach a
+  # different verdict from the generator that packs the wavelength.
+  - name: container_capacity
+    file_path: "./checks/container_capacity.py"
+    class_name: ContainerCapacityCheck
+  # Global for the third time, and the pair is again why: two services in one
+  # diversity group can be touched by different changes, and a change that
+  # reroutes one of them onto its partner's duct touches neither the group nor
+  # the other service.
+  #
+  # It speaks only about services that point at an OtnDiversityGroup. A shared
+  # conduit between two services that declared nothing is reported by the
+  # srlg_exposure transform and blocks nothing, because an operator may have
+  # accepted that exposure deliberately.
+  - name: diversity
+    file_path: "./checks/diversity.py"
+    class_name: DiversityCheck
+  # Global, and it is the sixth here rather than the fourth: none of the nine
+  # entries in this section declares `targets`, including the two above that say
+  # nothing about it. The reason for this one is the shared one worded for a
+  # single node: a proposed change may touch one service while a different
+  # service on the branch is the refused one. Adding a span, retiring a mode or
+  # filling a corridor makes a service nobody edited unprovisionable on the
+  # generator's next run, and a targeted check bound to the edited objects would
+  # find nothing wrong with them and report green over the service that can no
+  # longer be built.
+  #
+  # No `query:` key, per the note at the top of this section. The class binds it
+  # with `query = "provisionable"`.
+  #
+  # It says nothing about a refused service marked `refusal_accepted`. That is
+  # the escape hatch, not an oversight: some refusals are the answer, and the
+  # check's docstring argues against widening it.
+  - name: provisionable
+    file_path: "./checks/provisionable.py"
+    class_name: ProvisionableCheck
+  # Global, for the pair reason again: a count is a property of one monitor plus
+  # every carrier on the section its degree faces, and a change may add one
+  # carrier while the monitor and the rest of the carriers sit outside it. A
+  # targeted check bound to the new carrier would find nothing wrong with it and
+  # report green over a monitor that is now out by one.
+  #
+  # It gates where transforms/monitor_drift.py only reports, and the two are not
+  # in conflict. Drift compares a reading against the physical world, which an
+  # operator may have accepted. This compares two records that are both authored
+  # data inside Infrahub, so a disagreement is one of them being wrong. The
+  # check's docstring records what flips that argument: channel_count arriving
+  # from telemetry rather than from the generator.
+  - name: channel_count_consistency
+    file_path: "./checks/channel_count_consistency.py"
+    class_name: ChannelCountConsistencyCheck
+  # Global, and here the reason is that an absence is not an edit. A change that
+  # deletes a monitor touches the monitor and a change that adds a device touches
+  # the device, and neither is the object a targeted check would be handed for
+  # the other case.
+  #
+  # It owns presence in both directions, a device with no monitor and a monitor
+  # with no port, so channel_count_consistency defers to it with an INFO rather
+  # than putting two findings on one fault.
+  - name: monitor_completeness
+    file_path: "./checks/monitor_completeness.py"
+    class_name: MonitorCompletenessCheck
+
+python_transforms:
+  - name: budget_report
+    file_path: "./transforms/budget_report.py"
+    class_name: BudgetReportTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+  # Each transform binds its query on the Python class, never here.
+  - name: service_trace
+    file_path: "./transforms/service_trace.py"
+    class_name: ServiceTraceTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/impact.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+  # Run by hand only: `infrahubctl transform impact_report section=<name>`.
+  # `span_impact.gql` declares `$section` as required and no artifact definition
+  # below binds it, so this one has no pipeline path. That is the intent: an
+  # impact report answers a question an operator asks about one section, not a
+  # document that has to exist for all twenty-one.
+  - name: impact_report
+    file_path: "./transforms/impact_report.py"
+    class_name: ImpactReportTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/impact.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+  - name: capacity_view
+    file_path: "./transforms/capacity_view.py"
+    class_name: CapacityViewTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/impact.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+  - name: reach_report
+    file_path: "./transforms/reach_report.py"
+    class_name: ReachReportTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/impact.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+  - name: ai_latency
+    file_path: "./transforms/ai_latency.py"
+    class_name: AiLatencyTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/impact.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+  - name: srlg_exposure
+    file_path: "./transforms/srlg_exposure.py"
+    class_name: SrlgExposureTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/impact.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+  - name: monitor_drift
+    file_path: "./transforms/monitor_drift.py"
+    class_name: MonitorDriftTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/drift.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+  # Returns a `str`, not a dict. The artifact below declares `image/svg+xml`,
+  # and a transform handing back a dict against a non-JSON content type writes
+  # a stringified Python dict into the artifact body.
+  - name: network_map
+    file_path: "./transforms/network_map.py"
+    class_name: NetworkMapTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/basemap.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/cartography.py
+        - src/infrahub_demo_otn/mapchrome.py
+        - src/infrahub_demo_otn/mapdraw.py
+        - src/infrahub_demo_otn/mapengine.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+  # Returns a `str` too, for the same reason. Its closure is the widest of the
+  # eleven at ten modules, and `odudraw.py` is in this one and in no other, so
+  # that file re-renders the ODU map alone. The workers import the package from
+  # the image, so `invoke build` and `invoke start --rebuild` still come first.
+  - name: odu_map
+    file_path: "./transforms/odu_map.py"
+    class_name: OduMapTransform
+    watch:
+      files:
+        - src/infrahub_demo_otn/__init__.py
+        - src/infrahub_demo_otn/basemap.py
+        - src/infrahub_demo_otn/budget.py
+        - src/infrahub_demo_otn/cartography.py
+        - src/infrahub_demo_otn/containers.py
+        - src/infrahub_demo_otn/mapchrome.py
+        - src/infrahub_demo_otn/mapengine.py
+        - src/infrahub_demo_otn/odudraw.py
+        - src/infrahub_demo_otn/plant.py
+        - src/infrahub_demo_otn/routing.py
+        - src/infrahub_demo_otn/units.py
+
+# `OtnService` inherits CoreArtifactTarget, so the service trace attaches to the
+# object it describes and appears in the UI on that object. A kind that does not
+# inherit CoreArtifactTarget cannot be an artifact target.
+artifact_definitions:
+  - name: service_trace
+    artifact_name: service-trace
+    content_type: application/json
+    targets: optical_services
+    transformation: service_trace
+    parameters:
+      service: name__value
+  # One render of the same map per PoP, each highlighting a different site.
+  # `OtnSite` inherits CoreArtifactTarget for this, and `otn_sites` holds the
+  # sites of `site_type: pop` and nothing else: an unscoped group would draw the
+  # core map onto the customer campus, which appears in no section.
+  #
+  # `site: shortname__value` fills the `$site` variable `network_map.gql`
+  # declares as required. The name of the key is the variable, not the
+  # attribute; getting that pair backwards renders every copy for the same site.
+  - name: network_map
+    artifact_name: network-map
+    content_type: image/svg+xml
+    targets: otn_sites
+    transformation: network_map
+    parameters:
+      site: shortname__value
+  # The second SVG on every PoP, on the same terms. `transformation: odu_map`
+  # has to match the transform `name` above exactly: a mismatch fails at render
+  # time with "transformation not found", not at load.
+  - name: odu_map
+    artifact_name: odu-map
+    content_type: image/svg+xml
+    targets: otn_sites
+    transformation: odu_map
+    parameters:
+      site: shortname__value

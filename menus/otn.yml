@@ -1,0 +1,192 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/menu/latest.json
+#
+# The OTN sidebar. Five top-level entries, four groups, thirteen leaves.
+#
+# Registered in .infrahub.yml under the `menus:` key.
+#
+# Custom menus and the auto-generated per-kind sidebar are additive and do not
+# deduplicate. Every kind named below therefore sets `include_in_menu: false`
+# in schemas/, including LocationGeneric in schemas/location.yml. Without that
+# each kind appears twice.
+#
+# **A menu load is additive too.** Removing an entry from this file does not
+# remove it from a server that already has it: `infrahubctl menu load` adds and
+# updates and never deletes, and there is no delete subcommand. `uv run invoke
+# load-menu` deletes every Otn-namespace CoreMenuItem first, so this file is the
+# sidebar rather than an addition to it. Loading with infrahubctl directly gives
+# a server the union of this file and whatever it had.
+#
+# ---------------------------------------------------------------------------
+# What is not here, and where it is reached instead
+# ---------------------------------------------------------------------------
+#
+# Navigation is not one entry per kind. A site page already lists its devices
+# and a device page already lists its ports.
+#
+#   Six device kinds          OtnSite.devices, and the one Devices entry below
+#   Seven port kinds          OtnGenericDevice.ports, a Component relationship
+#   Optical elements          OtnPathHop.element; the five device kinds and the
+#                             span each have their own route
+#   Optical paths             OtnService.optical_path. Every path has exactly
+#                             one service, and the flow is provision, then open
+#                             the service
+#   Path hops                 OtnOpticalPath.hops, a Component relationship
+#   Containers                OtnOpticalCarrier.containers and
+#                             OtnClientSignal.containers
+#   Report target groups      A generator group is a maintainer's object, and
+#                             core kinds are in the default sidebar
+#
+# tests/unit/test_menu.py asserts that every kind absent from this file is the
+# peer of a relationship on a kind present in it, with inheritance resolved. A
+# trim that orphans a kind fails there.
+apiVersion: infrahub.app/v1
+kind: Menu
+spec:
+  data:
+    # ---------- Sites ----------
+    # Top-level and a leaf, because it is where an operator starts. A site page
+    # lists the devices at the site and the fiber spans terminating on it, in
+    # two lists: the A end and the B end are two identifiers and cannot be one
+    # relationship.
+    - namespace: Otn
+      name: OtnSitesRoot
+      label: OTN Sites
+      kind: OtnSite
+      # Remix Icon, not mdi, and the only one in this file. It mirrors the icon
+      # OtnSite declares in schemas/location.yml, so the sidebar entry and the
+      # kind it opens show the same glyph. Infrahub's icon component is Iconify
+      # backed and renders both sets.
+      icon: ri:building-line
+      order_weight: 1000
+
+    # ---------- Services ----------
+    # Intent, and the two kinds an operator creates or watches. A service is
+    # written by hand; a carrier is written by the generator and is the thing
+    # capacity is counted in.
+    - namespace: Otn
+      name: OtnServicesRoot
+      label: OTN Services
+      icon: mdi:file-document-outline
+      order_weight: 1100
+      children:
+        data:
+          - namespace: Otn
+            name: OtnServiceList
+            label: Services
+            kind: OtnService
+            icon: mdi:file-document-outline
+            order_weight: 1000
+
+          - namespace: Otn
+            name: OtnOpticalCarriers
+            label: Optical carriers
+            kind: OtnOpticalCarrier
+            icon: mdi:waves
+            order_weight: 1100
+
+    # ---------- Plant ----------
+    # Everything physical. Devices is one entry on the generic, which gives all
+    # six device kinds in one click and their ports one click further.
+    - namespace: Otn
+      name: OtnPlantRoot
+      label: OTN Plant
+      icon: mdi:pipe
+      order_weight: 1200
+      children:
+        data:
+          - namespace: Otn
+            name: OtnDevices
+            label: Devices
+            kind: OtnGenericDevice
+            icon: mdi:server
+            order_weight: 1000
+
+          - namespace: Otn
+            name: OtnFiberSpans
+            label: Fiber spans
+            kind: OtnFiberSpan
+            icon: mdi:vector-line
+            order_weight: 1100
+
+          - namespace: Otn
+            name: OtnOpticalMultiplexSections
+            label: Optical multiplex sections
+            kind: OtnOpticalMultiplexSection
+            icon: mdi:ray-start-end
+            order_weight: 1200
+
+          - namespace: Otn
+            name: OtnConduits
+            label: Conduits
+            kind: OtnConduit
+            icon: mdi:pipe
+            order_weight: 1300
+
+    # ---------- Catalog ----------
+    # Reference data, not topology. Loaded from objects/ and read by the rest of
+    # the model.
+    - namespace: Otn
+      name: OtnCatalogRoot
+      label: OTN Catalog
+      icon: mdi:book-open-variant
+      order_weight: 1300
+      children:
+        data:
+          - namespace: Otn
+            name: OtnFrequencyGrids
+            label: Frequency grid
+            kind: OtnFrequencyGrid
+            icon: mdi:sine-wave
+            order_weight: 1000
+
+          - namespace: Otn
+            name: OtnCwdmChannels
+            label: CWDM plan
+            kind: OtnCwdmChannel
+            icon: mdi:palette-swatch-variant
+            order_weight: 1050
+
+          - namespace: Otn
+            name: OtnOpticalModes
+            label: Optical modes
+            kind: OtnOpticalMode
+            icon: mdi:waveform
+            order_weight: 1100
+
+          - namespace: Otn
+            name: OtnFiberTypes
+            label: Fiber types
+            kind: OtnFiberType
+            icon: mdi:cable-data
+            order_weight: 1200
+
+          - namespace: Otn
+            name: OtnClientSignals
+            label: Client signals
+            kind: OtnClientSignal
+            icon: mdi:import
+            order_weight: 1300
+
+    # ---------- Reports ----------
+    # The reports add no schema kind: six of them are transforms, and a
+    # transform is not a kind. CoreArtifact is where the service trace lands
+    # once a repository is registered, and it is a core kind, so it needs no
+    # include_in_menu: false.
+    #
+    # The other five reports are read through `uv run invoke demo-*` and in the
+    # proposed-change UI. `docs/docs/demo-otn/reporting-scenarios.mdx` has the
+    # commands, and `provisioning-scenarios.mdx` has the two that write.
+    - namespace: Otn
+      name: OtnReportsRoot
+      label: OTN Reports
+      icon: mdi:chart-box-outline
+      order_weight: 1400
+      children:
+        data:
+          - namespace: Otn
+            name: OtnServiceTraces
+            label: Service traces
+            kind: CoreArtifact
+            icon: mdi:map-marker-path
+            order_weight: 1000

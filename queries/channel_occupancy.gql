@@ -1,0 +1,143 @@
+# Every section, every carrier's anchor and section list, and the mode catalog.
+#
+# Capacity is derived, not stored. Free is the C-band extent minus the spectrum
+# the carriers crossing a section occupy, and these two collections are the whole
+# of the input to that. The carrier name comes with the anchor so the report can
+# name the carriers claiming a contested one: two carriers on channel 7 count as
+# one anchor, and printing only the anchors would hide a collision behind a
+# correct-looking number.
+#
+# `center_frequency_mhz` on the anchor and `baud_mbaud` on the mode are the two
+# selections the width needs. `line_rate_gbps` stays because the report prints
+# it; `baud_mbaud` is what the spectrum is computed from, and they are not
+# interchangeable.
+#
+# No inline fragments. `channel` peers `OtnFrequencyGrid` and `optical_mode`
+# peers `OtnOpticalMode`, both concrete nodes with no inheritors.
+#
+# The section collection is here even though the carriers imply it: sixteen of
+# the twenty-one sections in the shipped dataset carry no wavelength at all, and
+# deriving the list from the carriers would drop the sections a planner wants.
+#
+# The mode catalog is the third collection, and it is what makes "does another
+# 400G fit" answerable. A free block is a width and a mode is a width, and the
+# report cannot compare them without one of them. Reading the width off the
+# carriers already on the section would only ever answer the question for the
+# modes that are already there, which on an empty section is none of them.
+query ChannelOccupancy {
+  OtnOpticalMode {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        mode_class {
+          value
+        }
+        line_rate_gbps {
+          value
+        }
+        baud_mbaud {
+          value
+        }
+        required_osnr_mdb {
+          value
+        }
+        cd_tolerance_fs_per_nm {
+          value
+        }
+        fec_latency_ns {
+          value
+        }
+      }
+    }
+  }
+  OtnOpticalMultiplexSection {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        description {
+          value
+        }
+        roadm_a {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        roadm_b {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        spans {
+          edges {
+            node {
+              name {
+                value
+              }
+              length_m {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnOpticalCarrier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        status {
+          value
+        }
+        channel {
+          node {
+            channel_number {
+              value
+            }
+            center_frequency_mhz {
+              value
+            }
+          }
+        }
+        optical_mode {
+          node {
+            name {
+              value
+            }
+            line_rate_gbps {
+              value
+            }
+            baud_mbaud {
+              value
+            }
+          }
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

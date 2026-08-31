@@ -1,0 +1,126 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Scenario input: the same regenerator, a different modulation, and the route
+# closes.
+#
+# **Load this on top of `demo/06_mad_waw_16qam.yml`, on its own branch.** Two
+# branches rather than one because the scenario is a before and after: the branch
+# holding only `06` keeps the refusal, and this branch is the proposal a reviewer
+# compares against it. The refusals from `06` are still in the run, which is the
+# reason to keep it loaded underneath.
+#
+# **What this demonstrates.** The fix for Madrid to Warsaw is a regenerator
+# **and** a mode change, and the mode change is the half that was missing. `06`
+# shows three sites tried at DP-16QAM 64GBd 400G and refused. This file adds one
+# more wavelength pair on the same Frankfurt split, at DP-QPSK 128GBd 400G.
+# Nothing else changes: no new site, no new section, no edited margin.
+#
+# **The service is expected to provision, as two segments.** Measured on a
+# branch holding both files:
+#
+#     no direct wavelength serves
+#     oms-par-mad|oms-par-fra|oms-prg-fra|oms-prg-waw, so it takes the chain
+#     oc-ch073-mad-fra|oeo-fra-03|oc-ch073-fra-waw in 2 segments regenerated at
+#     oeo-fra-03 at Frankfurt, 2970 km, segment 1 +2.745 dB, segment 2
+#     +5.740 dB, 14558.963 us including the framing delay
+#
+# Segment 1 records 462196 mdB of loss over 1870 km and segment 2 records 281950
+# mdB over 1100 km. **Neither margin is the route's margin**, and the model does
+# not offer one: a regenerated circuit has a margin per segment and the verdict
+# over them is a conjunction. The latency is the sum of both segments plus the
+# 3000 ns the junction charges for reframing.
+#
+# **The same run still refuses all three DP-16QAM splits**, and says so, because
+# `06` is loaded underneath. One provisioning run therefore reports the whole
+# story: Paris -0.535 and -2.439, Frankfurt -2.755, Prague -4.004, and then the
+# chain it took. The QPSK pair wins on being the only candidate that closes, not
+# on ranking: a direct wavelength always beats a chain, and this route has no
+# direct wavelength that closes on any mode.
+#
+# **Those three refusals are in the log and not on the node, and the difference
+# decides whether this branch merges.** `svc-mad-waw-400g` ends `active` with two
+# path segments, no reason code, no detail and `refusal_accepted` false, so
+# `checks/provisionable.py` counts it as provisioned and this branch merges
+# clean. Nothing here is accepted, because there is nothing here to accept: the
+# flag on a service that was never refused is an error the same check reports,
+# and setting one on this file would fail the branch it exists to make green. A
+# gate that read the discard log rather than the node would block this branch on
+# three chains the network does not use, which is why the check reads `status`.
+#
+# **What it costs, stated rather than left implied.** DP-QPSK 128GBd is twice
+# the spectral width of the 16QAM variant at the same 400G, so the capacity
+# bought back the reach. And the circuit needs a regeneration and 14558.963 us,
+# against 9163.620 us for the Madrid to Frankfurt half on its own. A direct
+# wavelength is preferable wherever one closes, which on this route is nowhere.
+#
+# **A second regenerator at Frankfurt, and that is deliberate.** One device
+# terminating all four Frankfurt wavelengths is a valid plant and it changes the
+# answer, which was measured rather than guessed: with `oeo-fra-02` holding the
+# 16QAM pair and the QPSK pair, the generator takes the mixed cover
+# `oc-ch073-mad-fra|oeo-fra-02|oc-ch071-fra-waw` and closes at +2.745 dB and
+# +0.240 dB. Both halves close, so it is a real circuit, and it is a poorer
+# demonstration: the second half survives on a quarter of a dB and the reader is
+# left thinking the modulation only mattered on one side. Keeping the QPSK pair
+# on its own device makes the cover unmixable, because `chains.joins` requires
+# one device to terminate both wavelengths of a junction.
+#
+# Channel 73, distinct from 70, 71 and 72, because all four pairs cross
+# `oms-par-mad` or `oms-prg-waw` and two wavelengths on one channel in one
+# section collide.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnOpticalCarrier
+  data:
+    - name: oc-ch073-mad-fra
+      description: Madrid to Frankfurt on channel 73, at QPSK. Closes at +2.745 dB.
+      status: active
+      channel: '73'
+      optical_mode: DP-QPSK 128GBd 400G
+      sections:
+        - oms-par-mad
+        - oms-par-fra
+    - name: oc-ch073-fra-waw
+      description: Frankfurt to Warsaw on channel 73, at QPSK. Closes at +5.740 dB.
+      status: active
+      channel: '73'
+      optical_mode: DP-QPSK 128GBd 400G
+      sections:
+        - oms-prg-fra
+        - oms-prg-waw
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnContainer
+  data:
+    - name: odu-line-oc-ch073-mad-fra
+      description: ODUC4 on oc-ch073-mad-fra. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch073-mad-fra
+    - name: odu-line-oc-ch073-fra-waw
+      description: ODUC4 on oc-ch073-fra-waw. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch073-fra-waw
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnOduSwitch
+  data:
+    - name: oeo-fra-03
+      role: core
+      site: fra
+      insertion_loss_mdb: 0
+      vendor: Generic
+      model: X-ODU8
+      switching_mode: regenerator
+      framing_latency_ns: 3000
+      carriers:
+        - oc-ch073-mad-fra
+        - oc-ch073-fra-waw

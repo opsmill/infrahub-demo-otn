@@ -1,0 +1,190 @@
+# Every carrier and the plant once, for the budget report transform.
+#
+# The same three-collection shape as `osnr_margin.gql`, in its own file: a check
+# and a transform have different lifetimes, and a query two artifacts share is a
+# query neither can change.
+query BudgetReport {
+  OtnOpticalCarrier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        description {
+          value
+        }
+        channel {
+          node {
+            channel_number {
+              value
+            }
+            center_frequency_mhz {
+              value
+            }
+          }
+        }
+        optical_mode {
+          node {
+            name {
+              value
+            }
+            required_osnr_mdb {
+              value
+            }
+            cd_tolerance_fs_per_nm {
+              value
+            }
+            fec_latency_ns {
+              value
+            }
+          }
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnOpticalMultiplexSection {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        roadm_a {
+          node {
+            name {
+              value
+            }
+            insertion_loss_mdb {
+              value
+            }
+          }
+        }
+        roadm_b {
+          node {
+            name {
+              value
+            }
+            insertion_loss_mdb {
+              value
+            }
+          }
+        }
+        spans {
+          edges {
+            node {
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              length_m {
+                value
+              }
+              splice_count {
+                value
+              }
+              splice_loss_mdb {
+                value
+              }
+              connector_count {
+                value
+              }
+              connector_loss_mdb {
+                value
+              }
+              aging_margin_mdb {
+                value
+              }
+              fiber_type {
+                node {
+                  name {
+                    value
+                  }
+                  attenuation_mdb_per_km {
+                    value
+                  }
+                  dispersion_fs_per_nm_km {
+                    value
+                  }
+                  group_index_milli {
+                    value
+                  }
+                }
+              }
+              raman_pumps {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    injection_end {
+                      value
+                    }
+                    propagation {
+                      value
+                    }
+                    on_off_gain_mdb {
+                      value
+                    }
+                    insertion_loss_mdb {
+                      value
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        amplifiers_a2b {
+          edges {
+            node {
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              noise_figure_mdb {
+                value
+              }
+              gain_mdb {
+                value
+              }
+            }
+          }
+        }
+        amplifiers_b2a {
+          edges {
+            node {
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              noise_figure_mdb {
+                value
+              }
+              gain_mdb {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

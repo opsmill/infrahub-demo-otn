@@ -1,0 +1,62 @@
+# Every carrier's spectrum and the sections it crosses. Nothing else.
+#
+# The check needs three facts per carrier and joins them in Python, so it fetches
+# no plant. It runs on every proposed change.
+#
+# The anchor's `center_frequency_mhz` and the mode's `baud_mbaud` are what make
+# the third fact computable: a carrier occupies a width, not a channel number,
+# and the width comes from the symbol rate one relationship hop away. Dropping
+# either selection does not make the check lenient, it makes it raise:
+# `plant.occupancy_from_graphql` fails closed on both.
+#
+# No inline fragments. `channel` peers `OtnFrequencyGrid` and `optical_mode`
+# peers `OtnOpticalMode`, both concrete nodes with no inheritors, so every field
+# below exists on the one type the relationship can return.
+#
+# `id` and `__typename`: `queries/service_trace.gql` says why every query here
+# selects them.
+query ChannelCollision {
+  OtnOpticalCarrier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        status {
+          value
+        }
+        channel {
+          node {
+            channel_number {
+              value
+            }
+            center_frequency_mhz {
+              value
+            }
+          }
+        }
+        optical_mode {
+          node {
+            name {
+              value
+            }
+            baud_mbaud {
+              value
+            }
+          }
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,108 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# What a customer hands over at the edge, and the first container it maps into.
+#
+# default_container_type is the first step of the chain, not the last. E1 maps
+# into VC-12, which maps into STM-N, which maps into ODU1.
+#
+# bit_rate_kbps, not Mbps: E1 is 2.048 Mbps and would round to 2 as an integer,
+# which is also T1. The paired display renders Mbps below one gigabit and Gbps
+# at or above it, because the catalog spans seven orders of magnitude.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnClientSignal
+  data:
+    - name: 1000BASE-T
+      layer: ethernet
+      auto_selectable: true
+      description: Gigabit Ethernet over copper. The smallest Ethernet handover worth a wavelength share.
+      bit_rate_kbps: 1250000
+      default_container_type: ODU0
+      default_mapping: GMP
+    - name: 10GBASE-LR
+      layer: ethernet
+      auto_selectable: true
+      description: 10 Gigabit Ethernet, 1310 nm single-mode. Maps bit-synchronously into an ODU2e.
+      bit_rate_kbps: 10300000
+      default_container_type: ODU2e
+      default_mapping: BMP
+    - name: 100GBASE-LR4
+      layer: ethernet
+      auto_selectable: true
+      description: The standard 100G handover. Four lanes at 25G, one ODU4.
+      bit_rate_kbps: 103100000
+      default_container_type: ODU4
+      default_mapping: GMP
+    - name: 400GBASE-FR4
+      layer: ethernet
+      auto_selectable: true
+      description: 400G handover over two kilometres of single-mode. Needs an ODUC4.
+      bit_rate_kbps: 412500000
+      default_container_type: ODUC4
+      default_mapping: GMP
+    - name: STM-16
+      alias: OC-48
+      layer: sdh
+      auto_selectable: true
+      description: SDH at 2.5 Gbps. Still carrying legacy circuits that predate the packet core.
+      bit_rate_kbps: 2500000
+      default_container_type: ODU1
+      default_mapping: AMP
+    - name: STM-64
+      alias: OC-192
+      layer: sdh
+      auto_selectable: true
+      description: SDH at 10 Gbps. Ten of these fit in one ODU4, which is the second client story.
+      bit_rate_kbps: 9950000
+      default_container_type: ODU2
+      default_mapping: AMP
+    - name: STM-256
+      alias: OC-768
+      layer: sdh
+      auto_selectable: true
+      description: SDH at 40 Gbps. Rare, and the largest SDH signal anyone still hands over.
+      bit_rate_kbps: 39800000
+      default_container_type: ODU3
+      default_mapping: AMP
+    - name: E1
+      layer: pdh
+      auto_selectable: true
+      description: G.703 2 Mbps tributary. Maps into VC-12 first, then STM-N, then ODU1.
+      bit_rate_kbps: 2048
+      default_container_type: VC-12
+      default_mapping: AMP
+    - name: FC-1200
+      layer: fibre_channel
+      auto_selectable: true
+      description: 10G Fibre Channel for storage replication. Latency-sensitive in a way Ethernet is not.
+      bit_rate_kbps: 10500000
+      default_container_type: ODU2e
+      default_mapping: BMP
+    # InfiniBand, four lanes. Both rates are signalling rates rather than
+    # marketing rates, the convention this catalog follows throughout: EDR is
+    # 4 x 25.78125 Gbps, HDR is 4 x 53.125 Gbps, and 400GBASE-FR4 is stored at
+    # 412.5 rather than 400.
+    #
+    # Both carry `auto_selectable: false`, and that is a measurement rather
+    # than a preference. InfiniBand rates interleave with Ethernet's: IB-HDR-4X
+    # at 212.5 Gbps is the smallest catalog row that can carry every integer
+    # rate from 104 through 212 Gbps, 109 of them, so a rate rule blind to the
+    # flag would hand an InfiniBand framing to an Ethernet service and
+    # provision it. A service that wants one names it on
+    # `OtnService.client_signal`.
+    - name: IB-EDR-4X
+      layer: infiniband
+      auto_selectable: false
+      description: InfiniBand EDR, four lanes at 25.78125 Gbps. The HPC handover below 200G.
+      bit_rate_kbps: 103125000
+      default_container_type: ODU4
+      default_mapping: GMP
+    - name: IB-HDR-4X
+      layer: infiniband
+      auto_selectable: false
+      description: InfiniBand HDR, four lanes at 53.125 Gbps. Needs a flexible container, not a fixed one.
+      bit_rate_kbps: 212500000
+      default_container_type: ODUflex
+      default_mapping: GMP

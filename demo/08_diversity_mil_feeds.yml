@@ -1,0 +1,91 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Scenario input: a diversity declaration that holds.
+#
+# **What this demonstrates.** `checks/diversity.py` passes because the two
+# circuits route over disjoint ducts, and **not** because nobody asked. That
+# distinction is the whole reason this file exists as a scenario of its own. A
+# satisfied requirement and an absent requirement both show up as a green check,
+# and only one of them is worth anything: the group is here, the check reads it,
+# compares the routes and finds them disjoint.
+#
+# **The two circuits.** Milan has two northern feeds and they arrive through
+# different trenches. Vienna to Milan takes `oms-vie-mil`, whose ducted span
+# sits in `cd-mil-northeast`. Geneva to Milan takes `oms-gva-mil`, in
+# `cd-mil-northwest`. No conduit is on both routes, so no single cut takes both
+# circuits, which is what `dg-milan-feeds` was written down to promise.
+#
+# **Expected outcome, object by object.**
+#
+# `dg-milan-feeds` loads and is inert until both members have routes. A group
+# whose members are not provisioned yet is reported as undetermined rather than
+# compliant, at INFO and not as a failure, because declaring the group before
+# provisioning the circuits is the normal order of work.
+#
+# `svc-mil-feed-vie-100g` provisions on `oms-vie-mil`, one section, and lights
+# `oc-svc-mil-feed-vie-100g`. Nine spans, one of them ducted.
+#
+# `svc-mil-feed-gva-100g` provisions on `oms-gva-mil`, one section, and lights
+# `oc-svc-mil-feed-gva-100g`. Five spans, one of them ducted.
+#
+# `invoke check --name diversity` then reports `PASSED`. The count of what it
+# judged is recorded as INFO rather than printed on a pass, so the number to
+# read is the one on the failing branch below, where the same line says two
+# groups over four routed services.
+#
+# **Provision both before running the check.** A member with no route yet counts
+# as undetermined, and undetermined is not a pass. Running the check on one
+# provisioned circuit proves nothing about the pair.
+#
+# **The negative half of this scenario is `demo/09_diversity_fra_feeds.yml`.**
+# Load it on top of this file, on the same branch, and the check fails on the
+# Frankfurt pair while this pair stays compliant in the same run. Load it and
+# nothing here changes: the two groups are independent, and the check judges
+# each one on its own routes.
+#
+# **What this file does not do.** It does not make the two circuits diverse.
+# `oms-vie-mil` and `oms-gva-mil` were already in different trenches, which is a
+# fact about the plant in `objects/12_geant_conduits.yml` and the conduit each
+# span records. The group is a promise written down about routes that already
+# keep it, which is the ordinary case an operator wants confirmed rather than
+# discovered.
+#
+# Scenario input rather than dataset: `objects/` holds no services at all, and
+# `tests/unit/test_repository_config.py` asserts that `.infrahub.yml` never
+# references this directory.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnDiversityGroup
+  data:
+    - name: dg-milan-feeds
+      description: The two northern feeds into Milan must not share a trench.
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnService
+  data:
+    - name: svc-mil-feed-vie-100g
+      description: Vienna to Milan, 100G transit. The north-east feed.
+      customer: NREN-IT
+      rate_gbps: 100
+      sla: gold
+      service_profile: ip-transit
+      endpoint_a: rtr-vie-01
+      endpoint_z: rtr-mil-01
+      diversity_group: dg-milan-feeds
+      member_of_groups:
+        - optical_services
+    - name: svc-mil-feed-gva-100g
+      description: Geneva to Milan, 100G transit. The north-west feed.
+      customer: NREN-IT
+      rate_gbps: 100
+      sla: gold
+      service_profile: ip-transit
+      endpoint_a: rtr-gva-01
+      endpoint_z: rtr-mil-01
+      diversity_group: dg-milan-feeds
+      member_of_groups:
+        - optical_services

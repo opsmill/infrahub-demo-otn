@@ -1,0 +1,157 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# The Paris to Madrid answer, as a branch.
+#
+# The OSNR check fails on the default branch: `oms-par-mad` is 1250 km over
+# 14 spans and it is short of OSNR by 0.535 dB in both directions. That is a
+# real finding about a real route, so the default branch keeps it.
+#
+# This file is the fix an engineer would propose. It adds counter-propagating
+# Raman pumps to the first three spans out of Paris, one per direction on each,
+# and it changes nothing else. Load it onto a branch, run the same check and it
+# passes; open a proposed change and the diff holds these six objects and no
+# edited margin anywhere.
+#
+# Three spans rather than two: two pumped spans close the section at +0.041 dB,
+# three carry it to +0.361 dB.
+#
+# The pumps are declared one per injection end on purpose: three at the A end of
+# the three spans and three at the B end. A counter-propagating pump amplifies
+# the direction of travel that runs towards the end it is injected at, so the
+# pair on a span covers both, and its combiner charges both directions whichever
+# way the light goes. A single-end deployment would fix one direction and make
+# the other worse.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnRamanPump
+  data:
+    - name: pump-par-mad-01
+      status: active
+      role: core
+      insertion_loss_mdb: 500
+      vendor: Generic
+      model: RP-C14
+      on_off_gain_mdb: 10000
+      injection_end: site_a
+      propagation: counter
+      span: span-par-mad-01
+    - name: pump-par-mad-02
+      status: active
+      role: core
+      insertion_loss_mdb: 500
+      vendor: Generic
+      model: RP-C14
+      on_off_gain_mdb: 10000
+      injection_end: site_b
+      propagation: counter
+      span: span-par-mad-01
+    - name: pump-par-mad-03
+      status: active
+      role: core
+      insertion_loss_mdb: 500
+      vendor: Generic
+      model: RP-C14
+      on_off_gain_mdb: 10000
+      injection_end: site_a
+      propagation: counter
+      span: span-par-mad-02
+    - name: pump-par-mad-04
+      status: active
+      role: core
+      insertion_loss_mdb: 500
+      vendor: Generic
+      model: RP-C14
+      on_off_gain_mdb: 10000
+      injection_end: site_b
+      propagation: counter
+      span: span-par-mad-02
+    - name: pump-par-mad-05
+      status: active
+      role: core
+      insertion_loss_mdb: 500
+      vendor: Generic
+      model: RP-C14
+      on_off_gain_mdb: 10000
+      injection_end: site_a
+      propagation: counter
+      span: span-par-mad-03
+    - name: pump-par-mad-06
+      status: active
+      role: core
+      insertion_loss_mdb: 500
+      vendor: Generic
+      model: RP-C14
+      on_off_gain_mdb: 10000
+      injection_end: site_b
+      propagation: counter
+      span: span-par-mad-03
+---
+# One monitor per pump, which is what the shipped nine Raman pumps already
+# carry and what these six were missing.
+#
+# `monitor_completeness` found the gap: this scenario used to load six pumps
+# that nothing could measure, and the check reported `9/15 Raman pumps` and
+# refused the change. That was the check working, not a false positive. A pump
+# with no monitor is exactly the case `src/infrahub_demo_otn/drift.py` says was
+# invisible to everything before it: "A device with no monitor is skipped rather
+# than reported as drifting."
+#
+# `measured_gain_mdb` is the pump's `on_off_gain_mdb` less the 300 mdB of droop
+# the generator applies to every stage, so 9700 against a configured 10000. The
+# same arithmetic and the same reading the nine shipped pumps carry, so the
+# drift report treats these six no differently.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnRamanMonitor
+  data:
+    - name: MON
+      device: pump-par-mad-01
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      pump_power_mdbm: 30000
+      measured_gain_mdb: 9700
+      back_reflection_mdb: 40000
+    - name: MON
+      device: pump-par-mad-02
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      pump_power_mdbm: 30000
+      measured_gain_mdb: 9700
+      back_reflection_mdb: 40000
+    - name: MON
+      device: pump-par-mad-03
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      pump_power_mdbm: 30000
+      measured_gain_mdb: 9700
+      back_reflection_mdb: 40000
+    - name: MON
+      device: pump-par-mad-04
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      pump_power_mdbm: 30000
+      measured_gain_mdb: 9700
+      back_reflection_mdb: 40000
+    - name: MON
+      device: pump-par-mad-05
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      pump_power_mdbm: 30000
+      measured_gain_mdb: 9700
+      back_reflection_mdb: 40000
+    - name: MON
+      device: pump-par-mad-06
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      pump_power_mdbm: 30000
+      measured_gain_mdb: 9700
+      back_reflection_mdb: 40000

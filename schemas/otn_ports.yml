@@ -1,0 +1,433 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/schema/latest.json
+#
+# Twelve concrete port kinds: seven that carry traffic and five that report on
+# the equipment they hang off.
+#
+# The seven traffic ports are inherit_from and nothing else. Restating an
+# attribute or a relationship there would let it drift from the generic and
+# break the premise that one query against OtnGenericPort returns every port
+# kind with the same shape.
+version: "1.0"
+
+# Two flat generics. Generics cannot inherit generics in Infrahub, so the
+# concrete monitors multi-inherit both plus OtnGenericPort, which is the shape
+# OtnAmplifierPort already uses for OtnGenericPort and OtnOpticalPort.
+#
+# human_friendly_id and uniqueness_constraints are not declared here. Both come
+# from OtnGenericPort, and a constraint on a generic binds across every kind
+# that inherits it, so (device, name) stays unique across all five monitors
+# taken together.
+generics:
+  - name: Monitor
+    namespace: Otn
+    description: The one fact every monitoring interface carries, whatever it measures.
+    label: Monitor
+    icon: mdi:gauge
+    include_in_menu: false
+    attributes:
+      # A reading with no timestamp is not a reading. This is a last known
+      # value, not a telemetry feed; the age is what makes drift meaningful.
+      - name: measured_at
+        kind: DateTime
+        optional: false
+        description: When this reading was taken.
+        order_weight: 1110
+
+  - name: ChannelMonitor
+    namespace: Otn
+    description: What a device that sees a band of channels reports about that band.
+    label: Channel monitor
+    icon: mdi:chart-histogram
+    include_in_menu: false
+    # A ROADM degree and a multiplexer report the same two numbers, so the two
+    # are declared once here rather than twice. The kinds stay distinct,
+    # because a degree and a multiplexer are different equipment and a query
+    # should be able to say which it means. It also leaves room for the two to
+    # diverge without a migration on loaded data.
+    #
+    # This generic does not inherit OtnMonitor. Generics do not inherit
+    # generics; the concrete kinds take both.
+    attributes:
+      - name: total_power_mdbm
+        kind: Number
+        parameters:
+          min_value: -40000
+          max_value: 30000
+        optional: false
+        description: Total power across all channels present, in millidecibel-milliwatts.
+        order_weight: 1300
+      - name: channel_count
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 96
+        optional: false
+        description: How many channels the monitor currently sees.
+        order_weight: 1310
+
+nodes:
+  - name: RouterPort
+    namespace: Otn
+    description: Grey optics on an IP router. Not on the C-band grid.
+    label: Router port
+    icon: mdi:ethernet
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnOpticalPort
+
+  - name: ClientPort
+    namespace: Otn
+    description: Transponder client side. Where grey light arrives.
+    label: Client port
+    icon: mdi:lan-connect
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnOpticalPort
+
+  - name: LinePort
+    namespace: Otn
+    description: Transponder DWDM line side. Where coloured light leaves.
+    label: Line port
+    icon: mdi:transit-connection
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnOpticalPort
+    relationships:
+      # The wavelength this port terminates, and the deletion boundary.
+      #
+      # Deleting a transponder already deletes this port: OtnGenericDevice.ports
+      # is kind: Component with on_delete: cascade, and a port has no meaning
+      # apart from the device it sits in. The deletion stops here.
+      #
+      # A carrier is not a component of a line port. It is a spectrum allocation
+      # on a route, holding a channel, a mode, its sections, its containers and
+      # possibly ODU switches, and it exists in the plan whether or not a box is
+      # currently lighting it. Cascading from this port would reach the carrier's
+      # containers and the services groomed into them, so pulling one transponder
+      # would destroy customer service records. It would also delete the
+      # wavelength out from under the line port at the far end, which is still
+      # installed: a carrier is terminated at both of its ends.
+      #
+      # Same policy as OtnService.diversity_group and OtnService.containers, for
+      # the same reason those two state.
+      #
+      # Light has direction, and that is not an argument for cascade here. A line
+      # port is a transceiver: every one of them carries both tx_power_mdbm and
+      # rx_sensitivity_mdbm, so there is no single transmitting end to own the
+      # wavelength. Cascade on a cardinality-one relationship fires from either
+      # port, so it would give two owners where the intuition asked for one.
+      # OtnOpticalCarrier holds no direction at all, deliberately: where this
+      # model needs direction it makes two objects, the way an amplifier hut
+      # does, and the budget engine evaluates a carrier both ways and takes the
+      # worse. Direction lives on the plant and on the path traversal, never on
+      # the wavelength.
+      #
+      # The model also already says "the light stopped" with status, which is
+      # planned, active or decommissioned. A planned carrier has no light and
+      # exists anyway. This kind is a spectrum allocation on a route, not the
+      # photons on it, and deleting a box must not silently release spectrum
+      # that channel_collision.py exists to police.
+      #
+      # There is a demo argument too, and it is the stronger one. A cascade makes
+      # the fault disappear. no-action leaves a lit carrier with nothing
+      # terminating it, which is visible and checkable, the shape
+      # monitor_completeness already works in.
+      - name: carrier
+        peer: OtnOpticalCarrier
+        label: Wavelength this port terminates
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_carrier__line_ports
+        on_delete: no-action
+        order_weight: 850
+
+  - name: RoadmAddDropPort
+    namespace: Otn
+    description: Local add and drop on a ROADM.
+    label: ROADM add/drop port
+    icon: mdi:call-split
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnOpticalPort
+
+  - name: RoadmDegreePort
+    namespace: Otn
+    description: Line-facing degree on a ROADM. One per direction.
+    label: ROADM degree port
+    icon: mdi:compass-outline
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnOpticalPort
+
+  - name: AmplifierPort
+    namespace: Otn
+    description: Amplifier input or output.
+    label: Amplifier port
+    icon: mdi:amplifier
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnOpticalPort
+
+  - name: TributaryPort
+    namespace: Otn
+    description: E1 or T1 G.703 electrical tributary. The only copper port here.
+    label: Tributary port
+    icon: mdi:cable-data
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnCopperPort
+
+  # The five monitors. They declare readings, because what a monitor measures is
+  # what distinguishes it. Eleven of the fourteen readings belong to exactly one
+  # family, so a single kind with a discriminator could not say which readings a
+  # monitor must carry and which it cannot take. Five kinds can, and the schema
+  # then refuses both halves: a missing reading, because the attribute is
+  # mandatory, and an impossible one, because the kind has no field for it.
+  - name: AmplifierMonitor
+    # Nothing here constrains which device kind a monitor may hang off, and that
+    # is measured rather than overlooked. Infrahub 1.11.0 refuses to let a
+    # concrete kind narrow the peer of a relationship it inherits, from either
+    # end, at schema check and before any load. OtnGenericPort.device peers
+    # OtnGenericDevice, so a receiver monitor on an amplifier is writable. The
+    # remaining option was a Python check, which is the layer these five kinds
+    # exist to leave, so the gap is accepted and stated instead. The generator
+    # that writes the monitors is the only thing that ever creates one.
+    namespace: Otn
+    description: The last reading taken from an amplifier's monitoring interface.
+    label: Amplifier monitor
+    icon: mdi:gauge
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnMonitor
+    order_by:
+      - name__value
+    attributes:
+      - name: input_power_mdbm
+        kind: Number
+        parameters:
+          min_value: -40000
+          max_value: 30000
+        optional: false
+        description: Total input power in millidecibel-milliwatts. -3.5 dBm is -3500.
+        order_weight: 1200
+      - name: input_power_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if input_power_mdbm__value is not none %}{{ input_power_mdbm__value / 1000 }} dBm{% endif %}
+        optional: true
+        description: Input power in dBm. Read-only, derived from input_power_mdbm.
+        order_weight: 1210
+      - name: output_power_mdbm
+        kind: Number
+        parameters:
+          min_value: -40000
+          max_value: 30000
+        optional: false
+        description: Total output power in millidecibel-milliwatts.
+        order_weight: 1220
+      - name: output_power_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if output_power_mdbm__value is not none %}{{ output_power_mdbm__value / 1000 }} dBm{% endif %}
+        optional: true
+        description: Output power in dBm. Read-only, derived from output_power_mdbm.
+        order_weight: 1230
+      # measured_gain_mdb is declared here and on OtnRamanMonitor, with
+      # identical bounds and an identical template. It cannot live on
+      # OtnMonitor, because that would put a gain field on the channel and
+      # receiver monitors, which is the failure these five kinds remove.
+      - name: measured_gain_mdb
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 40000
+        optional: false
+        description: Gain the amplifier is actually delivering, in millidecibels.
+        order_weight: 1240
+      - name: measured_gain_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if measured_gain_mdb__value is not none %}{{ measured_gain_mdb__value / 1000 }} dB{% endif %}
+        optional: true
+        description: Measured gain in dB. Read-only, derived from measured_gain_mdb.
+        order_weight: 1250
+      - name: tilt_mdb
+        kind: Number
+        parameters:
+          min_value: -5000
+          max_value: 5000
+        optional: false
+        description: Gain tilt across the band in millidecibels. Negative tilts the red end down.
+        order_weight: 1260
+
+  # No attributes of its own. Both readings come from OtnChannelMonitor, which
+  # OtnMuxDemuxMonitor takes too, so the pair is declared once.
+  - name: RoadmDegreeMonitor
+    namespace: Otn
+    description: The last reading taken from a ROADM degree's monitoring interface.
+    label: ROADM degree monitor
+    icon: mdi:gauge
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnMonitor
+      - OtnChannelMonitor
+    order_by:
+      - name__value
+
+  - name: MuxDemuxMonitor
+    namespace: Otn
+    description: The last reading taken from a multiplexer's monitoring interface.
+    label: Mux/demux monitor
+    icon: mdi:gauge
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnMonitor
+      - OtnChannelMonitor
+    order_by:
+      - name__value
+
+  - name: RamanMonitor
+    namespace: Otn
+    description: The last reading taken from a Raman pump's monitoring interface.
+    label: Raman monitor
+    icon: mdi:gauge
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnMonitor
+    order_by:
+      - name__value
+    attributes:
+      # The same declaration OtnAmplifierMonitor carries. Two kinds, one gain
+      # reading each, and no gain field on the three kinds that cannot produce
+      # one.
+      - name: measured_gain_mdb
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 40000
+        optional: false
+        description: Gain the amplifier is actually delivering, in millidecibels.
+        order_weight: 1240
+      - name: measured_gain_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if measured_gain_mdb__value is not none %}{{ measured_gain_mdb__value / 1000 }} dB{% endif %}
+        optional: true
+        description: Measured gain in dB. Read-only, derived from measured_gain_mdb.
+        order_weight: 1250
+      - name: pump_power_mdbm
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 40000
+        optional: false
+        description: Raman pump launch power in millidecibel-milliwatts.
+        order_weight: 1400
+      - name: back_reflection_mdb
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 60000
+        optional: false
+        description: Return loss seen by the pump, in millidecibels. A safety interlock reading.
+        order_weight: 1410
+
+  - name: ReceiverMonitor
+    namespace: Otn
+    description: The last reading taken from a transponder receiver's monitoring interface.
+    label: Receiver monitor
+    icon: mdi:gauge
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericPort
+      - OtnMonitor
+    order_by:
+      - name__value
+    attributes:
+      # OSNR sits here and on no other monitor kind. A coherent receiver's DSP
+      # computes it. An amplifier reports power, not OSNR, and after the split
+      # there is no field on an amplifier monitor to put it in.
+      - name: measured_osnr_mdb
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 50000
+        optional: false
+        description: OSNR the receiver reports, in millidecibels. 24.1 dB is 24100.
+        order_weight: 1500
+      - name: measured_osnr_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if measured_osnr_mdb__value is not none %}{{ measured_osnr_mdb__value / 1000 }} dB{% endif %}
+        optional: true
+        description: Measured OSNR in dB. Read-only, derived from measured_osnr_mdb.
+        order_weight: 1510
+      - name: rx_power_mdbm
+        kind: Number
+        parameters:
+          min_value: -40000
+          max_value: 10000
+        optional: false
+        description: Received power at the coherent front end, in millidecibel-milliwatts.
+        order_weight: 1520
+      # Parts per billion keeps a bit error rate an integer: 2.1e-3 is 2100000.
+      - name: pre_fec_ber_ppb
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 1000000000
+        optional: false
+        description: Pre-FEC bit error rate in parts per billion. 2.1e-3 is 2100000.
+        order_weight: 1530
+      - name: q_factor_mdb
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 30000
+        optional: false
+        description: Q factor in millidecibels.
+        order_weight: 1540
+      - name: cd_fs_per_nm
+        kind: Number
+        parameters:
+          min_value: -100000000
+          max_value: 100000000
+        optional: false
+        description: Chromatic dispersion the receiver compensated, in femtoseconds per nanometre.
+        order_weight: 1550
+      - name: dgd_fs
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 200000
+        optional: false
+        description: Differential group delay in femtoseconds.
+        order_weight: 1560

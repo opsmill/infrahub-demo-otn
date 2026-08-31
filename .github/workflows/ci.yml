@@ -1,0 +1,231 @@
+---
+# yamllint disable rule:truthy rule:line-length
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  UV_VERSION: "0.9.18"
+
+jobs:
+  files-changed:
+    name: Detect which files changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      python: ${{ steps.changes.outputs.python_all }}
+      yaml: ${{ steps.changes.outputs.yaml_all }}
+      markdown: ${{ steps.changes.outputs.markdown_all }}
+      schema: ${{ steps.changes.outputs.schema_all }}
+      documentation: ${{ steps.changes.outputs.documentation_all }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: opsmill/paths-filter@v3.0.2
+        id: changes
+        with:
+          token: ${{ github.token }}
+          filters: .github/file-filters.yml
+
+  python-lint:
+    if: needs.files-changed.outputs.python == 'true'
+    needs: ["files-changed"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both ends of requires-python, so the supported range stays honest.
+        # The upper bound is 3.14 because the Infrahub base image runs 3.14.
+        python-version: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync
+      - name: Check formatting
+        run: |
+          uv run ruff format --check --diff
+          uv run ruff check --select I .
+      - name: Lint
+        run: uv run ruff check
+      - name: Type check
+        run: uv run mypy src tests scripts
+
+  budget-unit-tests:
+    if: needs.files-changed.outputs.python == 'true'
+    needs: ["files-changed"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync
+      # No Infrahub needed. These always run, even when the stack is broken.
+      - run: uv run pytest tests/unit -v
+
+  yaml-lint:
+    if: needs.files-changed.outputs.yaml == 'true'
+    needs: ["files-changed"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync
+      - run: uv run yamllint -s .
+
+  markdown-lint:
+    if: needs.files-changed.outputs.markdown == 'true'
+    needs: ["files-changed"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: rvben/rumdl@v0
+        with:
+          config: pyproject.toml
+          report-type: annotations
+          fail-on-error: true
+
+  prose-lint:
+    # Not gated on markdown alone. The em dash rule and the excluded-vocabulary
+    # rule apply to Python docstrings, GraphQL comments and YAML descriptions
+    # too, and a job that only wakes for markdown would never see them.
+    needs: ["files-changed"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      # The optical vocabulary is seeded in
+      # .vale/styles/spelling-exceptions.txt so this does not become a game of
+      # adding one word per failed run.
+      #
+      # The path list matches VALE_PATHS in tasks.py. Keep the two in step.
+      - uses: errata-ai/vale-action@reviewdog
+        with:
+          files: '["README.md", "docs/docs", "src", "tests", "scripts", "tasks.py", "checks", "generators", "transforms", "queries", "schemas", "objects", "menus", "demo"]'
+          fail_on_error: true
+          reporter: github-pr-check
+
+  docker-build:
+    if: needs.files-changed.outputs.python == 'true'
+    needs: ["files-changed"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      # The shared package reaching the worker is the assumption every check,
+      # generator and transform rests on. Prove it on every change.
+      - name: Build the custom Infrahub image
+        run: docker build --build-arg INFRAHUB_BASE_VERSION=1.11.0 -t infrahub-demo-otn:ci .
+      - name: Verify the worker can import the shared package
+        run: |
+          docker run --rm --entrypoint /.venv/bin/python infrahub-demo-otn:ci -c "
+          from infrahub_demo_otn.units import db_to_mdb
+          assert db_to_mdb(0.21) == 210
+          print('shared package importable in the worker image')
+          "
+
+  schema-validate:
+    if: needs.files-changed.outputs.schema == 'true'
+    needs: ["files-changed"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync
+      # Formatting is a gate so schema diffs stay reviewable instead of
+      # reshuffling keys on every edit.
+      - run: uv run infrahubctl schema format --check schemas/
+      # NOTE: there is no `infrahubctl schema validate`. The subcommands are
+      # load / check / export / list / show / format, and `check` needs a
+      # running server. Semantic schema validation therefore happens in the
+      # integration-test job, not here. This job is the offline gate only.
+      - name: Schema files are well-formed YAML
+        run: uv run python -c "import pathlib,yaml; [yaml.safe_load(p.read_text()) for p in pathlib.Path('schemas').rglob('*.yml')]"
+
+  integration-test:
+    # A demo whose scenarios are not executed by CI is a demo that is already
+    # broken and nobody has noticed.
+    #
+    # It runs only when the lint jobs pass, because starting Infrahub and loading
+    # 1265 objects to discover a syntax error is an expensive way to find one.
+    if: |
+      always() && !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      (needs.files-changed.outputs.python == 'true' || needs.files-changed.outputs.schema == 'true')
+    needs: ["files-changed", "python-lint", "yaml-lint", "schema-validate", "budget-unit-tests"]
+    runs-on: ubuntu-latest
+    # The local load is 56 seconds for 1265 objects, and the whole job measures
+    # about 13 minutes locally now that it also registers the repository and
+    # runs a proposed change through the pipeline. Container start, the image
+    # build and a slower runner dominate. A job with no timeout hangs for six
+    # hours; a job with an optimistic one flakes.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync
+      # The stack runs this image, not the vanilla one, because every check,
+      # transform and generator imports `infrahub_demo_otn` and the vanilla
+      # image has no such module. `tests/integration/conftest.py` points
+      # testcontainers at it and fails naming this step when it is absent.
+      #
+      # Build it here rather than reusing the docker-build job's image: a stale
+      # local image is exactly how the repository import failed the first time
+      # it was attempted, with `No module named 'infrahub_demo_otn.impact'`, and
+      # that job's import probe only covers `infrahub_demo_otn.units`.
+      - name: Build the image the testcontainers stack runs
+        run: uv run invoke build
+      # infrahub-testcontainers is pinned to 1.11.0, the same version
+      # docker-compose runs, so this exercises the version the demo ships
+      # against rather than whatever is newest.
+      - name: Load the dataset, register the repository, run the pipeline
+        run: uv run pytest tests/integration -v --color=yes
+
+  documentation:
+    if: |
+      always() && !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      needs.files-changed.outputs.documentation == 'true'
+    needs: ["files-changed", "python-lint", "yaml-lint", "markdown-lint"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ./docs
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build

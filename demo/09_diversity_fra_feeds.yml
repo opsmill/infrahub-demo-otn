@@ -1,0 +1,101 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Scenario input: a diversity declaration that does not hold.
+#
+# **Load this on top of `demo/08_diversity_mil_feeds.yml`, on the same branch.**
+# It does not need that file to load, but the point of the pair is one run
+# reporting a satisfied group and a violated one side by side.
+#
+# **What this demonstrates.** Two circuits an operator promised would be diverse
+# route through the same trench, and the proposed change says so before the
+# branch merges. Amsterdam to Frankfurt takes `oms-ams-fra` and Paris to
+# Frankfurt takes `oms-par-fra`. Different cities, different sections, and both
+# of them enter Frankfurt through `cd-fra-north`. One cut in that duct takes
+# both circuits.
+#
+# **Expected outcome, object by object.**
+#
+# `dg-frankfurt-feeds` loads. It is the declaration and it is what makes the
+# check speak at all.
+#
+# `svc-fra-feed-ams-100g` provisions on `oms-ams-fra`, one section, and lights
+# `oc-svc-fra-feed-ams-100g`. Six spans, two of them ducted, in
+# `cd-ams-southeast` and `cd-fra-north`.
+#
+# `svc-fra-feed-par-100g` provisions on `oms-par-fra`, one section, and lights
+# `oc-svc-fra-feed-par-100g`. Seven spans, one of them ducted, in
+# `cd-fra-north`.
+#
+# `invoke check --name diversity` then **fails**, which is the expected result
+# and not a fault in this file:
+#
+#     svc-fra-feed-ams-100g and svc-fra-feed-par-100g are both in diversity
+#     group dg-frankfurt-feeds and their routes share cd-fra-north. One cut in
+#     that duct takes both, so the diversity this group declares does not hold
+#
+# With `08` loaded underneath, the same run adds "Checked 2 diversity group(s)
+# over 4 routed service(s). 1 pair(s) share a conduit against a declaration and
+# 0 member(s) have no route yet." The Milan pair is judged and passes in the
+# same breath as the Frankfurt pair is judged and fails.
+#
+# **The check reports the broken promise and does not repair it.** Both circuits
+# took the shortest route they had, and the only section reaching Frankfurt from
+# either of those cities in one hop runs through `cd-fra-north`. Amsterdam does
+# have a longer way round, through Hamburg and Berlin, whose ducts are
+# `cd-ams-northeast`, `cd-ber-north` and `cd-ber-south`; nothing here asks for
+# it, because a diversity requirement is not a routing constraint in this model
+# and pretending otherwise would hide which of the two the check is.
+#
+# **Two ways to make the check pass, and only one of them is a fix.** Routing
+# one circuit off `cd-fra-north` satisfies the declaration.
+# Deleting `dg-frankfurt-feeds`, or clearing `diversity_group` on one service,
+# also turns the check green, and it does that by withdrawing the promise rather
+# than keeping it. `demo/08_diversity_mil_feeds.yml` is the honest green: the
+# group is present, both routes are known, and they are disjoint.
+#
+# **Why the exposure report is not enough on its own.**
+# `transforms/srlg_exposure.py` already lists `cd-fra-north` against both
+# circuits, and it lists every other shared duct in the network too, including
+# the ones an operator accepted deliberately. That is the right instrument for
+# "who shares a trench with whom" and the wrong one for blocking a merge. The
+# check is narrow on purpose: it speaks only where somebody wrote a requirement
+# down.
+#
+# Scenario input rather than dataset, for the same reason as every other file
+# here: `objects/` holds no services.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnDiversityGroup
+  data:
+    - name: dg-frankfurt-feeds
+      description: The western feeds into Frankfurt must not share a trench. They do.
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnService
+  data:
+    - name: svc-fra-feed-ams-100g
+      description: Amsterdam to Frankfurt, 100G transit. Enters Frankfurt through cd-fra-north.
+      customer: NREN-DE
+      rate_gbps: 100
+      sla: gold
+      service_profile: ip-transit
+      endpoint_a: rtr-ams-01
+      endpoint_z: rtr-fra-01
+      diversity_group: dg-frankfurt-feeds
+      member_of_groups:
+        - optical_services
+    - name: svc-fra-feed-par-100g
+      description: Paris to Frankfurt, 100G transit. Enters Frankfurt through cd-fra-north too.
+      customer: NREN-DE
+      rate_gbps: 100
+      sla: gold
+      service_profile: ip-transit
+      endpoint_a: rtr-par-01
+      endpoint_z: rtr-fra-01
+      diversity_group: dg-frankfurt-feeds
+      member_of_groups:
+        - optical_services

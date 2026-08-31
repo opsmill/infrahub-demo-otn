@@ -1,0 +1,204 @@
+# The ODU layer, once, for the ODU map transform.
+#
+# Its own file rather than a widening of `network_map.gql`, and the reason is
+# cost. That query pulls spans, fibre types, both amplifier chains, Raman pumps
+# and the whole mode catalog to compute a directional OSNR margin per section.
+# This one budgets nothing, and fifteen renders hang off the fifteen points of
+# presence. The absence costs one column: no spans here, so no kilometre figure
+# and no span-boundary dots.
+#
+# Containers one level deep, which is the whole tree this feature writes.
+# GraphQL cannot express unbounded recursion, and `containers.free_slots`
+# already takes child occupancies at any depth, so a deeper tree costs a level.
+query OduMap($site: String!) {
+  # **No inline fragments below, and that is verified rather than assumed.**
+  # `containers`, `child_containers`, `client_signal`, `sections`, `roadm_a`,
+  # `roadm_b` and `site` all peer concrete nodes. `OtnPathHop.element` is the one
+  # union-typed relationship in this schema and nothing here touches it. A
+  # traversal through a generic peer without inline fragments passes
+  # `infrahubctl schema check` and then leaves the repository in `error-import`
+  # with no other signal.
+  #
+  # This is the one copy of that trap. `queries/diversity.gql`,
+  # `queries/srlg_exposure.gql`, `queries/container_capacity.gql` and
+  # `queries/service_trace.gql` cite it rather than repeat it.
+  focus_site: OtnSite(shortname__value: $site) {
+    edges {
+      node {
+        id
+        __typename
+        shortname {
+          value
+        }
+      }
+    }
+  }
+  OtnSite(site_type__value: "pop") {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        shortname {
+          value
+        }
+        site_type {
+          value
+        }
+        latitude_microdeg {
+          value
+        }
+        longitude_microdeg {
+          value
+        }
+        tags {
+          edges {
+            node {
+              name {
+                value
+              }
+              description {
+                value
+              }
+            }
+          }
+        }
+        # Cardinality one, so `node` and never `edges`. See network_map.gql for
+        # what the wrong shape costs.
+        facility {
+          node {
+            name {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnOpticalMultiplexSection {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        # The site each ROADM stands in, which is the only thing this query wants
+        # from a ROADM. The ROADM's own name is an identifier and nothing
+        # downstream recovers a position or a role from one.
+        roadm_a {
+          node {
+            name {
+              value
+            }
+            site {
+              node {
+                shortname {
+                  value
+                }
+              }
+            }
+          }
+        }
+        roadm_b {
+          node {
+            name {
+              value
+            }
+            site {
+              node {
+                shortname {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnOpticalCarrier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        # The map reads neither `status` nor a client signal name: a carrier is
+        # lit when it holds a container, whatever its status says, and no panel
+        # column names a client. Both are here because this query is also what an
+        # operator runs by hand to check a figure the map drew, and both are one
+        # field on a node already being fetched.
+        status {
+          value
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+        # The line containers, then their children. `tributary_slot_capacity` is
+        # what a container offers its children and `tributary_slots` is what it
+        # takes in its parent. Two numbers because the capacity rule needs both,
+        # and collapsing them is the mistake `containers.py` is written against.
+        containers {
+          edges {
+            node {
+              name {
+                value
+              }
+              odu_type {
+                value
+              }
+              tributary_slots {
+                value
+              }
+              tributary_slot_capacity {
+                value
+              }
+              client_signal {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+              child_containers {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    odu_type {
+                      value
+                    }
+                    tributary_slots {
+                      value
+                    }
+                    tributary_slot_capacity {
+                      value
+                    }
+                    client_signal {
+                      node {
+                        name {
+                          value
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

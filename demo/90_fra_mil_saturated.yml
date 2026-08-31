@@ -1,0 +1,339 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Scenario input: Frankfurt to Milan with the spectrum gone and the slots not.
+#
+# **What this demonstrates.** The optical layer and the digital layer run out
+# independently, and a corridor with no spectrum left can still carry a new
+# circuit. This file does two things to `oms-fra-mil`. Three more carriers take
+# it from 4,134,400 MHz of the 4,800,000 MHz C-band to 4,267,600 MHz, and the
+# 532,400 MHz that remains is 29 blocks of which the widest is 38,000 MHz, so no
+# wavelength of any seeded mode can be lit there at all. Then one 100G tenant is
+# groomed onto each of the twenty-two wavelengths that run Frankfurt to Milan and
+# nowhere else. Each of those twenty-two is a 400G carrier holding an `ODUC4`
+# offering 320 tributary slots, so one 80-slot tenant leaves 240 free on every
+# one of them.
+#
+# **Three carriers, not twenty-five, and the number is the story.** Before
+# feature 021 the corridor was read as 71 of 96 channels and this file added the
+# 25 anchors that were unclaimed. A carrier occupies a width, so those 25 anchors
+# were never 25 places to put a wavelength: the shipped plan already overlapped
+# itself. The re-seeded plan fits, and what it leaves on this corridor is one
+# usable block of 152,800 MHz. Three 100G carriers spend it, or one 400G would,
+# and after either there is nothing left to light.
+#
+# **Two services then ask for that corridor and get opposite answers.** Both are
+# expected outcomes and both are the point:
+#
+# `svc-fra-mil-ai-400g` is **refused, reason `no-slots`**. Its client is a
+# `400GBASE-FR4`, which maps into an `ODUC4` and needs all 320 tributary slots of
+# a wavelength. The roomiest wavelength on the corridor has 240. Nothing can be
+# lit for it either, because the spectrum is gone. Its four millisecond budget
+# rules out the Geneva detour at 4853.605 us, so this corridor is the only route
+# it has, and the refusal names the tightest container it did not fit with both
+# slot figures on it.
+#
+# That refusal is **accepted**, so the walkthrough ends in a merge rather than a
+# blocked branch. This file sets `refusal_accepted: true` on the AI service
+# below, beside the tenant that provisions, because this is the file that causes
+# the refusal. The scenario exists to show two answers on one corridor, and a red
+# pipeline would say the second answer is a fault. `demo/06_mad_waw_16qam.yml` is
+# where the gate is seen firing.
+#
+# `svc-fra-mil-transit-100g` **provisions**. Its client is a `100GBASE-LR4` in an
+# `ODU4`, 80 slots, and 240 are free on every one of the twenty-two wavelengths.
+# It grooms into `odu-line-oc-ch047-fra-mil`, first of twenty-two tied at 240
+# free and so picked on name, and it consumes no spectrum at all: no carrier is
+# created and its optical path points at `oc-ch047-fra-mil`.
+#
+# `invoke demo-refusal` runs the 400G first. The refusal quotes the tightest
+# container, and grooming the 100G in first would take that container to 160 free
+# and move the figure.
+#
+# **Which layer refuses, and why it has to be the slot layer.** The 400G is
+# refused on tributary slots. Grooming is tried before the channel requirement
+# applies, so the direct corridor comes back as a candidate with no anchor, and
+# the refusal names the figure that actually blocks the service: 320 slots
+# wanted, 240 free on the roomiest wavelength. If the base dataset had left this
+# corridor with no anchor of its own the refusal would land on spectrum instead
+# and the scenario would lose the half it exists for. That is why the seeded plan
+# stops one block short of full and this file is what spends the block.
+#
+# **The refusal is engineered and it has to be.** Twenty-two tenants is not
+# decoration. A single wavelength left empty anywhere on the corridor has 320
+# free slots and takes the 400G client, so every one of the twenty-two has to
+# hold something before the refusal is reachable. Take one tenant out and the
+# 400G service provisions.
+#
+# None of this is a fact about the network, which is why it is NOT in `objects/`:
+# loading it with the dataset would make the published 4,134,400 MHz false and
+# would fail `tests/unit/test_geant_dataset.py`.
+# `tests/unit/test_repository_config.py` asserts that `.infrahub.yml` does not
+# reference this directory.
+#
+# Channel references are quoted strings: a bare integer is rejected before the
+# write. The three fill carriers ride the narrowest seeded mode, because the
+# block they land in takes three of those and only one of anything wider.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnOpticalCarrier
+  data:
+    - name: oc-ch094-fra-mil
+      description: Frankfurt to Milan on channel 94, corridor fill.
+      status: active
+      channel: '94'
+      optical_mode: DP-QPSK 32GBd 100G
+      sections:
+        - oms-fra-mil
+    - name: oc-ch095-fra-mil
+      description: Frankfurt to Milan on channel 95, corridor fill.
+      status: active
+      channel: '95'
+      optical_mode: DP-QPSK 32GBd 100G
+      sections:
+        - oms-fra-mil
+    - name: oc-ch096-fra-mil
+      description: Frankfurt to Milan on channel 96, corridor fill.
+      status: active
+      channel: '96'
+      optical_mode: DP-QPSK 32GBd 100G
+      sections:
+        - oms-fra-mil
+
+---
+# One 100G tenant on every wavelength that runs Frankfurt to Milan and nowhere
+# else. Twenty-two of them, one per line container on that route, each an `ODU4`
+# of 80 slots inside an `ODUC4` of 320. That is what leaves 240 free everywhere
+# and 240 is the figure the refusal quotes.
+#
+# The three fill carriers above hold no line container and so take no tenant.
+# They exist to spend the spectrum, not to offer slots, and a container on one of
+# them would be a wavelength with 320 free slots sitting on the route the 400G
+# asks for, which is the one thing that would make the refusal disappear.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnContainer
+  data:
+    - name: odu-fill-ch047-fra-mil
+      description: 100G tenant already groomed into oc-ch047-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch047-fra-mil
+    - name: odu-fill-ch049-fra-mil
+      description: 100G tenant already groomed into oc-ch049-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch049-fra-mil
+    - name: odu-fill-ch051-fra-mil
+      description: 100G tenant already groomed into oc-ch051-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch051-fra-mil
+    - name: odu-fill-ch053-fra-mil
+      description: 100G tenant already groomed into oc-ch053-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch053-fra-mil
+    - name: odu-fill-ch055-fra-mil
+      description: 100G tenant already groomed into oc-ch055-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch055-fra-mil
+    - name: odu-fill-ch057-fra-mil
+      description: 100G tenant already groomed into oc-ch057-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch057-fra-mil
+    - name: odu-fill-ch059-fra-mil
+      description: 100G tenant already groomed into oc-ch059-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch059-fra-mil
+    - name: odu-fill-ch061-fra-mil
+      description: 100G tenant already groomed into oc-ch061-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch061-fra-mil
+    - name: odu-fill-ch063-fra-mil
+      description: 100G tenant already groomed into oc-ch063-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch063-fra-mil
+    - name: odu-fill-ch065-fra-mil
+      description: 100G tenant already groomed into oc-ch065-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch065-fra-mil
+    - name: odu-fill-ch067-fra-mil
+      description: 100G tenant already groomed into oc-ch067-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch067-fra-mil
+    - name: odu-fill-ch069-fra-mil
+      description: 100G tenant already groomed into oc-ch069-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch069-fra-mil
+    - name: odu-fill-ch071-fra-mil
+      description: 100G tenant already groomed into oc-ch071-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch071-fra-mil
+    - name: odu-fill-ch073-fra-mil
+      description: 100G tenant already groomed into oc-ch073-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch073-fra-mil
+    - name: odu-fill-ch075-fra-mil
+      description: 100G tenant already groomed into oc-ch075-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch075-fra-mil
+    - name: odu-fill-ch077-fra-mil
+      description: 100G tenant already groomed into oc-ch077-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch077-fra-mil
+    - name: odu-fill-ch079-fra-mil
+      description: 100G tenant already groomed into oc-ch079-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch079-fra-mil
+    - name: odu-fill-ch081-fra-mil
+      description: 100G tenant already groomed into oc-ch081-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch081-fra-mil
+    - name: odu-fill-ch083-fra-mil
+      description: 100G tenant already groomed into oc-ch083-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch083-fra-mil
+    - name: odu-fill-ch085-fra-mil
+      description: 100G tenant already groomed into oc-ch085-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch085-fra-mil
+    - name: odu-fill-ch087-fra-mil
+      description: 100G tenant already groomed into oc-ch087-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch087-fra-mil
+    - name: odu-fill-ch089-fra-mil
+      description: 100G tenant already groomed into oc-ch089-fra-mil, corridor fill.
+      odu_type: ODU4
+      mapping_mode: GMP
+      tributary_slots: 80
+      client_signal: 100GBASE-LR4
+      parent_container: odu-line-oc-ch089-fra-mil
+
+---
+# The service that provisions on a corridor with no spectrum left. It carries no
+# status, so it starts `planned` from the schema default and the generator writes
+# what it decided, the same as every other scenario service.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnService
+  data:
+    - name: svc-fra-mil-transit-100g
+      description: Frankfurt to Milan, 100G IP transit onto a corridor with no spectrum left.
+      customer: NREN-IT
+      rate_gbps: 100
+      sla: silver
+      service_profile: ip-transit
+      # The same four milliseconds the AI service carries, so this service has
+      # the same single route and the two outcomes differ only in how many slots
+      # the client needs.
+      max_latency_ns: 4000000
+      endpoint_a: rtr-fra-01
+      endpoint_z: rtr-mil-01
+      member_of_groups:
+        - optical_services
+
+    # The signature on the refusal this file creates. `svc-fra-mil-ai-400g` is
+    # defined in `demo/00_services.yml` and provisions there at step 4; it is
+    # this file, six scenarios later, that takes the corridor away from it. So
+    # the acceptance belongs here, with the cause, and not in the file that
+    # merely names the service.
+    #
+    # It cannot live in `00_services.yml` even if somebody wanted it there. The
+    # generator clears `refusal_accepted` on the provisioning path, so a flag set
+    # at step 1 is gone by the end of step 4, and in between it would sit on a
+    # `planned` service with no refusal on it, which
+    # `checks/provisionable.py` reports as an error in its own right. Set here it
+    # lands seconds before the generator refuses the service, and the generator
+    # never clears acceptance while a service stays refused.
+    #
+    # `refusal_accepted` is the one field a person sets and the generator does
+    # not. On a scenario file the person is the scenario's author, saying that
+    # "no slots on this corridor" is the answer the file was written to get.
+    #
+    # **The whole definition is restated and it has to be.** This block is an
+    # update, matched on `name__value`, which is `OtnService`'s human friendly
+    # id, and the object loader still requires every mandatory attribute and
+    # relationship on it: `infrahubctl object load` rejects a name-and-flag entry
+    # with "customer is mandatory". The other fields are restated with it so no
+    # optional value is left to the loader's discretion. `max_latency_ns` is the
+    # one that matters most: those four milliseconds are what rule out the Geneva
+    # detour and leave this corridor as the only route the service has. Lose it
+    # and the service provisions and the scenario says nothing.
+    #
+    # **Keep these nine lines equal to the ones in `demo/00_services.yml`.**
+    # `tests/unit/test_demo_scenarios.py` fails if they drift.
+    - name: svc-fra-mil-ai-400g
+      description: Frankfurt to Milan, 400G distributed training interconnect.
+      customer: EuroHPC-Leonardo
+      rate_gbps: 400
+      sla: gold
+      service_profile: ai-training-dci
+      max_latency_ns: 4000000
+      endpoint_a: rtr-fra-01
+      endpoint_z: rtr-leonardo-mil-01
+      refusal_accepted: true
+      member_of_groups:
+        - optical_services

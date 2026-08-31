@@ -1,0 +1,24 @@
+---
+extends: default
+
+ignore: |
+  .venv/
+  .specify/
+  .claude/
+  docs/node_modules/
+  docs/pnpm-lock.yaml
+  uv.lock
+  # A whole second copy of this repository, written by `invoke load-repository`
+  # for the containers to clone. Linting it lints everything twice.
+  .remote/
+
+rules:
+  line-length:
+    max: 180
+    level: warning
+  truthy:
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  document-start:
+    present: true

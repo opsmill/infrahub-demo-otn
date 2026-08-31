@@ -1,0 +1,416 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/schema/latest.json
+#
+# The five flat generics every OTN kind composes from.
+#
+# None of them inherits from another. Infrahub's GenericSchemaWrite has no
+# inherit_from key at all, so a generic taxonomy is composed by listing several
+# generics on a concrete node, never by stacking them.
+#
+# OtnOpticalElement carries no relationships and no identity keys, because a
+# fiber span inherits it on its own and a span is not a device and has no ports.
+version: "1.0"
+
+generics:
+  - name: GenericPort
+    namespace: Otn
+    description: Any port on any OTN device. The connection surface of the network.
+    label: Port
+    icon: mdi:ethernet
+    include_in_menu: false
+    human_friendly_id:
+      - device__name__value
+      - name__value
+    order_by:
+      - name__value
+    display_label: "{{ device__name__value }} {{ name__value }}"
+    uniqueness_constraints:
+      - ["device", "name__value"]
+    attributes:
+      - name: name
+        kind: Text
+        parameters:
+          max_length: 64
+          regex: "^[A-Za-z0-9._/-]+$"
+        optional: false
+        description: Port identifier as the vendor labels it, such as 1/1/1.
+        order_weight: 1000
+      - name: role
+        kind: Dropdown
+        default_value: spare
+        choices:
+          - name: client
+            label: Client
+            color: "#4caf50"
+          - name: line
+            label: Line
+            color: "#2196f3"
+          - name: add_drop
+            label: Add/drop
+            color: "#9c27b0"
+          - name: degree
+            label: Degree
+            color: "#673ab7"
+          - name: booster
+            label: Booster
+            color: "#ff9800"
+          - name: preamp
+            label: Pre-amplifier
+            color: "#ffc107"
+          - name: tributary
+            label: Tributary
+            color: "#795548"
+          - name: spare
+            label: Spare
+            color: "#9e9e9e"
+          - name: monitor
+            label: Monitor
+            description: A monitoring interface, not a traffic-carrying port.
+            color: "#607d8b"
+        optional: false
+        order_weight: 1100
+      - name: enabled
+        kind: Boolean
+        default_value: true
+        optional: false
+        order_weight: 1200
+      - name: admin_state
+        kind: Dropdown
+        default_value: up
+        choices:
+          - name: up
+            label: Up
+            color: "#4caf50"
+          - name: down
+            label: Down
+            color: "#f44336"
+          - name: testing
+            label: Testing
+            color: "#ff9800"
+        optional: false
+        description: RFC 2863 ifAdminStatus. What the operator asked for.
+        order_weight: 1300
+      - name: oper_state
+        kind: Dropdown
+        default_value: down
+        choices:
+          - name: up
+            label: Up
+            color: "#4caf50"
+          - name: down
+            label: Down
+            color: "#f44336"
+          - name: testing
+            label: Testing
+            color: "#ff9800"
+          - name: dormant
+            label: Dormant
+            color: "#2196f3"
+          - name: unknown
+            label: Unknown
+            color: "#9e9e9e"
+        optional: false
+        description: RFC 2863 ifOperStatus subset. What the port actually does.
+        order_weight: 1400
+    relationships:
+      - name: device
+        peer: OtnGenericDevice
+        kind: Parent
+        cardinality: one
+        optional: false
+        identifier: otn_device__ports
+        order_weight: 800
+      # Declared once. The relationship is symmetric and self-referencing, so
+      # both ends are the same edge; the explicit identifier is what stops
+      # Infrahub deriving a different string per side and splitting it into two
+      # phantom one-way links. Immutable after the first load: changing the
+      # identifier would orphan every connection already recorded.
+      - name: connected_to
+        peer: OtnGenericPort
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_port__connected_to
+        on_delete: no-action
+        order_weight: 900
+
+  - name: OpticalElement
+    namespace: Otn
+    description: Anything light passes through and loses power in.
+    label: Optical element
+    icon: mdi:blur-linear
+    include_in_menu: false
+    # No order_by and no human_friendly_id. `order_by: [name__value]` is
+    # rejected at load with "OtnOpticalElement.order_by: attribute 'name' not
+    # defined on this schema": the key resolves against the generic's own
+    # attributes, not against what its members inherit, and this generic
+    # declares none. So a hop's element is written by UUID and no object file
+    # can name one. Every member kind carries its own order_by.
+    attributes:
+      - name: insertion_loss_mdb
+        kind: Number
+        default_value: 0
+        parameters:
+          min_value: 0
+          max_value: 60000
+        optional: false
+        description: Insertion loss in millidecibels, 0 to 60 dB. No Float kind exists.
+        order_weight: 1500
+      - name: insertion_loss_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if insertion_loss_mdb__value is not none %}{{ insertion_loss_mdb__value / 1000 }} dB{% endif %}
+        optional: true
+        description: Insertion loss in dB. Read-only, derived from insertion_loss_mdb.
+        order_weight: 1510
+      - name: vendor
+        kind: Text
+        parameters:
+          max_length: 64
+        optional: true
+        order_weight: 1600
+      - name: model
+        kind: Text
+        parameters:
+          max_length: 64
+        optional: true
+        order_weight: 1700
+      # Adding a choice here is not enough. Every kind that overrides this
+      # attribute restates the whole list, and the server accepts a restatement
+      # that is one choice short without a word; the divergence surfaces only
+      # when an object writes the missing value. The tenth choice, `odu_switch`,
+      # cost nine blocks: this one, the seven overrides in otn_devices.yml, the
+      # span's in otn_plant.yml, and the pinned list in
+      # `tests/unit/test_schema_contract.py`, which is the only thing that will
+      # tell you a block was missed.
+      - name: element_class
+        kind: Dropdown
+        choices:
+          - name: transponder
+            label: Transponder
+            color: "#2196f3"
+          - name: roadm
+            label: ROADM
+            color: "#9c27b0"
+          - name: amplifier
+            label: Amplifier
+            color: "#ff9800"
+          - name: mux_demux
+            label: Mux/demux
+            color: "#00bcd4"
+          - name: patch_panel
+            label: Patch panel
+            color: "#9e9e9e"
+          - name: fiber_span
+            label: Fiber span
+            color: "#4caf50"
+          - name: splitter
+            label: Splitter
+            color: "#8bc34a"
+          - name: attenuator
+            label: Attenuator
+            color: "#795548"
+          - name: raman_pump
+            label: Raman pump
+            color: "#e91e63"
+          - name: odu_switch
+            label: ODU switch
+            color: "#673ab7"
+        optional: false
+        description: What the optical budget engine branches on.
+        order_weight: 1800
+
+  - name: GenericDevice
+    namespace: Otn
+    description: Anything racked at a site.
+    label: Device
+    icon: mdi:server
+    include_in_menu: false
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        parameters:
+          max_length: 64
+          regex: "^[A-Za-z0-9._-]+$"
+        optional: false
+        order_weight: 1000
+      - name: status
+        kind: Dropdown
+        default_value: active
+        choices:
+          - name: planned
+            label: Planned
+            color: "#2196f3"
+          - name: provisioning
+            label: Provisioning
+            color: "#ff9800"
+          - name: active
+            label: Active
+            color: "#4caf50"
+          - name: maintenance
+            label: Maintenance
+            color: "#ffc107"
+          - name: decommissioned
+            label: Decommissioned
+            color: "#9e9e9e"
+        optional: false
+        order_weight: 1100
+      - name: role
+        kind: Dropdown
+        choices:
+          - name: core
+            label: Core
+            color: "#3f51b5"
+          - name: edge
+            label: Edge
+            color: "#2196f3"
+          - name: access
+            label: Access
+            color: "#00bcd4"
+          - name: passive
+            label: Passive
+            color: "#9e9e9e"
+        optional: false
+        order_weight: 1200
+    relationships:
+      # Not a Parent: Parent would force optional: false, and a device has to be
+      # creatable before its site record exists.
+      - name: site
+        peer: OtnSite
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_site__devices
+        on_delete: no-action
+        order_weight: 800
+      - name: ports
+        peer: OtnGenericPort
+        kind: Component
+        cardinality: many
+        optional: true
+        identifier: otn_device__ports
+        on_delete: cascade
+        order_weight: 900
+
+  - name: OpticalPort
+    namespace: Otn
+    description: Optical-specific port properties.
+    label: Optical port
+    icon: mdi:lightbulb-on-outline
+    include_in_menu: false
+    attributes:
+      # Optional because a grey router port is not on the C-band grid. The
+      # bounds are the two endpoints of the 96-channel 50 GHz grid in units.py,
+      # asserted equal by tests/unit/test_schema_contract.py.
+      - name: center_frequency_mhz
+        kind: Number
+        parameters:
+          min_value: 191350000
+          max_value: 196100000
+        optional: true
+        description: ITU-T G.694.1 centre frequency in MHz. No Float kind exists.
+        order_weight: 1600
+      - name: center_frequency_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if center_frequency_mhz__value is not none %}{{ center_frequency_mhz__value / 1000000 }} THz{% endif %}
+        optional: true
+        description: Centre frequency in THz. Empty on a grey port, which has none.
+        order_weight: 1610
+      - name: tx_power_mdbm
+        kind: Number
+        parameters:
+          min_value: -30000
+          max_value: 30000
+        optional: true
+        description: Transmit power in milli-dBm, -30 to +30 dBm.
+        order_weight: 1700
+      - name: tx_power_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if tx_power_mdbm__value is not none %}{{ tx_power_mdbm__value / 1000 }} dBm{% endif %}
+        optional: true
+        description: Transmit power in dBm. Read-only, derived from tx_power_mdbm.
+        order_weight: 1710
+      - name: rx_sensitivity_mdbm
+        kind: Number
+        parameters:
+          min_value: -40000
+          max_value: 10000
+        optional: true
+        description: Receiver sensitivity in milli-dBm, -40 to +10 dBm.
+        order_weight: 1800
+      - name: rx_sensitivity_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if rx_sensitivity_mdbm__value is not none %}{{ rx_sensitivity_mdbm__value / 1000 }} dBm{% endif %}
+        optional: true
+        description: Receiver sensitivity in dBm. Derived from rx_sensitivity_mdbm.
+        order_weight: 1810
+      - name: connector_type
+        kind: Text
+        enum:
+          - LC
+          - SC
+          - MPO-12
+          - MPO-16
+          - FC
+          - E2000
+        optional: true
+        order_weight: 1900
+
+  - name: CopperPort
+    namespace: Otn
+    description: Electrical port properties for G.703 tributaries.
+    label: Copper port
+    icon: mdi:cable-data
+    include_in_menu: false
+    attributes:
+      # kbps, not Mbps. E1 is 2.048 Mbps and T1 is 1.544 Mbps; as integer Mbps
+      # both round to 2, which would make the two signals this generic exists to
+      # carry indistinguishable.
+      - name: speed_kbps
+        kind: Number
+        default_value: 2048
+        parameters:
+          min_value: 64
+          max_value: 400000000
+        optional: false
+        description: Line rate in kbps. E1 is 2048, T1 is 1544, STM-1 is 155520.
+        order_weight: 1600
+      - name: impedance_ohm
+        kind: Number
+        default_value: 120
+        parameters:
+          min_value: 50
+          max_value: 600
+        optional: false
+        description: Nominal impedance in ohms. 120 for E1 pair, 75 for coax.
+        order_weight: 1700
+      - name: connector_type
+        kind: Text
+        default_value: RJ48
+        enum:
+          - BNC
+          - RJ48
+          - RJ45
+        optional: false
+        order_weight: 1900

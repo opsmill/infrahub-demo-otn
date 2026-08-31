@@ -1,0 +1,47 @@
+---
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "12:00"
+    open-pull-requests-limit: 10
+    target-branch: main
+    labels:
+      - "dependencies"
+    groups:
+      all:
+        # infrahub-sdk is excluded here and grouped alone below. An SDK bump
+        # can change traverse_paths signatures, so it gets a reviewable PR of
+        # its own rather than being buried in a bundle.
+        patterns:
+          - "^(?!infrahub-sdk$).*"
+      infrahub-sdk:
+        patterns:
+          - "infrahub-sdk"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    target-branch: main
+    labels:
+      - "dependencies"
+    groups:
+      all-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    target-branch: main
+    labels:
+      - "dependencies"

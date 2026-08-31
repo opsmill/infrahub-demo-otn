@@ -1,0 +1,206 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# The fixed 50 GHz C-band grid, all 96 channels.
+#
+# Written once from channel_to_frequency_mhz over 1 to 96. Do not edit a
+# frequency here by hand: tests/unit/test_schema_contract.py recomputes every
+# value from units.py on every run, so the file cannot drift and a hand edit
+# fails that test.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnFrequencyGrid
+  data:
+    - channel_number: 1
+      center_frequency_mhz: 191350000
+    - channel_number: 2
+      center_frequency_mhz: 191400000
+    - channel_number: 3
+      center_frequency_mhz: 191450000
+    - channel_number: 4
+      center_frequency_mhz: 191500000
+    - channel_number: 5
+      center_frequency_mhz: 191550000
+    - channel_number: 6
+      center_frequency_mhz: 191600000
+    - channel_number: 7
+      center_frequency_mhz: 191650000
+    - channel_number: 8
+      center_frequency_mhz: 191700000
+    - channel_number: 9
+      center_frequency_mhz: 191750000
+    - channel_number: 10
+      center_frequency_mhz: 191800000
+    - channel_number: 11
+      center_frequency_mhz: 191850000
+    - channel_number: 12
+      center_frequency_mhz: 191900000
+    - channel_number: 13
+      center_frequency_mhz: 191950000
+    - channel_number: 14
+      center_frequency_mhz: 192000000
+    - channel_number: 15
+      center_frequency_mhz: 192050000
+    - channel_number: 16
+      center_frequency_mhz: 192100000
+    - channel_number: 17
+      center_frequency_mhz: 192150000
+    - channel_number: 18
+      center_frequency_mhz: 192200000
+    - channel_number: 19
+      center_frequency_mhz: 192250000
+    - channel_number: 20
+      center_frequency_mhz: 192300000
+    - channel_number: 21
+      center_frequency_mhz: 192350000
+    - channel_number: 22
+      center_frequency_mhz: 192400000
+    - channel_number: 23
+      center_frequency_mhz: 192450000
+    - channel_number: 24
+      center_frequency_mhz: 192500000
+    - channel_number: 25
+      center_frequency_mhz: 192550000
+    - channel_number: 26
+      center_frequency_mhz: 192600000
+    - channel_number: 27
+      center_frequency_mhz: 192650000
+    - channel_number: 28
+      center_frequency_mhz: 192700000
+    - channel_number: 29
+      center_frequency_mhz: 192750000
+    - channel_number: 30
+      center_frequency_mhz: 192800000
+    - channel_number: 31
+      center_frequency_mhz: 192850000
+    - channel_number: 32
+      center_frequency_mhz: 192900000
+    - channel_number: 33
+      center_frequency_mhz: 192950000
+    - channel_number: 34
+      center_frequency_mhz: 193000000
+    - channel_number: 35
+      center_frequency_mhz: 193050000
+    - channel_number: 36
+      center_frequency_mhz: 193100000
+    - channel_number: 37
+      center_frequency_mhz: 193150000
+    - channel_number: 38
+      center_frequency_mhz: 193200000
+    - channel_number: 39
+      center_frequency_mhz: 193250000
+    - channel_number: 40
+      center_frequency_mhz: 193300000
+    - channel_number: 41
+      center_frequency_mhz: 193350000
+    - channel_number: 42
+      center_frequency_mhz: 193400000
+    - channel_number: 43
+      center_frequency_mhz: 193450000
+    - channel_number: 44
+      center_frequency_mhz: 193500000
+    - channel_number: 45
+      center_frequency_mhz: 193550000
+    - channel_number: 46
+      center_frequency_mhz: 193600000
+    - channel_number: 47
+      center_frequency_mhz: 193650000
+    - channel_number: 48
+      center_frequency_mhz: 193700000
+    - channel_number: 49
+      center_frequency_mhz: 193750000
+    - channel_number: 50
+      center_frequency_mhz: 193800000
+    - channel_number: 51
+      center_frequency_mhz: 193850000
+    - channel_number: 52
+      center_frequency_mhz: 193900000
+    - channel_number: 53
+      center_frequency_mhz: 193950000
+    - channel_number: 54
+      center_frequency_mhz: 194000000
+    - channel_number: 55
+      center_frequency_mhz: 194050000
+    - channel_number: 56
+      center_frequency_mhz: 194100000
+    - channel_number: 57
+      center_frequency_mhz: 194150000
+    - channel_number: 58
+      center_frequency_mhz: 194200000
+    - channel_number: 59
+      center_frequency_mhz: 194250000
+    - channel_number: 60
+      center_frequency_mhz: 194300000
+    - channel_number: 61
+      center_frequency_mhz: 194350000
+    - channel_number: 62
+      center_frequency_mhz: 194400000
+    - channel_number: 63
+      center_frequency_mhz: 194450000
+    - channel_number: 64
+      center_frequency_mhz: 194500000
+    - channel_number: 65
+      center_frequency_mhz: 194550000
+    - channel_number: 66
+      center_frequency_mhz: 194600000
+    - channel_number: 67
+      center_frequency_mhz: 194650000
+    - channel_number: 68
+      center_frequency_mhz: 194700000
+    - channel_number: 69
+      center_frequency_mhz: 194750000
+    - channel_number: 70
+      center_frequency_mhz: 194800000
+    - channel_number: 71
+      center_frequency_mhz: 194850000
+    - channel_number: 72
+      center_frequency_mhz: 194900000
+    - channel_number: 73
+      center_frequency_mhz: 194950000
+    - channel_number: 74
+      center_frequency_mhz: 195000000
+    - channel_number: 75
+      center_frequency_mhz: 195050000
+    - channel_number: 76
+      center_frequency_mhz: 195100000
+    - channel_number: 77
+      center_frequency_mhz: 195150000
+    - channel_number: 78
+      center_frequency_mhz: 195200000
+    - channel_number: 79
+      center_frequency_mhz: 195250000
+    - channel_number: 80
+      center_frequency_mhz: 195300000
+    - channel_number: 81
+      center_frequency_mhz: 195350000
+    - channel_number: 82
+      center_frequency_mhz: 195400000
+    - channel_number: 83
+      center_frequency_mhz: 195450000
+    - channel_number: 84
+      center_frequency_mhz: 195500000
+    - channel_number: 85
+      center_frequency_mhz: 195550000
+    - channel_number: 86
+      center_frequency_mhz: 195600000
+    - channel_number: 87
+      center_frequency_mhz: 195650000
+    - channel_number: 88
+      center_frequency_mhz: 195700000
+    - channel_number: 89
+      center_frequency_mhz: 195750000
+    - channel_number: 90
+      center_frequency_mhz: 195800000
+    - channel_number: 91
+      center_frequency_mhz: 195850000
+    - channel_number: 92
+      center_frequency_mhz: 195900000
+    - channel_number: 93
+      center_frequency_mhz: 195950000
+    - channel_number: 94
+      center_frequency_mhz: 196000000
+    - channel_number: 95
+      center_frequency_mhz: 196050000
+    - channel_number: 96
+      center_frequency_mhz: 196100000

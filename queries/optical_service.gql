@@ -1,0 +1,474 @@
+# One service, and everything needed to route it.
+#
+# Five top-level collections rather than one nested tree, for the reason
+# `queries/osnr_margin.gql` gives. The exception is the endpoint traversal, whose
+# fan-out is two: it reaches the site's devices through `OtnSite.devices`, where
+# `__typename` tells the anchoring ROADM from the routers and transponders.
+#
+# `$service` binds one target, so occupancy is read fresh for each run and two
+# services cannot be allocated against the same stale channel set. The section
+# shape is byte-identical to the one in `queries/osnr_margin.gql`, because
+# `plant.sections_from_graphql` reads both and the check and the generator must
+# budget the same plant the same way.
+query OpticalService($service: String!) {
+  OtnService(name__value: $service) {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        rate_gbps {
+          value
+        }
+        service_profile {
+          value
+        }
+        max_latency_ns {
+          value
+        }
+        status {
+          value
+        }
+        # The stated client signal, with everything the container write needs.
+        # Without it the generator reads its service out of the payload through
+        # `nodes_of` and can never see a stated signal: the honoured-signal path
+        # becomes dead code, a 200 Gbps InfiniBand service writes a
+        # `400GBASE-FR4` container into an `ODUC4`, and every gate passes.
+        client_signal {
+          node {
+            name {
+              value
+            }
+            layer {
+              value
+            }
+            auto_selectable {
+              value
+            }
+            bit_rate_kbps {
+              value
+            }
+            default_container_type {
+              value
+            }
+            default_mapping {
+              value
+            }
+          }
+        }
+        endpoint_a {
+          node {
+            id
+            name {
+              value
+            }
+            site {
+              node {
+                name {
+                  value
+                }
+                devices {
+                  edges {
+                    node {
+                      id
+                      __typename
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        endpoint_z {
+          node {
+            id
+            name {
+              value
+            }
+            site {
+              node {
+                name {
+                  value
+                }
+                devices {
+                  edges {
+                    node {
+                      id
+                      __typename
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnOpticalMode {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        mode_class {
+          value
+        }
+        line_rate_gbps {
+          value
+        }
+        baud_mbaud {
+          value
+        }
+        required_osnr_mdb {
+          value
+        }
+        cd_tolerance_fs_per_nm {
+          value
+        }
+        fec_latency_ns {
+          value
+        }
+      }
+    }
+  }
+  OtnClientSignal {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        # `layer` groups the catalog for a reader and for the sweep test in
+        # tests/unit/test_generator.py. `auto_selectable` is what the automatic
+        # path filters on: without it every candidate is unplaced, so the
+        # generator raises rather than dropping them quietly, and the error
+        # names this selection.
+        layer {
+          value
+        }
+        auto_selectable {
+          value
+        }
+        bit_rate_kbps {
+          value
+        }
+        default_container_type {
+          value
+        }
+        default_mapping {
+          value
+        }
+      }
+    }
+  }
+  OtnOpticalCarrier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        channel {
+          node {
+            channel_number {
+              value
+            }
+            # The centre the carrier's occupied spectrum sits on.
+            # `plant.occupancy_from_graphql` fails closed without it, so the
+            # allocator would raise rather than allocate.
+            center_frequency_mhz {
+              value
+            }
+          }
+        }
+        # The mode this wavelength runs. A chain grooms into wavelengths that
+        # already exist, so each segment's budget is computed on that carrier's
+        # own mode rather than on a mode the selector picked: the light is
+        # already on the fibre and nothing about provisioning a client changes
+        # what modulates it. `plant.carriers_from_graphql` reads this selection.
+        optical_mode {
+          node {
+            name {
+              value
+            }
+            # The symbol rate the occupied width comes from. Selected here for
+            # the occupancy derivation, not for the budget, which reads the
+            # three fields below it.
+            baud_mbaud {
+              value
+            }
+            required_osnr_mdb {
+              value
+            }
+            cd_tolerance_fs_per_nm {
+              value
+            }
+            fec_latency_ns {
+              value
+            }
+          }
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+        # The container tree the grooming decision reads, two levels deep. The
+        # generator sums the children's `tributary_slots` against the parent's
+        # `tributary_slot_capacity`, so without the children every wavelength
+        # reads empty and every service grooms into the same one.
+        #
+        # `odu_type` on the child is not decoration. A child of one of the four
+        # types G.709 does not size never legitimately occupies zero slots, so a
+        # stored zero on one of those is read as unknown rather than as room. That
+        # test needs the type as well as the figure.
+        #
+        # The carrier `id` above is read from this same block: without it the
+        # optical path and the container end up naming two wavelengths.
+        containers {
+          edges {
+            node {
+              name {
+                value
+              }
+              odu_type {
+                value
+              }
+              tributary_slots {
+                value
+              }
+              tributary_slot_capacity {
+                value
+              }
+              child_containers {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    odu_type {
+                      value
+                    }
+                    tributary_slots {
+                      value
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  # The O-E-O devices, and the one added fetch feature 017 needs. R-008 measured
+  # that no traversal picks a carrier chain out of the graph, so
+  # `src/infrahub_demo_otn/chains.py` covers the section route with carriers and
+  # evaluates the junction predicate itself. These are its inputs.
+  #
+  # `site.devices` is selected because the predicate has to decide that two
+  # carriers meeting at a ROADM meet where this device is, and a section names
+  # its ROADMs while a device names its site. Two one-hop selections, which is
+  # the shape R-012 item 1 records as staying native; a filter cannot express
+  # the predicate at all, because it is a self-join over two carriers.
+  OtnOduSwitch {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        framing_latency_ns {
+          value
+        }
+        switching_mode {
+          value
+        }
+        site {
+          node {
+            name {
+              value
+            }
+            devices {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                  __typename
+                }
+              }
+            }
+          }
+        }
+        carriers {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnOpticalMultiplexSection {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        roadm_a {
+          node {
+            id
+            name {
+              value
+            }
+            insertion_loss_mdb {
+              value
+            }
+          }
+        }
+        roadm_b {
+          node {
+            id
+            name {
+              value
+            }
+            insertion_loss_mdb {
+              value
+            }
+          }
+        }
+        spans {
+          edges {
+            node {
+              id
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              length_m {
+                value
+              }
+              splice_count {
+                value
+              }
+              splice_loss_mdb {
+                value
+              }
+              connector_count {
+                value
+              }
+              connector_loss_mdb {
+                value
+              }
+              aging_margin_mdb {
+                value
+              }
+              fiber_type {
+                node {
+                  name {
+                    value
+                  }
+                  attenuation_mdb_per_km {
+                    value
+                  }
+                  dispersion_fs_per_nm_km {
+                    value
+                  }
+                  group_index_milli {
+                    value
+                  }
+                }
+              }
+              raman_pumps {
+                edges {
+                  node {
+                    id
+                    name {
+                      value
+                    }
+                    injection_end {
+                      value
+                    }
+                    propagation {
+                      value
+                    }
+                    on_off_gain_mdb {
+                      value
+                    }
+                    insertion_loss_mdb {
+                      value
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        amplifiers_a2b {
+          edges {
+            node {
+              id
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              noise_figure_mdb {
+                value
+              }
+              gain_mdb {
+                value
+              }
+            }
+          }
+        }
+        amplifiers_b2a {
+          edges {
+            node {
+              id
+              name {
+                value
+              }
+              oms_sequence {
+                value
+              }
+              noise_figure_mdb {
+                value
+              }
+              gain_mdb {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

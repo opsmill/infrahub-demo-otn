@@ -1,0 +1,60 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# The one service that states its own client signal.
+#
+# Same rule as the files beside it: `demo/` is absent from `.infrahub.yml`
+# because these are inputs to a walkthrough, not facts about the network.
+#
+# Every other scenario service leaves the handover to the rate rule. This one
+# cannot. The rate rule walks an allow-list of layers and InfiniBand is not on
+# it, so no rate reaches either InfiniBand row: at 212 Gbps the smallest
+# candidate above the rate is 400GBASE-FR4, and even with the allow-list opened
+# 100GBASE-LR4 at 103,100,000 kbps undercuts IB-EDR-4X at 103,125,000 kbps
+# everywhere the two compete. Stating `client_signal` is the only way to reach
+# an InfiniBand row.
+#
+# HDR is four lanes at 53.125 Gbps, so 212.5 Gbps of signalling, and it needs a
+# flexible container: the generator writes ODUflex.
+#
+# **The request is 212 Gbps and not 200, and 200 is not a rounding away.** A
+# tributary slot is 1.25 Gbit/s, so 212,500,000 kbps of HDR is 170 slots. A 200G
+# wavelength carries an `ODUC2`, which offers 160, and 170 slots do not fit in
+# 160. This client does not fit a 200G wavelength at all. The scenario used to
+# read as a success only because every container reported occupying zero before
+# the ODU layer counted them, so the change here is a mode change on physics and
+# not a workaround: asking for 200 again would be asking for a refusal.
+#
+# At 212 the 200G mode drops out of the eligible set on line rate, and the
+# narrowest transponder mode left that closes is DP-16QAM 64GBd 400G. Its
+# `ODUC4` offers 320 slots, the `ODUflex` takes 170, and 150 are left free.
+#
+# 212 is also the ceiling, not a number picked for room. `rate_gbps` is a whole
+# number and the generator refuses a stated signal that cannot carry the
+# requested rate, so a 400 Gbps request against a 212.5 Gbps signal is a refusal
+# rather than a wider wavelength.
+#
+# Frankfurt to Prague on purpose. `oms-prg-fra` is a direct section and the
+# Raman pumps live on `oms-vie-mil`, so this route crosses nothing pumped. It is
+# 420 km, and DP-16QAM 64GBd 400G closes on it with +4.999 dB of OSNR margin, so
+# the scenario demonstrates provisioning rather than swapping one refusal for
+# another.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnService
+  data:
+    # JUPITER at Julich, modelled at Frankfurt, to Karolina at Ostrava, modelled
+    # at Prague. Both attachments are the ones `objects/10_geant_tags.yml`
+    # already declares.
+    - name: svc-fra-prg-ib-212g
+      description: Frankfurt to Prague, InfiniBand HDR handover between two supercomputers.
+      customer: EuroHPC-JUPITER
+      rate_gbps: 212
+      sla: gold
+      service_profile: hpc-research
+      endpoint_a: rtr-jupiter-fra-01
+      endpoint_z: rtr-karolina-prg-01
+      client_signal: IB-HDR-4X
+      member_of_groups:
+        - optical_services

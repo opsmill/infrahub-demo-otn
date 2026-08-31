@@ -1,0 +1,25 @@
+---
+extends: existence
+message: "Remove '%s'. It states a quality instead of the fact behind it."
+level: error
+ignorecase: true
+tokens:
+  - robust
+  - seamless
+  - seamlessly
+  - leverage
+  - leverages
+  - leveraging
+  - comprehensive
+  - comprehensively
+  - delve
+  - delves
+  - ensure
+  - ensures
+  - ensuring
+  - streamline
+  - streamlines
+  - streamlining
+  - harness
+  - harnesses
+  - harnessing

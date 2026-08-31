@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Three more scenario services, for the impact, latency and diversity reports.
+#
+# Same rule as `00_services.yml`: this directory is absent from `.infrahub.yml`
+# because these are inputs to a walkthrough, not facts about the network.
+#
+# Each one exists to make one report say something. Between them they put an AI
+# service on the Amsterdam to Frankfurt corridor so the fiber cut has a customer
+# behind it, and three EuroHPC services into two shared ducts so the diversity
+# report has a real pair to find rather than a contrived one.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnService
+  data:
+    # The fiber-cut victim. Amsterdam to Leonardo in Bologna, modelled at Milan.
+    # The only two-section route is oms-ams-fra plus oms-fra-mil, 1250 km, so
+    # cutting Amsterdam to Frankfurt takes it down. Seven milliseconds is a
+    # loose budget: this service is here to be cut, not to be refused.
+    - name: svc-ams-mil-ai-400g
+      description: Amsterdam to Milan, 400G distributed training interconnect.
+      customer: EuroHPC-Leonardo
+      rate_gbps: 400
+      sla: gold
+      service_profile: ai-training-dci
+      max_latency_ns: 7000000
+      endpoint_a: rtr-ams-01
+      endpoint_z: rtr-leonardo-mil-01
+      member_of_groups:
+        - optical_services
+
+    # Frankfurt to Geneva, one section, 590 km. Its spans sit in cd-fra-south,
+    # which is also where the first half of the Frankfurt to Milan route sits.
+    # Two services on two different corridors, one duct.
+    - name: svc-fra-gva-hpc-400g
+      description: Frankfurt to Geneva, 400G research computing interconnect.
+      customer: NREN-CH
+      rate_gbps: 400
+      sla: gold
+      service_profile: hpc-research
+      max_latency_ns: 4000000
+      endpoint_a: rtr-fra-01
+      endpoint_z: rtr-gva-01
+      member_of_groups:
+        - optical_services
+
+    # Vega in Maribor, modelled at Vienna, to Leonardo. One section, 800 km,
+    # through cd-mil-northeast, which the Frankfurt to Milan route also uses.
+    - name: svc-vie-mil-hpc-400g
+      description: Vienna to Milan, 400G research computing interconnect.
+      customer: EuroHPC-Vega
+      rate_gbps: 400
+      sla: silver
+      service_profile: hpc-research
+      max_latency_ns: 5000000
+      endpoint_a: rtr-vega-vie-01
+      endpoint_z: rtr-leonardo-mil-01
+      member_of_groups:
+        - optical_services

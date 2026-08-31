@@ -1,0 +1,87 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Scenario input: an amplifier nobody can measure.
+#
+# **What this demonstrates.** One `OtnAmplifier` that is valid in every way the
+# schema can check and wrong in the one way it cannot. Every mandatory attribute
+# is set, every bound is respected, and the load succeeds. What is missing is an
+# `OtnAmplifierMonitor` on its `ports`, and no constraint in `schemas/` can
+# notice that. A schema constrains what is written, so it cannot see a gap, and
+# this whole file is a gap.
+#
+# **The load is expected to succeed, and that is the point.** Every other
+# scenario here loads something the network then refuses. This one loads a record
+# an operator would sign off on.
+#
+# `checks/monitor_completeness.py` is what notices. On a branch holding this file
+# it fails with exactly one finding:
+#
+#     amp-ham-ber-11 is an OtnAmplifier and carries no OtnAmplifierMonitor, so
+#     nothing can compare its configured gain against what it is delivering. The
+#     drift report skips a stage with no monitor rather than reporting it
+#
+# and the same run states what it counted:
+#
+#     Monitor coverage: 306/307 amplifiers, 9/9 Raman pumps, 40/40 transponders,
+#     16/16 multiplexers, 42/42 ROADM degrees. Routers, patch panels and ODU
+#     switches carry no monitor and are not judged here
+#
+# **Why this amplifier is in neither `amplifiers_a2b` nor `amplifiers_b2a`.**
+# This is the decision in the file, so it is argued rather than stated.
+#
+# `oms-ham-ber` has 4 spans and 5 amplifiers in each direction, and
+# `budget.SectionInput.validate` requires exactly one more amplifier than spans
+# per direction: amplifier k feeds span k and amplifier N+1 is the
+# pre-amplifier after span N. Putting this one into either list makes it 6
+# against 4, which raises before a single decibel is computed, so `osnr_margin`
+# turns red on a section this file has nothing to say about. The branch would
+# then carry two failures and only one of them would be the demonstration.
+#
+# The relationship is not needed either. `queries/monitor_completeness.gql` asks
+# for every `OtnAmplifier` and filters by nothing, so an amplifier in no chain is
+# still fetched, still judged and still reported. What the check asks is whether
+# a device carries a monitor, and that question does not go through a section.
+#
+# Had it been attached, it would have been attached from this side. `OtnAmplifier`
+# carries the inverse of both section relationships, `oms_a2b` and `oms_b2a`, so
+# one line here joins a chain without naming the rest of it. Writing it on the
+# section instead means restating every member, because an object load sets a
+# relationship to exactly what the file names and detaches everything else, and a
+# section that lists one amplifier silently loses the other four.
+#
+# **`oms_sequence: 6` on an amplifier that is in no chain.** The attribute is
+# mandatory and carries no default, on purpose: a default of 1 would let a new
+# amplifier take a silent position at the head of a chain and sort stably into a
+# wrong answer. 6 is the position this hut takes when `oms-ham-ber` gains its
+# fifth span, which is the fibre work the record is racked ahead of. Until then
+# nothing reads it, because nothing reaches this amplifier from a section.
+#
+# **No `site`.** Boosters and pre-amplifiers sit at their section endpoint and
+# inline amplifiers do not, because an amplifier hut is not a PoP.
+# `objects/13_geant_devices.yml` follows the same rule and this record follows it
+# too, so the only difference between this amplifier and the 306 shipped ones is
+# the monitor.
+#
+# None of this is a fact about the network, which is why it is NOT in `objects/`:
+# `objects/1*.yml` is generated, `tests/unit/test_geant_dataset.py` regenerates it
+# and diffs, and a 307th amplifier there fails on the next run. It would also put
+# the finding on the default branch, where every branch cut from it would inherit
+# a red check and nobody would ever see the check go green.
+#
+# Loaded by hand onto its own branch, like `demo/06_mad_waw_16qam.yml`. `demo/` is
+# not listed under `objects:` in `.infrahub.yml`, so git sync never reaches it,
+# and there is no `invoke` task for it.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnAmplifier
+  data:
+    - name: amp-ham-ber-11
+      role: core
+      insertion_loss_mdb: 0
+      vendor: Generic
+      model: A-EDFA
+      noise_figure_mdb: 4000
+      gain_mdb: 22000
+      oms_sequence: 6

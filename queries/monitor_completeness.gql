@@ -1,0 +1,158 @@
+# Every device of a kind that is expected to carry a monitor, with the ports it
+# actually carries.
+#
+# Five collections, one per pairing in `monitors.MONITOR_BY_DEVICE_KIND`. Four of
+# them ask one boolean per device: does this amplifier, Raman pump, transponder or
+# multiplexer hold a monitor of its own family. The fifth is shaped differently
+# because a ROADM holds one monitor per degree rather than one per device, so both
+# the degree ports and the degree monitors come back and are paired by name in
+# `infrahub_demo_otn.monitors`.
+#
+# **The inline fragment is required, not stylistic.** `ports` peers the generic
+# `OtnGenericPort`, and Infrahub cannot filter a relationship to a generic by the
+# kind of its peers: `kind`, `typename__value`, `__typename` and an attribute on a
+# sibling generic are all rejected as arguments, which is measured in
+# `specs/feature-gaps/03-filter-a-nested-relationship-by-kind.md`. So the query
+# cannot ask for "amplifiers with no OtnAmplifierMonitor among their ports". It
+# fetches every port and the check discriminates in Python, which is why this
+# cannot be a query plus a length test.
+#
+# **The over-fetch is measured, not assumed.** The shipped dataset holds 306
+# amplifiers with three ports each, so roughly 918 port nodes come back so that
+# 306 booleans can be answered. Section 3 of that gap document, "An inline
+# fragment reduces fields, not nodes", is why the fragment does not help here: it
+# narrows what comes back on each node and not how many nodes come back. At 306
+# devices this is the same order as the global checks already shipped and it is
+# fine. It is written down because a real site with a hundred ports per device is
+# where it stops being fine, and because a second measured data point strengthens
+# a gap this repository has already written up.
+#
+# `__typename` on each port is the whole of what the four device collections read.
+# The name is selected too so a finding can say which monitor was found where the
+# pairing needed one, and the ROADM collection needs both names to pair a degree
+# with its monitor at all.
+#
+# `id` and `__typename` on each device, because `log_error` takes both and every
+# finding here is named against the device that is missing something.
+query MonitorCompleteness {
+  OtnAmplifier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        ports {
+          edges {
+            node {
+              __typename
+              ... on OtnAmplifierMonitor {
+                name {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnRamanPump {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        ports {
+          edges {
+            node {
+              __typename
+              ... on OtnRamanMonitor {
+                name {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnTransponder {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        ports {
+          edges {
+            node {
+              __typename
+              ... on OtnReceiverMonitor {
+                name {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnMuxDemux {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        ports {
+          edges {
+            node {
+              __typename
+              ... on OtnMuxDemuxMonitor {
+                name {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnRoadm {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        ports {
+          edges {
+            node {
+              __typename
+              ... on OtnRoadmDegreePort {
+                name {
+                  value
+                }
+              }
+              ... on OtnRoadmDegreeMonitor {
+                name {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

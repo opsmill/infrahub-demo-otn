@@ -1,0 +1,159 @@
+# Every service, and the duct each metre of its route is buried in.
+#
+# **The conduit is read off the spans, through `OtnPathHop.element`, and not off
+# the sections, and this is the one copy of why.** A section can cross several
+# conduits and a conduit can hold spans from several sections, so intersecting
+# section lists misses pairs that share a duct across two corridors and invents
+# pairs that share a corridor and no duct. `impact.service_exposure` is the one
+# walk over both, and `queries/diversity.gql` selects it the same way.
+#
+# `element` peers the `OtnOpticalElement` generic, hence the inline fragment;
+# `queries/odu_map.gql` records what omitting one costs. The conduit's own span
+# list is selected so the report can name the other sections in the duct.
+query SrlgExposure {
+  OtnService {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        customer {
+          value
+        }
+        sla {
+          value
+        }
+        status {
+          value
+        }
+        service_profile {
+          value
+        }
+        endpoint_a {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        endpoint_z {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        # `edges`, not a bare `node`, on `OtnService.optical_path`, which is
+        # cardinality many: `queries/service_trace.gql` says what a bare `node`
+        # costs.
+        #
+        # `segment_sequence` is selected because an Infrahub relationship hands
+        # back a set. This report still reads the lowest sequence, so a circuit
+        # with two segments would have the ducts of its later segments missed.
+        # Walking every segment is a later change, and it widens the answer
+        # rather than correcting it.
+        optical_path {
+          edges {
+            node {
+              segment_sequence {
+                value
+              }
+              name {
+                value
+              }
+              total_length_m {
+                value
+              }
+              carrier {
+                node {
+                  sections {
+                    edges {
+                      node {
+                        name {
+                          value
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              hops {
+                edges {
+                  node {
+                    sequence {
+                      value
+                    }
+                    element {
+                      node {
+                        __typename
+                        ... on OtnFiberSpan {
+                          name {
+                            value
+                          }
+                          length_m {
+                            value
+                          }
+                          conduit {
+                            node {
+                              name {
+                                value
+                              }
+                              owner {
+                                value
+                              }
+                              description {
+                                value
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnConduit {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        owner {
+          value
+        }
+        description {
+          value
+        }
+        spans {
+          edges {
+            node {
+              name {
+                value
+              }
+              length_m {
+                value
+              }
+              oms {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

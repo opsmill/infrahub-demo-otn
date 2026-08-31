@@ -1,0 +1,257 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Scenario input: Madrid to Warsaw, and the regenerator that is not enough.
+#
+# **What this demonstrates.** A route can be too long for every modulation in
+# the catalog, and cutting it in half at an O-E-O device does not on its own fix
+# that. Madrid to Warsaw is 2970 km over four sections, `oms-par-mad`,
+# `oms-par-fra`, `oms-prg-fra` and `oms-prg-waw`, and one wavelength end to end
+# closes on no mode at all: the best of the ten is -0.021 dB at DP-QPSK 128GBd
+# 400G. This file places a regenerator at each of the three sites on that route
+# where one could go, with the pair of wavelengths each split needs, and all
+# three splits are refused as well. `demo/07_mad_waw_qpsk.yml` is the fix, and
+# it is a modulation rather than a fourth site.
+#
+# **The service is expected to be refused, reason `budget`.** That refusal is
+# the point of the file and not a fault in it. A route's verdict is a
+# conjunction over its segments, so one half short of OSNR refuses the whole
+# circuit however much margin the other half has.
+#
+# **The three splits, and what each one is expected to return.** Every figure
+# below came back from `invoke demo-provision --service svc-mad-waw-400g` on a
+# branch holding this file.
+#
+# `oc-ch070-mad-par` and `oc-ch070-par-waw`, joined at `oeo-par-01`: segment 1
+# -0.535 dB and segment 2 -2.439 dB. The only split here where **both** halves
+# fail. Paris is 1250 km from Madrid on one section, which is already 0.535 dB
+# too far at this modulation, and it leaves 1720 km to Warsaw.
+#
+# `oc-ch071-mad-fra` and `oc-ch071-fra-waw`, joined at `oeo-fra-02`: segment 1
+# -2.755 dB, segment 2 +0.240 dB. The most even split of the three and still
+# 2.755 dB short on the Madrid half.
+#
+# `oc-ch072-mad-prg` and `oc-ch072-prg-waw`, joined at `oeo-prg-01`: segment 1
+# -4.004 dB, segment 2 +2.782 dB. **The runner-up, and worth reading twice.**
+# Its second half has more margin than any other half in this file, and its
+# first half is the worst of the six. Where the route is cut decides the answer
+# independently of the modulation, which is why the scenario places three
+# regenerators and not one.
+#
+# **All three at once, on purpose.** An engineer would try one site at a time
+# and get these same three answers in three runs. Loading all three lets one run
+# report all three, and the generator's own log names each discarded chain with
+# the segment that failed it.
+#
+# **One line container per wavelength, lit and empty, 320 slots each.** Without
+# one the chain is discarded before its budget is ever read, with "segment 1 of 2
+# on oc-ch070-mad-par carries no line container, so there is nothing for the
+# ODUC4 to be groomed into". The wavelengths arrive lit for the same reason the
+# 71 in `objects/18_geant_line_containers.yml` do: what provisioning decides is
+# which wavelength to groom into, never whether to light one.
+#
+# **Why `oeo-fra-02` and not `oeo-fra-01`.** The dataset already ships a
+# regenerator at Frankfurt, and it is exactly where R-013 put it. It cannot be
+# used here: `objects/19_geant_odu_switches.yml` is generated, its `carriers`
+# list is the 45 wavelengths `oeo-fra-01` terminates, and an object file that
+# names that relationship replaces the list rather than adding to it. Restating
+# 45 generated names in a scenario file would go stale the next time the
+# generator runs. So this file brings its own regenerator at Frankfurt, and
+# `demo/07_mad_waw_qpsk.yml` extends **that** one.
+#
+# **Paris to Madrid is not this scenario, and it cannot be.** `oms-par-mad` is
+# short of OSNR by 0.535 dB at DP-16QAM 64GBd 400G, which is feature 011's
+# published negative result and is untouched here. No regenerator helps it: it
+# is a single section of 14 spans with Madrid as a leaf, its span boundaries are
+# amplifier huts rather than sites, and a cover may not split a section. That is
+# why the demonstration moved to Madrid to Warsaw, which has three real
+# candidate sites. `demo/02_par_mad_raman.yml` is still the answer to Paris to
+# Madrid, and it is Raman gain rather than regeneration.
+#
+# None of this is a fact about the network, which is why it is NOT in `objects/`:
+# the shipped dataset is 71 wavelengths, every one of them crossing
+# `oms-fra-mil`, and `tests/unit/test_geant_dataset.py` holds it to that. Adding
+# eight wavelengths and four regenerators to it would also make the refusal
+# unreachable, because the fix in `07` would be on the default branch and the
+# service would never be seen to fail.
+#
+# Channel references are quoted strings: a bare integer is rejected before the
+# write. Channels 70, 71 and 72 are distinct because the three splits share
+# sections, and two wavelengths on one channel in one section collide.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnService
+  data:
+    # No latency budget. The chain that eventually carries this service takes
+    # 14558.963 us including the framing delay, and a budget here would refuse
+    # it on latency before the OSNR story could be told.
+    #
+    # **No `refusal_accepted` here, and its absence is deliberate.** This is the
+    # one scenario that ends in a blocked merge. `checks/provisionable.py` reads
+    # the refusal, finds nobody signed for it, and fails the proposed change
+    # naming the service, the code `budget` and the detail. That red pipeline is
+    # what makes the gate visible: every other refusal scenario signs for its
+    # refusal and merges, and if this one did too the feature would pass every
+    # test and never be seen doing anything.
+    #
+    # A reviewer looking at that failure has two ways out, and the demo takes the
+    # first: load `demo/07_mad_waw_qpsk.yml` on top and the service provisions,
+    # so there is no refusal left to block anything. The second, setting the flag
+    # here, would keep "Madrid to Warsaw cannot be built at 400G" on the record
+    # and merge. Both are correct answers; only the first is the one this pair of
+    # files was written to show.
+    - name: svc-mad-waw-400g
+      description: Madrid to Warsaw, 400G research transit.
+      customer: NREN-ES
+      rate_gbps: 400
+      sla: gold
+      service_profile: ip-transit
+      endpoint_a: rtr-mad-01
+      endpoint_z: rtr-waw-01
+      member_of_groups:
+        - optical_services
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnOpticalCarrier
+  data:
+    - name: oc-ch070-mad-par
+      description: Madrid to Paris on channel 70, the first half of the Paris split.
+      status: active
+      channel: '70'
+      optical_mode: DP-16QAM 64GBd 400G
+      sections:
+        - oms-par-mad
+    - name: oc-ch070-par-waw
+      description: Paris to Warsaw on channel 70, the second half of the Paris split.
+      status: active
+      channel: '70'
+      optical_mode: DP-16QAM 64GBd 400G
+      sections:
+        - oms-par-fra
+        - oms-prg-fra
+        - oms-prg-waw
+    - name: oc-ch071-mad-fra
+      description: Madrid to Frankfurt on channel 71, the first half of the Frankfurt split.
+      status: active
+      channel: '71'
+      optical_mode: DP-16QAM 64GBd 400G
+      sections:
+        - oms-par-mad
+        - oms-par-fra
+    - name: oc-ch071-fra-waw
+      description: Frankfurt to Warsaw on channel 71, the second half of the Frankfurt split.
+      status: active
+      channel: '71'
+      optical_mode: DP-16QAM 64GBd 400G
+      sections:
+        - oms-prg-fra
+        - oms-prg-waw
+    - name: oc-ch072-mad-prg
+      description: Madrid to Prague on channel 72, the first half of the Prague split.
+      status: active
+      channel: '72'
+      optical_mode: DP-16QAM 64GBd 400G
+      sections:
+        - oms-par-mad
+        - oms-par-fra
+        - oms-prg-fra
+    - name: oc-ch072-prg-waw
+      description: Prague to Warsaw on channel 72, the second half of the Prague split.
+      status: active
+      channel: '72'
+      optical_mode: DP-16QAM 64GBd 400G
+      sections:
+        - oms-prg-waw
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnContainer
+  data:
+    - name: odu-line-oc-ch070-mad-par
+      description: ODUC4 on oc-ch070-mad-par. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch070-mad-par
+    - name: odu-line-oc-ch070-par-waw
+      description: ODUC4 on oc-ch070-par-waw. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch070-par-waw
+    - name: odu-line-oc-ch071-mad-fra
+      description: ODUC4 on oc-ch071-mad-fra. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch071-mad-fra
+    - name: odu-line-oc-ch071-fra-waw
+      description: ODUC4 on oc-ch071-fra-waw. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch071-fra-waw
+    - name: odu-line-oc-ch072-mad-prg
+      description: ODUC4 on oc-ch072-mad-prg. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch072-mad-prg
+    - name: odu-line-oc-ch072-prg-waw
+      description: ODUC4 on oc-ch072-prg-waw. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch072-prg-waw
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnOduSwitch
+  data:
+    # Three regenerators, one per candidate site, each terminating both halves
+    # of its own split. A device that holds only one of the two is not a
+    # junction: the light arriving has to be terminated and the light leaving
+    # originated by the same device, and `chains.joins` checks all three of the
+    # conditions that makes true.
+    #
+    # 3000 ns of framing delay each, matching `oeo-fra-01`. Only the junction
+    # that is actually taken charges it, so the chain the QPSK file provisions
+    # pays 3000 ns and not 9000.
+    - name: oeo-par-01
+      role: core
+      site: par
+      insertion_loss_mdb: 0
+      vendor: Generic
+      model: X-ODU8
+      switching_mode: regenerator
+      framing_latency_ns: 3000
+      carriers:
+        - oc-ch070-mad-par
+        - oc-ch070-par-waw
+    - name: oeo-fra-02
+      role: core
+      site: fra
+      insertion_loss_mdb: 0
+      vendor: Generic
+      model: X-ODU8
+      switching_mode: regenerator
+      framing_latency_ns: 3000
+      carriers:
+        - oc-ch071-mad-fra
+        - oc-ch071-fra-waw
+    - name: oeo-prg-01
+      role: core
+      site: prg
+      insertion_loss_mdb: 0
+      vendor: Generic
+      model: X-ODU8
+      switching_mode: regenerator
+      framing_latency_ns: 3000
+      carriers:
+        - oc-ch072-mad-prg
+        - oc-ch072-prg-waw

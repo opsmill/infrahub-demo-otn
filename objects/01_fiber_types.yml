@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# The three fiber families this network is built from.
+#
+# Attenuation and dispersion are quoted at 1550 nm, scaled by 1000 so they fit
+# a Number. 0.20 dB/km is 200 mdB/km; 17 ps/nm/km is 17000 fs/nm/km. The paired
+# _display attributes render them back.
+#
+# G.652.D's group_index_milli is the default units.py publishes, and a guard
+# test asserts the two agree.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnFiberType
+  data:
+    - name: G.652.D
+      description: Standard single-mode fiber. The default long-haul choice and most of the installed base.
+      attenuation_mdb_per_km: 200
+      dispersion_fs_per_nm_km: 17000
+      group_index_milli: 1468
+    - name: G.654.E
+      description: Cut-off shifted, large effective area. Lower loss for submarine and long terrestrial spans.
+      attenuation_mdb_per_km: 170
+      dispersion_fs_per_nm_km: 21000
+      group_index_milli: 1467
+    - name: G.655
+      description: Non-zero dispersion shifted. Low dispersion, but four-wave mixing limits dense channel plans.
+      attenuation_mdb_per_km: 220
+      dispersion_fs_per_nm_km: 4500
+      group_index_milli: 1470

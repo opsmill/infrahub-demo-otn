@@ -1,0 +1,83 @@
+# Every declared diversity group, and the route of each service in it.
+#
+# **Rooted on the group, not on the service.** A service with no group is not in
+# this payload at all, which is the strongest form the silence in FR-017 can
+# take: there is nothing here to be tempted into flagging. Rooting on
+# `OtnService` and filtering in Python would put every undeclared circuit one
+# `if` away from a blocked merge. A mistyped group name fails at write time
+# rather than making a group of one, which a Text attribute could not do.
+#
+# Conduits off the spans and not the sections: `queries/srlg_exposure.gql`. The
+# inline fragment on `OtnPathHop.element`: `queries/odu_map.gql`. `edges` and
+# `segment_sequence` under `optical_path`: `queries/service_trace.gql`.
+query Diversity {
+  OtnDiversityGroup {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        description {
+          value
+        }
+        services {
+          edges {
+            node {
+              id
+              __typename
+              name {
+                value
+              }
+              customer {
+                value
+              }
+              service_profile {
+                value
+              }
+              optical_path {
+                edges {
+                  node {
+                    segment_sequence {
+                      value
+                    }
+                    name {
+                      value
+                    }
+                    hops {
+                      edges {
+                        node {
+                          sequence {
+                            value
+                          }
+                          element {
+                            node {
+                              __typename
+                              ... on OtnFiberSpan {
+                                name {
+                                  value
+                                }
+                                conduit {
+                                  node {
+                                    name {
+                                      value
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

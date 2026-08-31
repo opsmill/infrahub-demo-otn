@@ -1,0 +1,427 @@
+# One service, and the whole chain under it.
+#
+# The only query here deliberately one nested tree rather than several flat
+# collections. The others fan out over seventy-one carriers and twenty-one
+# sections; `$service` binds a single object, reached exactly once.
+#
+# The hop element is a generic, `OtnOpticalElement`, so the three kinds a hop
+# can be arrive through inline fragments (`queries/odu_map.gql` for the cost of
+# omitting one), and `OtnFiberSpan` carries the conduit the route runs in.
+#
+# **`id` and `__typename` on the top-level nodes: the SDK keys the response on
+# both.** This is the one copy; the other queries select them for that reason.
+query ServiceTrace($service: String!) {
+  OtnService(name__value: $service) {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        description {
+          value
+        }
+        customer {
+          value
+        }
+        rate_gbps {
+          value
+        }
+        sla {
+          value
+        }
+        status {
+          value
+        }
+        service_profile {
+          value
+        }
+        max_latency_ns {
+          value
+        }
+        rejection_code {
+          value
+        }
+        rejection_detail {
+          value
+        }
+        endpoint_a {
+          node {
+            id
+            name {
+              value
+            }
+            site {
+              node {
+                name {
+                  value
+                }
+              }
+            }
+            ports {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                  role {
+                    value
+                  }
+                  enabled {
+                    value
+                  }
+                  oper_state {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+        endpoint_z {
+          node {
+            id
+            name {
+              value
+            }
+            site {
+              node {
+                name {
+                  value
+                }
+              }
+            }
+            ports {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                  role {
+                    value
+                  }
+                  enabled {
+                    value
+                  }
+                  oper_state {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+        # **`edges`, not a bare `node`, and this is the one copy of why.** Both
+        # `OtnService.optical_path` and `OtnOpticalCarrier.optical_path` are
+        # cardinality many: a regenerated circuit is one path per wavelength,
+        # and grooming lets two services share one. The server answers a bare
+        # `node` on a many relationship with "Cannot query field 'node' on
+        # type 'NestedPaginatedOtnOpticalPath'" and a 500. `infrahubctl schema
+        # check` cannot say so, because it does not execute a .gql, so it
+        # surfaces on a live branch or when the repository syncs.
+        #
+        # `segment_sequence` is selected because an Infrahub relationship hands
+        # back a set: `impact.circuit_segments` sorts on it, and this trace
+        # renders one segment per path, in that order.
+        optical_path {
+          edges {
+            node {
+              segment_sequence {
+                value
+              }
+              name {
+                value
+              }
+              description {
+                value
+              }
+              total_length_m {
+                value
+              }
+              total_loss_mdb {
+                value
+              }
+              osnr_total_mdb {
+                value
+              }
+              osnr_margin_mdb {
+                value
+              }
+              latency_ns {
+                value
+              }
+              carrier {
+                node {
+                  name {
+                    value
+                  }
+                  status {
+                    value
+                  }
+                  channel {
+                    node {
+                      channel_number {
+                        value
+                      }
+                      center_frequency_mhz {
+                        value
+                      }
+                    }
+                  }
+                  optical_mode {
+                    node {
+                      name {
+                        value
+                      }
+                      mode_class {
+                        value
+                      }
+                      modulation {
+                        value
+                      }
+                      line_rate_gbps {
+                        value
+                      }
+                      required_osnr_mdb {
+                        value
+                      }
+                      nominal_reach_m {
+                        value
+                      }
+                      fec_type {
+                        value
+                      }
+                      fec_latency_ns {
+                        value
+                      }
+                    }
+                  }
+                  sections {
+                    edges {
+                      node {
+                        name {
+                          value
+                        }
+                        roadm_a {
+                          node {
+                            name {
+                              value
+                            }
+                          }
+                        }
+                        roadm_b {
+                          node {
+                            name {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  # The devices that terminate this wavelength: how the trace
+                  # names the junction between two segments. Derived, not
+                  # stored, because `OtnOpticalPath` has no edge to an
+                  # `OtnOduSwitch` and a second edge would be free to disagree
+                  # with the `carriers` lists that already say it. A junction is
+                  # a device whose `carriers` holds the wavelength arriving and
+                  # the one leaving, which `impact.circuit_segments` intersects.
+                  #
+                  # `switching_mode` and `framing_latency_ns` are here because
+                  # a regenerator and an ODU cross-connect are different
+                  # answers to "what happens to my containers here", and the
+                  # framing delay is not in the trace anywhere else.
+                  odu_switches {
+                    edges {
+                      node {
+                        name {
+                          value
+                        }
+                        switching_mode {
+                          value
+                        }
+                        framing_latency_ns {
+                          value
+                        }
+                        site {
+                          node {
+                            name {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  # Two levels: grooming nests a client container under a line
+                  # container, so the clients are `child_containers`. Selecting
+                  # only the first level leaves the trace rendering a service
+                  # with no client and no error, which is R-006's silent failure.
+                  #
+                  # `client_signal` and `service` on both levels. The first
+                  # tells the two roles apart, for the reason
+                  # `queries/span_impact.gql` records; the second tells this
+                  # circuit's container from a neighbour's on a groomed carrier,
+                  # and the failure is a trace that silently lists a stranger's
+                  # container as part of this circuit. Verified in R-008 against
+                  # the schema: all four peer concrete nodes, no fragment.
+                  containers {
+                    edges {
+                      node {
+                        name {
+                          value
+                        }
+                        odu_type {
+                          value
+                        }
+                        mapping_mode {
+                          value
+                        }
+                        client_signal {
+                          node {
+                            name {
+                              value
+                            }
+                            layer {
+                              value
+                            }
+                            bit_rate_kbps {
+                              value
+                            }
+                          }
+                        }
+                        service {
+                          node {
+                            name {
+                              value
+                            }
+                          }
+                        }
+                        child_containers {
+                          edges {
+                            node {
+                              name {
+                                value
+                              }
+                              odu_type {
+                                value
+                              }
+                              mapping_mode {
+                                value
+                              }
+                              client_signal {
+                                node {
+                                  name {
+                                    value
+                                  }
+                                  layer {
+                                    value
+                                  }
+                                  bit_rate_kbps {
+                                    value
+                                  }
+                                }
+                              }
+                              service {
+                                node {
+                                  name {
+                                    value
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              hops {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    sequence {
+                      value
+                    }
+                    cumulative_length_m {
+                      value
+                    }
+                    cumulative_loss_mdb {
+                      value
+                    }
+                    cumulative_osnr_mdb {
+                      value
+                    }
+                    cumulative_delay_ns {
+                      value
+                    }
+                    element {
+                      node {
+                        __typename
+                        ... on OtnFiberSpan {
+                          name {
+                            value
+                          }
+                          length_m {
+                            value
+                          }
+                          conduit {
+                            node {
+                              name {
+                                value
+                              }
+                            }
+                          }
+                          fiber_type {
+                            node {
+                              name {
+                                value
+                              }
+                              group_index_milli {
+                                value
+                              }
+                            }
+                          }
+                        }
+                        ... on OtnRoadm {
+                          name {
+                            value
+                          }
+                          insertion_loss_mdb {
+                            value
+                          }
+                          site {
+                            node {
+                              name {
+                                value
+                              }
+                            }
+                          }
+                        }
+                        ... on OtnAmplifier {
+                          name {
+                            value
+                          }
+                          gain_mdb {
+                            value
+                          }
+                          noise_figure_mdb {
+                            value
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

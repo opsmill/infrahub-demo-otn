@@ -1,0 +1,46 @@
+# Every container, what it offers its children, and what those children take.
+#
+# Rooted on the container kind rather than on the carrier, and that is what makes
+# one level of children enough. Every container in the network appears once at the
+# top level, so every parent-and-children relation is measured exactly once at
+# whatever depth it sits, and GraphQL never has to express the recursion it
+# cannot. `queries/odu_map.gql` walks carriers down two levels instead, and holds
+# the one copy of why no traversal here needs an inline fragment.
+#
+# The parent's own `tributary_slots` is deliberately not selected: it is what the
+# parent takes in *its* parent, and `checks/container_capacity.py` reads it there.
+# Selecting it here would invite the comparison `containers.py` guards against.
+query ContainerCapacity {
+  OtnContainer {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        odu_type {
+          value
+        }
+        tributary_slot_capacity {
+          value
+        }
+        child_containers {
+          edges {
+            node {
+              name {
+                value
+              }
+              odu_type {
+                value
+              }
+              tributary_slots {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

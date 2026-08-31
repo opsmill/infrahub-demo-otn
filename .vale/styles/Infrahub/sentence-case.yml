@@ -1,0 +1,92 @@
+---
+extends: capitalization
+message: "'%s' should use sentence case"
+level: warning
+scope:
+  - heading.h1
+  - heading.h2
+  - heading.h3
+  - heading.h4
+  - heading.h5
+  - heading.h6
+match: $sentence
+exceptions:
+  - 400G
+  - 400ZR
+  - 800ZR
+  - AGENTS.md
+  - AI
+  - API
+  - ASE
+  - ASN
+  - Amsterdam
+  - BGP
+  - Berlin
+  - Build Commands
+  - CI/CD
+  - Code Style Guidelines
+  - Colo
+  - Colocation
+  - Common Markdownlint Rules
+  - Common Pitfalls
+  - Common Vale Issues
+  - Containerlab
+  - CWDM
+  - Core Infrahub
+  - Data Center
+  - DC
+  - Diataxis
+  - Directory Structure
+  - DNS
+  - Documentation Site
+  - Documentation Writing Guidelines
+  - Docusaurus
+  - DWDM
+  - EDFA
+  - Enterprise
+  - EuroHPC
+  - For How-to Guides
+  - For Topics/Explanations
+  - Frankfurt
+  - GitHub
+  - GMP
+  - GraphQL
+  - HPC
+  - InfiniBand
+  - Infrahub
+  - Infrahub OTN demo
+  - Integration with CI/CD
+  - IP
+  - Jinja
+  - Key Files
+  - Linting Requirements
+  - Local Development
+  - Markdownlint
+  - MDX Content
+  - Mermaid
+  - Mermaid Diagrams
+  - Milan
+  - Netbox
+  - ODU
+  - OMS
+  - OpenConfig
+  - OpenZR+
+  - OSNR
+  - OSPF
+  - OTN
+  - POP
+  - Pydantic
+  - QPSK
+  - ROADM
+  - SDH
+  - Service Catalog
+  - SRLG
+  - Streamlit
+  - Switching to Enterprise
+  - Tech Stack
+  - UI
+  - VLAN
+  - VLANs
+  - VXLAN
+  - WSS
+  - ZR

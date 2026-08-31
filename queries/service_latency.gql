@@ -1,0 +1,154 @@
+# Every service, its budget, and the delay its path actually accumulated.
+#
+# `latency_ns` is not recomputed here. The service generator wrote it from
+# `budget.evaluate_path`, and a report that re-derived it would be a second
+# source of truth for a number the branch already holds.
+#
+# The span hops carry `length_m` and their fiber type's `group_index_milli`
+# because the report splits the delay into propagation and everything else, and
+# that split is summed per span at each span's own index rather than computed
+# once over the total at the G.652 default. Every span in the shipped
+# dataset is G.652.D so the two agree today; the catalog already carries G.654.E
+# at 1467, which is the day they stop agreeing.
+query ServiceLatency {
+  OtnService {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        customer {
+          value
+        }
+        rate_gbps {
+          value
+        }
+        sla {
+          value
+        }
+        status {
+          value
+        }
+        service_profile {
+          value
+        }
+        max_latency_ns {
+          value
+        }
+        rejection_code {
+          value
+        }
+        rejection_detail {
+          value
+        }
+        endpoint_a {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        endpoint_z {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        # `edges`, not a bare `node`, on `OtnService.optical_path`, which is
+        # cardinality many: `queries/service_trace.gql` says what a bare `node`
+        # costs.
+        #
+        # `segment_sequence` is selected because an Infrahub relationship hands
+        # back a set. This report still reads one segment, the lowest sequence,
+        # which is the whole route for a circuit that has one segment. Summing
+        # the delay across segments is a later change, and it needs the framing
+        # delay of each intermediate device as well as these paths.
+        optical_path {
+          edges {
+            node {
+              segment_sequence {
+                value
+              }
+              name {
+                value
+              }
+              total_length_m {
+                value
+              }
+              latency_ns {
+                value
+              }
+              osnr_margin_mdb {
+                value
+              }
+              carrier {
+                node {
+                  name {
+                    value
+                  }
+                  optical_mode {
+                    node {
+                      name {
+                        value
+                      }
+                      fec_type {
+                        value
+                      }
+                      fec_latency_ns {
+                        value
+                      }
+                    }
+                  }
+                  sections {
+                    edges {
+                      node {
+                        name {
+                          value
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              hops {
+                edges {
+                  node {
+                    sequence {
+                      value
+                    }
+                    element {
+                      node {
+                        __typename
+                        ... on OtnFiberSpan {
+                          name {
+                            value
+                          }
+                          length_m {
+                            value
+                          }
+                          fiber_type {
+                            node {
+                              name {
+                                value
+                              }
+                              group_index_milli {
+                                value
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# The ITU-T G.694.2 coarse plan, all 18 wavelengths.
+#
+# Written once from cwdm_index_to_wavelength_nm and wavelength_nm_to_band over
+# 1 to 18. Do not edit a value here by hand: tests/unit/test_schema_contract.py
+# recomputes every wavelength and every band from units.py on every run, and a
+# hand edit fails that test.
+#
+# The numbering rule: everything below 10 is hand-written reference data and
+# everything from 10 up is generated.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnCwdmChannel
+  # Two of the eighteen sit in the C band, 1531 and 1551. Both are off the 50 GHz
+  # grid, so neither is writable as a DWDM channel and the overlap is inert.
+  data:
+    - center_wavelength_nm: 1271
+      band: o
+    - center_wavelength_nm: 1291
+      band: o
+    - center_wavelength_nm: 1311
+      band: o
+    - center_wavelength_nm: 1331
+      band: o
+    - center_wavelength_nm: 1351
+      band: o
+    - center_wavelength_nm: 1371
+      band: e
+    - center_wavelength_nm: 1391
+      band: e
+    - center_wavelength_nm: 1411
+      band: e
+    - center_wavelength_nm: 1431
+      band: e
+    - center_wavelength_nm: 1451
+      band: e
+    - center_wavelength_nm: 1471
+      band: s
+    - center_wavelength_nm: 1491
+      band: s
+    - center_wavelength_nm: 1511
+      band: s
+    - center_wavelength_nm: 1531
+      band: c
+    - center_wavelength_nm: 1551
+      band: c
+    - center_wavelength_nm: 1571
+      band: l
+    - center_wavelength_nm: 1591
+      band: l
+    - center_wavelength_nm: 1611
+      band: l

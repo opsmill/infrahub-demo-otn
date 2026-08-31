@@ -1,0 +1,50 @@
+# Every service on the branch, with the verdict the generator wrote on it.
+#
+# **Rooted on `OtnService` and unfiltered, which is the opposite of
+# `queries/diversity.gql` and deliberately so.** That query roots on the group
+# because its silence has to be a property of the query shape. This one has to
+# see every service, because two of the five states it judges are states where a
+# field is **empty**: a refusal with no reason code, and an acceptance flag on a
+# service that was never refused. A filter on `status: rejected` would fetch
+# neither and the check would report green over both.
+#
+# No `$branch` and no variable of any kind. The check is global, so there is
+# nothing to bind: see the comment beside its entry in `.infrahub.yml`.
+#
+# `optical_path` is selected for its presence only, one `id` per segment. The
+# check counts it and names it in a message; no verdict turns on it, because the
+# state table in `specs/022-provisionable-gate/data-model.md` is written over
+# `status`, `rejection_code` and `refusal_accepted` and over nothing else.
+# `queries/service_trace.gql` is the query that walks a path.
+query Provisionable {
+  OtnService {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        status {
+          value
+        }
+        rejection_code {
+          value
+        }
+        rejection_detail {
+          value
+        }
+        refusal_accepted {
+          value
+        }
+        optical_path {
+          edges {
+            node {
+              id
+            }
+          }
+        }
+      }
+    }
+  }
+}
