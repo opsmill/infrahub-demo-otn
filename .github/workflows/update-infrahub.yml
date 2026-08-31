@@ -1,0 +1,158 @@
+---
+# yamllint disable rule:truthy rule:line-length
+name: Update Infrahub version
+
+# The Infrahub version is the one dependency Dependabot cannot follow. The
+# Dockerfile's FROM interpolates a build arg rather than naming a tag, which the
+# docker ecosystem cannot resolve, and the same version is restated in Compose,
+# tasks.py, the integration conftest and the infrahub-testcontainers pin.
+# Six literals across five files, so it takes a workflow.
+#
+# Driven by dispatch rather than a schedule, the way infrahub-demo-dc does it: a
+# release is an event Infrahub already knows about, and polling for it just adds
+# up to a week of latency. Until Infrahub's release pipeline is pointed at this
+# repository the workflow_dispatch input is how it gets used, and that input is
+# also how a bump gets retried or pinned to a specific version by hand.
+on:
+  repository_dispatch:
+    types: [trigger-infrahub-update]
+  workflow_dispatch:
+    inputs:
+      infrahub_version:
+        description: "Infrahub version to move to, for example 1.12.0"
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  UV_VERSION: "0.9.18"
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: update-infrahub-${{ github.event.client_payload.version || github.event.inputs.infrahub_version }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+
+      # Resolved in the shell rather than in a ${{ }} expression on each later
+      # step: an expression that silently evaluates to the empty string turns
+      # every rewrite below into a no-op that still reports success.
+      - name: Resolve the requested version
+        id: resolve
+        env:
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
+          INPUT_VERSION: ${{ github.event.inputs.infrahub_version }}
+        run: |
+          set -euo pipefail
+          VERSION="${INPUT_VERSION:-${PAYLOAD_VERSION:-}}"
+          if [ -z "${VERSION}" ]; then
+            echo "::error::No version supplied. A repository_dispatch needs client_payload.version."
+            exit 1
+          fi
+          # Validated before it reaches a regex replacement. A version carrying
+          # shell or sed metacharacters would otherwise be substituted into five
+          # files verbatim.
+          if ! printf '%s' "${VERSION}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+[0-9a-z.]*$'; then
+            echo "::error::'${VERSION}' does not look like an Infrahub release."
+            exit 1
+          fi
+          CURRENT=$(grep -oP '^ARG INFRAHUB_BASE_VERSION=\K\S+' Dockerfile)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "Current ${CURRENT}, requested ${VERSION}"
+
+      - name: Rewrite every declaration
+        if: steps.resolve.outputs.version != steps.resolve.outputs.current
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+          CURRENT: ${{ steps.resolve.outputs.current }}
+        run: |
+          set -euo pipefail
+          # Each rewrite is anchored to the syntax around it and then read back.
+          # A pattern that silently stops matching is the failure this workflow
+          # exists to prevent, and it is invisible without the read-back: the
+          # run goes green having changed nothing in that file.
+          rewrite() {
+            path="$1"
+            pattern="$2"
+            expected="$3"
+            perl -pi -e "${pattern}" "${path}"
+            grep -qF "${expected}" "${path}" || {
+              echo "::error::${path} did not take the rewrite; its syntax has changed and this workflow needs updating."
+              exit 1
+            }
+          }
+
+          rewrite Dockerfile \
+            "s/^ARG INFRAHUB_BASE_VERSION=\Q${CURRENT}\E$/ARG INFRAHUB_BASE_VERSION=${VERSION}/" \
+            "ARG INFRAHUB_BASE_VERSION=${VERSION}"
+
+          rewrite docker-compose.override.yml \
+            "s/\\\$\{INFRAHUB_BASE_VERSION:-\Q${CURRENT}\E\}/\\\$\{INFRAHUB_BASE_VERSION:-${VERSION}\}/g" \
+            "INFRAHUB_BASE_VERSION:-${VERSION}}"
+
+          rewrite tasks.py \
+            "s/(os\.getenv\(\"INFRAHUB_BASE_VERSION\", \")\Q${CURRENT}\E(\")/\${1}${VERSION}\${2}/" \
+            "os.getenv(\"INFRAHUB_BASE_VERSION\", \"${VERSION}\")"
+
+          rewrite tests/integration/conftest.py \
+            "s/(os\.environ\.get\(\"INFRAHUB_BASE_VERSION\", \")\Q${CURRENT}\E(\")/\${1}${VERSION}\${2}/" \
+            "os.environ.get(\"INFRAHUB_BASE_VERSION\", \"${VERSION}\")"
+
+          # Extras- and operator-agnostic, so a specifier that later grows a
+          # bound or an extra still matches.
+          rewrite pyproject.toml \
+            "s/(\"infrahub-testcontainers(\[[^]]*\])?[=<>~]+)[^,\"]+/\${1}${VERSION}/" \
+            "infrahub-testcontainers==${VERSION}"
+
+          # Compose declares it twice and the loop above rewrites both, so prove
+          # neither copy of the old version survived anywhere.
+          if grep -rn --fixed-strings "${CURRENT}" Dockerfile docker-compose.override.yml tasks.py tests/integration/conftest.py pyproject.toml; then
+            echo "::error::A declaration of ${CURRENT} survived the rewrite; see the matches above."
+            exit 1
+          fi
+
+      - uses: astral-sh/setup-uv@v7
+        if: steps.resolve.outputs.version != steps.resolve.outputs.current
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      # The testcontainers pin moved, so the lock has to follow or the pull
+      # request lands with the two disagreeing.
+      - name: Refresh the lock
+        if: steps.resolve.outputs.version != steps.resolve.outputs.current
+        run: uv lock
+
+      # tests/unit/test_pins.py compares all six declarations against the
+      # Dockerfile. Running it here means a missed file fails the workflow that
+      # caused it rather than the next unrelated pull request.
+      - name: Check the declarations agree
+        if: steps.resolve.outputs.version != steps.resolve.outputs.current
+        run: uv run pytest tests/unit/test_pins.py -v
+
+      - name: Open a pull request
+        if: steps.resolve.outputs.version != steps.resolve.outputs.current
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: "chore/infrahub-${{ steps.resolve.outputs.version }}"
+          title: "Bump Infrahub to ${{ steps.resolve.outputs.version }}"
+          commit-message: "Bump Infrahub to ${{ steps.resolve.outputs.version }}"
+          labels: dependencies
+          body: |
+            Automated bump from ${{ steps.resolve.outputs.current }} to ${{ steps.resolve.outputs.version }}.
+
+            Moves the six declarations of the Infrahub version together: the
+            Dockerfile build arg, both Compose fallbacks, `tasks.py`, the
+            integration conftest and the `infrahub-testcontainers` pin.
+            `tests/unit/test_pins.py` has already confirmed they agree.
+
+            What that check cannot tell you is whether the new release still
+            behaves the way this demo assumes. The `integration-test` job is
+            what answers that: it builds the image, loads the dataset, registers
+            the repository and runs a proposed change through the pipeline
+            against the version this pull request selects.
