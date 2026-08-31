@@ -51,7 +51,9 @@ from infrahub_sdk.exceptions import GraphQLError
 from infrahub_sdk.protocols import CoreGenericRepository
 from infrahub_sdk.testing.docker import TestInfrahubDockerClient
 from infrahub_sdk.testing.repository import GitRepo
-from infrahub_testcontainers.container import PROJECT_ENV_VARIABLES
+from infrahub_testcontainers.container import PROJECT_ENV_VARIABLES, InfrahubDockerCompose
+
+from .stack import relax_healthcheck_budgets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST: dict[str, int] = json.loads((REPO_ROOT / "scripts" / "geant_manifest.json").read_text())
@@ -137,6 +139,32 @@ class TestInfrahub(TestInfrahubDockerClient):
     # ----------------------------------------------------------------- #
     # Fixtures
     # ----------------------------------------------------------------- #
+
+    @pytest.fixture(scope="class")
+    def infrahub_compose(
+        self,
+        tmp_directory: Path,
+        remote_repos_dir: Path,  # noqa: ARG002 - ordering: the bind mount must exist before compose runs
+        remote_backups_dir: Path,  # noqa: ARG002 - same
+        infrahub_version: str,
+        deployment_type: str | None,
+    ) -> InfrahubDockerCompose:
+        """The stack `TestInfrahubDocker` builds, with room to start slowly.
+
+        Overridden rather than extended because the fixture it replaces is
+        declared on the base class, which puts it ahead of anything a conftest
+        offers. The body is that fixture's, plus the rewrite: the healthchecks
+        are literals in the packaged compose file and no environment variable
+        reaches them, so the copy `init` writes has to be edited between `init`
+        and `start`.
+        """
+        compose = InfrahubDockerCompose.init(
+            directory=tmp_directory,
+            version=infrahub_version,
+            deployment_type=deployment_type,
+        )
+        relax_healthcheck_budgets(tmp_directory / "docker-compose.yml")
+        return compose
 
     @pytest.fixture(scope="class")
     def address(self, infrahub_port: int) -> str:
