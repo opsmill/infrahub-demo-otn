@@ -119,6 +119,21 @@ produces failed behind it. infrahub-demo-dc allows the same 900 for the same
 step.
 """
 
+PIPELINE_TIMEOUT = 1800
+"""How long a proposed change may take to produce the checks asserted below, in
+seconds.
+
+Twelve minutes was the previous window, and it split two runs of the same
+commit: one runner produced every validator inside it and another had reached
+three of the nine checks when it closed, reporting `osnr_margin` as a check
+that never ran. Validators appear one at a time in name order, so the window
+has to cover the whole suite rather than the first few.
+
+infrahub-demo-dc allows 1800 for the equivalent wait. The loop exits at the
+first poll where both checks are present, so a host that is keeping up finishes
+in the five minutes it always did.
+"""
+
 DEFINITION_TIMEOUT = 600
 """How long a definition may take to appear after the repository reports itself
 in sync, in seconds.
@@ -593,12 +608,11 @@ class TestInfrahub(TestInfrahubDockerClient):
         transient = ""
         started = time.monotonic()
         elapsed = 0.0
-        # Twelve minutes. With this host to itself the pipeline finishes well
-        # inside five, and the rest is headroom for a loaded host: with a second
-        # Infrahub stack up on the same Docker daemon no repository validator
-        # appears within three hundred seconds, and a window that ends before
-        # the pipeline does reports a busy machine as a check that never ran.
-        while elapsed < 720:
+        # See PIPELINE_TIMEOUT. With this host to itself the pipeline finishes
+        # well inside five minutes; the rest is headroom for a loaded host,
+        # where a window that ends before the pipeline does reports a busy
+        # machine as a check that never ran.
+        while elapsed < PIPELINE_TIMEOUT:
             try:
                 validators = await client.filters(kind="CoreValidator", proposed_change__ids=[change.id])
             except GraphQLError as error:
@@ -624,6 +638,7 @@ class TestInfrahub(TestInfrahubDockerClient):
 
         for name in EXPECTED_CHECKS:
             assert any(name in label for label in found), (
-                f"no validator for {name!r} on the proposed change after {elapsed:.0f}s. "
+                f"no validator for {name!r} on the proposed change after {elapsed:.0f}s "
+                f"of a {PIPELINE_TIMEOUT}s window. "
                 f"Validators found: {sorted(found) or 'none'}"
             )
