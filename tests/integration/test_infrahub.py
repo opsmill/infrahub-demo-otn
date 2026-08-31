@@ -47,7 +47,7 @@ from typing import Any
 import httpx
 import pytest
 from infrahub_sdk import InfrahubClient
-from infrahub_sdk.exceptions import GraphQLError
+from infrahub_sdk.exceptions import Error as InfrahubSDKError
 from infrahub_sdk.protocols import CoreGenericRepository
 from infrahub_sdk.testing.docker import TestInfrahubDockerClient
 from infrahub_sdk.testing.repository import GitRepo
@@ -615,13 +615,23 @@ class TestInfrahub(TestInfrahubDockerClient):
         while elapsed < PIPELINE_TIMEOUT:
             try:
                 validators = await client.filters(kind="CoreValidator", proposed_change__ids=[change.id])
-            except GraphQLError as error:
+            except InfrahubSDKError as error:
                 # The pipeline pushes both Infrahub and the graph database hard
                 # while this polls, and the server answers 503 "Unable to
                 # connect to the database" under that load. That is a retry, not
                 # a result: raising here reports a database hiccup as a missing
                 # check.
-                transient = str(error)
+                #
+                # The SDK's base error, not `GraphQLError`. A 503 arrives in two
+                # shapes and only one of them is a GraphQL error: when both API
+                # servers are momentarily busy the load balancer answers first,
+                # with an HTML body that never parses, and the SDK raises
+                # `JsonDecodeError`. That escaped the narrower clause and ended
+                # the run outright, which is how a busy moment came to be
+                # reported as a broken pipeline. Everything the SDK raises here
+                # means the same thing, and the assertion below still fails
+                # naming the last one if every poll failed.
+                transient = f"{type(error).__name__}: {error}"
                 await asyncio.sleep(10)
                 elapsed = time.monotonic() - started
                 continue
