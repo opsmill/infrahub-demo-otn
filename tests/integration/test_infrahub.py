@@ -479,8 +479,21 @@ class TestInfrahub(TestInfrahubDockerClient):
           }
         }"""
         started = time.monotonic()
+        transient = ""
+        definitions: dict[str, Any] = {"count": 0, "edges": []}
         while True:
-            definitions = self.query(address, document, branch=default_branch)["CoreGeneratorDefinition"]
+            try:
+                definitions = self.query(address, document, branch=default_branch)["CoreGeneratorDefinition"]
+            except (AssertionError, httpx.HTTPError, ValueError) as error:
+                # The import this is waiting on is also what loads the server,
+                # and under that load it answers 503, sometimes with a body that
+                # is not JSON. `query` is written to fail on both, which is right
+                # for a single read and wrong inside a poll: here they mean not
+                # yet. Kept and reported below, so a genuine outage does not
+                # arrive as a bare "no definition". The three cover what `query`
+                # can raise: its own assert, the transport, and a body that does
+                # not parse.
+                transient = f"{type(error).__name__}: {error}"
             if definitions["count"] or time.monotonic() - started >= DEFINITION_TIMEOUT:
                 break
             time.sleep(POLL_INTERVAL)
@@ -488,6 +501,7 @@ class TestInfrahub(TestInfrahubDockerClient):
         assert definitions["count"] == 1, (
             "the repository sync created no generator definition within "
             f"{DEFINITION_TIMEOUT}s of the repository reporting itself in sync"
+            + (f". Last error while polling: {transient}" if transient else "")
         )
 
         target = definitions["edges"][0]["node"]["targets"]["node"]
