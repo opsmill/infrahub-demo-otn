@@ -418,7 +418,7 @@ def test_a_saturated_corridor_refuses_the_ai_service_on_latency_not_capacity() -
     service is refused on slots rather than on latency. That outcome is asserted
     in `tests/unit/test_generator.py`, where the packing decision lives. The
     three tests here assert the routing layer's own behaviour and the latency
-    figures `docs/docs/demo-otn/ai-payloads.mdx` publishes, both of which are
+    figures `docs/docs/ai-payloads.mdx` publishes, both of which are
     unchanged.
     """
     occupancy = _saturated()
@@ -488,7 +488,7 @@ def test_five_milliseconds_would_not_have_broken_it() -> None:
 def test_the_candidate_list_the_generator_sees_on_the_saturated_corridor(
     max_latency_ns: int | None, expected: list[str]
 ) -> None:
-    """The controls table in `docs/docs/demo-otn/provisioning-scenarios.mdx`, as the
+    """The controls table in `docs/docs/provisioning-scenarios.mdx`, as the
     generator reads it rather than as the strict default reads it.
 
     `require_free_channel=False`, which is what

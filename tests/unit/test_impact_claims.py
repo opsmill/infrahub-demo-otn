@@ -255,7 +255,7 @@ def test_most_spans_are_unducted_and_that_is_reported_not_grouped() -> None:
 # The published ZR catalog
 # ---------------------------------------------------------------------------
 
-CATALOG_PAGE = REPO_ROOT / "docs" / "docs" / "demo-otn" / "ai-payloads.mdx"
+CATALOG_PAGE = REPO_ROOT / "docs" / "docs" / "ai-payloads.mdx"
 """The page that prints the coherent pluggable catalog as a table."""
 
 CATALOG_HEADING = "## The ZR catalog"

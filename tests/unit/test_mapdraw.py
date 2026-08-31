@@ -442,7 +442,7 @@ def test_the_extraction_changed_no_pixels() -> None:
     only assert that the moved code matches itself.
 
     A failure here is either the extraction moving a pixel or a deliberate change
-    to the map. `docs/docs/demo-otn/developer-guide.mdx` says how to refresh the
+    to the map. `docs/docs/developer-guide.mdx` says how to refresh the
     file, and refreshing it is a decision, not a fix.
     """
     assert GOLDEN_PATH.exists(), f"the reference render is missing from {GOLDEN_PATH}"

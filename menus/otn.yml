@@ -175,7 +175,7 @@ spec:
     # include_in_menu: false.
     #
     # The other five reports are read through `uv run invoke demo-*` and in the
-    # proposed-change UI. `docs/docs/demo-otn/reporting-scenarios.mdx` has the
+    # proposed-change UI. `docs/docs/reporting-scenarios.mdx` has the
     # commands, and `provisioning-scenarios.mdx` has the two that write.
     - namespace: Otn
       name: OtnReportsRoot

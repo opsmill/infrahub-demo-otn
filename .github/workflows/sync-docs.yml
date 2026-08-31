@@ -1,0 +1,82 @@
+---
+name: Sync docs
+
+# docs.infrahub.app is built and deployed from opsmill/infrahub-docs, which
+# Cloudflare Pages watches directly. Nothing here talks to Cloudflare; this
+# workflow only pushes this repository's pages into that one, and the deploy
+# follows from the commit. infrahub-demo-dc syncs the same way.
+#
+# The target side needs three things to exist before this is useful: the
+# docs-demo-otn/ directory, sidebars-demo-otn.ts, and a plugin instance in
+# docs/docusaurus.config.ts mounting the first at routeBasePath 'demo-otn'.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/docs/**'
+      - 'docs/sidebars.ts'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Both halves of this arrangement live outside this repository: a
+      # PAT_TOKEN secret here, and docs-demo-otn/ plus its plugin instance in
+      # infrahub-docs. Neither can be created from a pull request, so without
+      # this gate the first push to main that touches docs/ opens with a red
+      # workflow and keeps failing on every docs change until someone notices.
+      #
+      # Reported as skipped rather than passed silently. A sync that never runs
+      # and says nothing is indistinguishable from a sync that works, which is
+      # the more expensive way to find out.
+      - name: Is the target reachable
+        id: gate
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PAT_TOKEN}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::PAT_TOKEN is not set, so there is nowhere to push. Skipping."
+            echo "::notice::Set that secret and add docs-demo-otn/ to opsmill/infrahub-docs to turn this on."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout source repository
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/checkout@v6
+        with:
+          path: source-repo
+
+      - name: Checkout target repository
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: opsmill/infrahub-docs
+          token: ${{ secrets.PAT_TOKEN }}
+          path: target-repo
+
+      # Delete before copy, so a page removed here is removed there. A plain
+      # copy would leave it published forever.
+      - name: Sync folders
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          # mkdir -p, so the very first sync does not need the directory to
+          # have been committed on the other side first.
+          mkdir -p target-repo/docs/docs-demo-otn
+          rm -rf target-repo/docs/docs-demo-otn/*
+          rm -f target-repo/docs/sidebars-demo-otn.ts
+          cp -r source-repo/docs/docs/* target-repo/docs/docs-demo-otn/
+          cp source-repo/docs/sidebars.ts target-repo/docs/sidebars-demo-otn.ts
+          cd target-repo
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          if ! (git diff --quiet && git diff --staged --quiet); then
+            git commit -m "Sync docs from infrahub-demo-otn repo"
+            git push
+          fi
