@@ -1,6 +1,6 @@
 """Fixtures for the integration layer.
 
-The testcontainers stack needs nine project-specific settings. They are applied
+The testcontainers stack needs eight project-specific settings. They are applied
 at import time so they land before ``infrahub_testcontainers`` snapshots the
 environment, and through ``setdefault`` so an explicit environment variable
 still wins:
@@ -36,16 +36,25 @@ still wins:
    a runner agree.
 6. The stack ships sized for a workstation: two API servers of four gunicorn
    workers each and two task workers, which is ten Infrahub processes beside
-   Neo4j, Postgres, RabbitMQ, Redis, HAProxy, cAdvisor and VictoriaMetrics. On
-   four cores that contention is what makes startup miss
-   ``infrahub-server``'s healthcheck, which allows about 110 seconds and is
-   hardcoded in the packaged compose file where no variable reaches it. One
-   server of two workers and one task worker is three processes for the same
-   coverage: the load balancer still fronts the API and the worker still runs
-   the pipeline. ``INFRAHUB_TESTING_WEB_CONCURRENCY`` is the one that has to be
-   set before ``infrahub_testcontainers.container`` is imported, because its
-   default entrypoint interpolates the value at import time; a conftest at this
-   level runs before the test module that imports it.
+   Neo4j, Postgres, RabbitMQ, Redis, HAProxy, cAdvisor and VictoriaMetrics. Four
+   cores cannot run that well, so the gunicorn count per server and the task
+   worker count come down.
+
+   The API server count deliberately does not. It was cut to one for a while,
+   to get the server healthy inside the roughly 110 seconds the packaged
+   compose file allowed, and it cost more than it bought: one server saturates
+   under pipeline load and answers HTTP 429, the SDK backs off ten seconds per
+   retry, and a check that spends its sixty-second Prefect budget on backoff
+   fails rather than finishing. The proposed-change test then reports a check
+   that never produced a validator. Runs that failed that way logged 350 and
+   394 rate-limited responses; the run that passed logged none.
+   ``tests/integration/stack.py`` now buys the startup time instead, so the
+   second server stays.
+
+   ``INFRAHUB_TESTING_WEB_CONCURRENCY`` is the one that has to be set before
+   ``infrahub_testcontainers.container`` is imported, because its default
+   entrypoint interpolates the value at import time; a conftest at this level
+   runs before the test module that imports it.
 """
 
 from __future__ import annotations
@@ -70,7 +79,6 @@ os.environ.setdefault("INFRAHUB_TESTING_DOCKER_PULL", "false")
 os.environ.setdefault("INFRAHUB_TESTING_TASKMGR_BACKGROUND_SVC_REPLICAS", "1")
 os.environ.setdefault("INFRAHUB_TESTING_TIMEOUT", "300")
 os.environ.setdefault("INFRAHUB_TIMEOUT", "300")
-os.environ.setdefault("INFRAHUB_TESTING_API_SERVER_COUNT", "1")
 os.environ.setdefault("INFRAHUB_TESTING_TASK_WORKER_COUNT", "1")
 os.environ.setdefault("INFRAHUB_TESTING_WEB_CONCURRENCY", "2")
 
