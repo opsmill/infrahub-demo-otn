@@ -1,6 +1,6 @@
 """Fixtures for the integration layer.
 
-The testcontainers stack needs six project-specific settings. They are applied
+The testcontainers stack needs nine project-specific settings. They are applied
 at import time so they land before ``infrahub_testcontainers`` snapshots the
 environment, and through ``setdefault`` so an explicit environment variable
 still wins:
@@ -34,6 +34,18 @@ still wins:
    invocation. ``infrahubctl schema load`` on a cold deployment is the call that
    exceeds the default first. Set here rather than in ``ci.yml`` so a laptop and
    a runner agree.
+6. The stack ships sized for a workstation: two API servers of four gunicorn
+   workers each and two task workers, which is ten Infrahub processes beside
+   Neo4j, Postgres, RabbitMQ, Redis, HAProxy, cAdvisor and VictoriaMetrics. On
+   four cores that contention is what makes startup miss
+   ``infrahub-server``'s healthcheck, which allows about 110 seconds and is
+   hardcoded in the packaged compose file where no variable reaches it. One
+   server of two workers and one task worker is three processes for the same
+   coverage: the load balancer still fronts the API and the worker still runs
+   the pipeline. ``INFRAHUB_TESTING_WEB_CONCURRENCY`` is the one that has to be
+   set before ``infrahub_testcontainers.container`` is imported, because its
+   default entrypoint interpolates the value at import time; a conftest at this
+   level runs before the test module that imports it.
 """
 
 from __future__ import annotations
@@ -58,6 +70,9 @@ os.environ.setdefault("INFRAHUB_TESTING_DOCKER_PULL", "false")
 os.environ.setdefault("INFRAHUB_TESTING_TASKMGR_BACKGROUND_SVC_REPLICAS", "1")
 os.environ.setdefault("INFRAHUB_TESTING_TIMEOUT", "300")
 os.environ.setdefault("INFRAHUB_TIMEOUT", "300")
+os.environ.setdefault("INFRAHUB_TESTING_API_SERVER_COUNT", "1")
+os.environ.setdefault("INFRAHUB_TESTING_TASK_WORKER_COUNT", "1")
+os.environ.setdefault("INFRAHUB_TESTING_WEB_CONCURRENCY", "2")
 
 
 @pytest.fixture(scope="session", autouse=True)
