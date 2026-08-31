@@ -11,25 +11,30 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 // the ODU map because the second one is read as a contrast with the first.
 // The three walkthrough pages follow the order a presenter uses: the scenarios
 // that write, the scenarios that read, then the material loaded by hand.
+// Document ids are bare rather than prefixed with the section name. This file
+// is copied verbatim into opsmill/infrahub-docs as sidebars-demo-otn.ts, where
+// the plugin instance mounts docs-demo-otn/ at routeBasePath 'demo-otn', so the
+// prefix comes from the mount point there and from routeBasePath '/' here. A
+// prefix in the ids would resolve in neither place.
 const sidebars: SidebarsConfig = {
   otnSidebar: [
-    'demo-otn/overview',
-    'demo-otn/quickstart',
-    'demo-otn/what-this-shows',
-    'demo-otn/installation-setup',
-    'demo-otn/schema-reference',
-    'demo-otn/concepts',
-    'demo-otn/client-mapping',
-    'demo-otn/link-budget',
-    'demo-otn/spectral-model',
-    'demo-otn/ai-payloads',
-    'demo-otn/network-map',
-    'demo-otn/odu-map',
-    'demo-otn/demo-guide',
-    'demo-otn/provisioning-scenarios',
-    'demo-otn/reporting-scenarios',
-    'demo-otn/loadable-scenarios',
-    'demo-otn/developer-guide',
+    'overview',
+    'quickstart',
+    'what-this-shows',
+    'installation-setup',
+    'schema-reference',
+    'concepts',
+    'client-mapping',
+    'link-budget',
+    'spectral-model',
+    'ai-payloads',
+    'network-map',
+    'odu-map',
+    'demo-guide',
+    'provisioning-scenarios',
+    'reporting-scenarios',
+    'loadable-scenarios',
+    'developer-guide',
   ],
 };
 
