@@ -37,7 +37,7 @@ jobs:
       group: update-infrahub-${{ github.event.client_payload.version || github.event.inputs.infrahub_version }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Resolved in the shell rather than in a ${{ }} expression on each later
       # step: an expression that silently evaluates to the empty string turns
@@ -137,7 +137,7 @@ jobs:
 
       - name: Open a pull request
         if: steps.resolve.outputs.version != steps.resolve.outputs.current
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: "chore/infrahub-${{ steps.resolve.outputs.version }}"
           title: "Bump Infrahub to ${{ steps.resolve.outputs.version }}"

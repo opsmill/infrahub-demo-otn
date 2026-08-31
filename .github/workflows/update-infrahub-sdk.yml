@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Resolve the latest infrahub-sdk release
         id: latest
@@ -61,7 +61,7 @@ jobs:
 
       - name: Open a pull request
         if: steps.latest.outputs.latest != steps.latest.outputs.current
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: "chore/infrahub-sdk-${{ steps.latest.outputs.latest }}"
           title: "Bump infrahub-sdk to ${{ steps.latest.outputs.latest }}"
