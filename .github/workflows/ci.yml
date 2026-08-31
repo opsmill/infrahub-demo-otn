@@ -177,13 +177,33 @@ jobs:
       !contains(needs.*.result, 'cancelled') &&
       (needs.files-changed.outputs.python == 'true' || needs.files-changed.outputs.schema == 'true')
     needs: ["files-changed", "python-lint", "yaml-lint", "schema-validate", "budget-unit-tests"]
+    # Four cores is tight for this stack. infrahub-server's healthcheck in the
+    # packaged compose file allows 10s plus 20 five-second retries, about 110
+    # seconds, and the run that first got this far needed 100 seconds just to
+    # reach application startup and another 80 to finish bootstrapping, so
+    # `docker compose up --wait` failed on an unhealthy container. The stack is
+    # cut down in tests/integration/conftest.py to fit instead.
+    #
+    # infrahub-demo-dc solves the same problem by running its equivalent job on
+    # the org's `huge-runners` group. That is the fallback if the cut-down stack
+    # proves too slow here: commit dbfa63a holds the working `runs-on` block,
+    # and this repository then needs adding to that group's selected
+    # repositories. A job configured for it while it is out of reach queues
+    # forever rather than failing.
     runs-on: ubuntu-latest
     # The local load is 56 seconds for 1265 objects, and the whole job measures
     # about 13 minutes locally now that it also registers the repository and
     # runs a proposed change through the pipeline. Container start, the image
     # build and a slower runner dominate. A job with no timeout hangs for six
     # hours; a job with an optimistic one flakes.
-    timeout-minutes: 45
+    #
+    # 75 rather than 45 because a four-core hosted runner is several times
+    # slower than the machine those local figures come from: the first CI run
+    # measured 3m17s just for the API server to answer its first request, where
+    # a laptop takes seconds. infrahub-demo-dc allows the same 75 for its
+    # equivalent job. Should this prove too tight, the next lever is the
+    # `huge-runners` group demo-dc runs on rather than a longer wait.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
