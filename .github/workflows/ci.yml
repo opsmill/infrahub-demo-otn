@@ -177,20 +177,25 @@ jobs:
       !contains(needs.*.result, 'cancelled') &&
       (needs.files-changed.outputs.python == 'true' || needs.files-changed.outputs.schema == 'true')
     needs: ["files-changed", "python-lint", "yaml-lint", "schema-validate", "budget-unit-tests"]
-    # Four cores is tight for this stack. infrahub-server's healthcheck in the
-    # packaged compose file allows 10s plus 20 five-second retries, about 110
-    # seconds, and the run that first got this far needed 100 seconds just to
-    # reach application startup and another 80 to finish bootstrapping, so
-    # `docker compose up --wait` failed on an unhealthy container. The stack is
-    # cut down in tests/integration/conftest.py to fit instead.
+    # Not ubuntu-latest, after four cores were given a fair trial and failed it.
     #
-    # infrahub-demo-dc solves the same problem by running its equivalent job on
-    # the org's `huge-runners` group. That is the fallback if the cut-down stack
-    # proves too slow here: commit dbfa63a holds the working `runs-on` block,
-    # and this repository then needs adding to that group's selected
-    # repositories. A job configured for it while it is out of reach queues
-    # forever rather than failing.
-    runs-on: ubuntu-latest
+    # The stack came up there in the end, but only at the edge of what the
+    # machine could hold, and the suite failed four times in four different
+    # places: the task workers timing out at 60s, the server missing a 110s
+    # healthcheck, checks starved by HTTP 429 until they blew Prefect's
+    # per-task budget, and the load balancer answering 502 and HTML 503 to
+    # calls that expected JSON. Each was a real defect and each was fixed, and
+    # the next run found the next one, because they are one condition wearing
+    # different faces: no spare capacity. infrahub-demo-dc runs the same stack
+    # here for the same reason.
+    #
+    # This repository has to be in the `huge-runners` group's selected
+    # repositories. A job pointed at a group it cannot reach queues rather than
+    # failing, so if this sits in `queued` and nothing picks it up, that is the
+    # cause, and `ubuntu-latest` plus the guards in tests/integration/ is the
+    # configuration to fall back to.
+    runs-on:
+      group: "huge-runners"
     # The local load is 56 seconds for 1265 objects, and the whole job measures
     # about 13 minutes locally now that it also registers the repository and
     # runs a proposed change through the pipeline. Container start, the image
