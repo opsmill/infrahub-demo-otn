@@ -20,7 +20,7 @@ module says so instead of silently relaxing.
 fixtures through `TestInfrahubDocker`, and every one of them is `scope="class"`:
 `infrahub_compose`, `infrahub_app`, `infrahub_port`, `tmp_directory`,
 `remote_repos_dir`. A second class is a second Infrahub, a second graph
-database, message queue, cache and pair of workers. Test methods run in
+database, message queue, cache and task worker. Test methods run in
 definition order, and each one below depends on the state the previous left.
 
 **So `pytest -k` cannot be used to re-run one of these.** Deselecting the
@@ -100,6 +100,33 @@ EXPECTED_CHECKS = ("channel_collision", "osnr_margin")
 """The two data checks a proposed change must run. `units_import` is the third
 registered check; it is not asserted here because it passes or fails on the
 worker image rather than on the change."""
+
+POLL_INTERVAL = 10
+"""Seconds between polls for anything the task worker does asynchronously."""
+
+REPO_SYNC_TIMEOUT = 900
+"""Clone plus import of every check, generator, transform and artifact
+definition in this repository, in seconds.
+
+A ceiling, not a target. The polls below return the moment their condition
+holds, so a generous ceiling costs nothing on a host that is keeping up. It
+exists because a four-core CI runner running one task worker is several times
+slower than the machine the local figures come from, and 300 seconds was not
+enough there: the import did not finish, and the two tests that read what it
+produces failed behind it. infrahub-demo-dc allows the same 900 for the same
+step.
+"""
+
+DEFINITION_TIMEOUT = 600
+"""How long a definition may take to appear after the repository reports itself
+in sync, in seconds.
+
+Sync completing and the definitions existing are two different events. The
+generator-definition test used to read straight after the sync test returned
+and so depended on them being one, which holds on a fast host and does not on a
+loaded one. infrahub-demo-dc waits for definitions separately, on its own
+ceiling, for this reason.
+"""
 
 pytestmark = pytest.mark.integration
 
@@ -406,7 +433,9 @@ class TestInfrahub(TestInfrahubDockerClient):
             dst_directory=remote_repos_dir,
         )
         await repo.add_to_infrahub(client=client)
-        in_sync = await repo.wait_for_sync_to_complete(client=client, interval=10, retries=30)
+        in_sync = await repo.wait_for_sync_to_complete(
+            client=client, interval=POLL_INTERVAL, retries=REPO_SYNC_TIMEOUT // POLL_INTERVAL
+        )
 
         registered = await client.all(kind=CoreGenericRepository)
         assert registered, "no repository object exists after the create mutation"
@@ -436,19 +465,30 @@ class TestInfrahub(TestInfrahubDockerClient):
 
         Read on the default branch: the repository sync applies `objects:`
         there, not onto the branch the dataset test created.
+
+        Polled rather than read once. The repository reporting itself in sync
+        and its definitions existing are two separate events, and reading
+        straight through treats them as one. That holds on a host with the
+        stack to itself and fails on a loaded CI runner, where it reports a
+        definition that is merely late as a definition the sync never created.
         """
-        data = self.query(
-            address,
-            """{
-              CoreGeneratorDefinition(name__value: "optical_service") {
-                count
-                edges { node { targets { node { __typename display_label } } } }
-              }
-            }""",
-            branch=default_branch,
+        document = """{
+          CoreGeneratorDefinition(name__value: "optical_service") {
+            count
+            edges { node { targets { node { __typename display_label } } } }
+          }
+        }"""
+        started = time.monotonic()
+        while True:
+            definitions = self.query(address, document, branch=default_branch)["CoreGeneratorDefinition"]
+            if definitions["count"] or time.monotonic() - started >= DEFINITION_TIMEOUT:
+                break
+            time.sleep(POLL_INTERVAL)
+
+        assert definitions["count"] == 1, (
+            "the repository sync created no generator definition within "
+            f"{DEFINITION_TIMEOUT}s of the repository reporting itself in sync"
         )
-        definitions = data["CoreGeneratorDefinition"]
-        assert definitions["count"] == 1, "the repository sync created no generator definition"
 
         target = definitions["edges"][0]["node"]["targets"]["node"]
         assert target is not None, (
