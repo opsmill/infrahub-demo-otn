@@ -183,7 +183,14 @@ jobs:
     # runs a proposed change through the pipeline. Container start, the image
     # build and a slower runner dominate. A job with no timeout hangs for six
     # hours; a job with an optimistic one flakes.
-    timeout-minutes: 45
+    #
+    # 75 rather than 45 because a four-core hosted runner is several times
+    # slower than the machine those local figures come from: the first CI run
+    # measured 3m17s just for the API server to answer its first request, where
+    # a laptop takes seconds. infrahub-demo-dc allows the same 75 for its
+    # equivalent job. Should this prove too tight, the next lever is the
+    # `huge-runners` group demo-dc runs on rather than a longer wait.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7

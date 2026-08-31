@@ -1,6 +1,6 @@
 """Fixtures for the integration layer.
 
-The testcontainers stack needs four project-specific settings. They are applied
+The testcontainers stack needs six project-specific settings. They are applied
 at import time so they land before ``infrahub_testcontainers`` snapshots the
 environment, and through ``setdefault`` so an explicit environment variable
 still wins:
@@ -16,6 +16,24 @@ still wins:
    ``task-manager-background-svc`` with ``replicas: 0`` and nothing depends on
    it, so scheduling one replica is a harmless workaround. Drop it once Compose
    ships the fix.
+4. ``task-worker`` declares ``depends_on: [infrahub-server]`` in short form,
+   which waits for the container to start and not for the application to be
+   ready. The worker's first call is a GraphQL query it gives
+   ``INFRAHUB_TIMEOUT`` seconds to answer, and the stock 60 is not enough on a
+   four-core GitHub runner: two API servers of four gunicorn workers each,
+   two task workers, Neo4j, Postgres, RabbitMQ, Redis, HAProxy, cAdvisor and
+   VictoriaMetrics contend for the cores, and the observed run took the API
+   server 3m17s to answer its first request. The workers timed out at 60s,
+   exited 1, and took ``docker compose up --wait`` down with them, so every
+   test errored in fixture setup. HAProxy is configured with ``timeout server
+   0``, so the longer deadline simply lets the worker wait for the answer.
+5. The same slowness reaches the host side. ``Config`` reads ``INFRAHUB_TIMEOUT``
+   from the environment and defaults to 60 seconds, and ``TestInfrahubDocker``'s
+   ``execute_command`` hands its subprocesses a copy of that environment, so one
+   variable covers both the ``client`` fixture and every ``infrahubctl``
+   invocation. ``infrahubctl schema load`` on a cold deployment is the call that
+   exceeds the default first. Set here rather than in ``ci.yml`` so a laptop and
+   a runner agree.
 """
 
 from __future__ import annotations
@@ -38,6 +56,8 @@ os.environ.setdefault("INFRAHUB_TESTING_DOCKER_IMAGE", TESTING_IMAGE)
 os.environ.setdefault("INFRAHUB_TESTING_IMAGE_VERSION", TESTING_IMAGE_VERSION)
 os.environ.setdefault("INFRAHUB_TESTING_DOCKER_PULL", "false")
 os.environ.setdefault("INFRAHUB_TESTING_TASKMGR_BACKGROUND_SVC_REPLICAS", "1")
+os.environ.setdefault("INFRAHUB_TESTING_TIMEOUT", "300")
+os.environ.setdefault("INFRAHUB_TIMEOUT", "300")
 
 
 @pytest.fixture(scope="session", autouse=True)
