@@ -177,7 +177,15 @@ jobs:
       !contains(needs.*.result, 'cancelled') &&
       (needs.files-changed.outputs.python == 'true' || needs.files-changed.outputs.schema == 'true')
     needs: ["files-changed", "python-lint", "yaml-lint", "schema-validate", "budget-unit-tests"]
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest. Four cores cannot bring this stack up inside the
+    # healthchecks the compose file declares: infrahub-server allows 10s plus
+    # 20 five-second retries, about 110 seconds, and the first CI run to get
+    # this far needed 100 seconds just to reach application startup and another
+    # 80 to finish bootstrapping. `docker compose up --wait` then fails on an
+    # unhealthy container. infrahub-demo-dc runs its equivalent job here for
+    # the same reason.
+    runs-on:
+      group: "huge-runners"
     # The local load is 56 seconds for 1265 objects, and the whole job measures
     # about 13 minutes locally now that it also registers the repository and
     # runs a proposed change through the pipeline. Container start, the image
