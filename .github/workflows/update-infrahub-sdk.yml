@@ -27,16 +27,37 @@ jobs:
           echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
           echo "Current ${CURRENT}, latest ${LATEST}"
 
+      # Two `sed -i` calls against tests/unit/test_pins.py used to follow this
+      # one, aligning assertions that no longer exist. The file did not exist
+      # either, so `sed` exited 2 and the step failed under `bash -e`: the run
+      # on 2026-08-31 resolved 1.23.0 -> 1.23.1 correctly and then died before
+      # opening anything. This workflow had never once produced a pull request.
+      # test_pins.py now exists and guards the Infrahub version instead, which
+      # is derived rather than restated, so nothing here needs to edit it.
       - name: Bump the pin
         if: steps.latest.outputs.latest != steps.latest.outputs.current
         run: |
+          set -euo pipefail
           LATEST="${{ steps.latest.outputs.latest }}"
           CURRENT="${{ steps.latest.outputs.current }}"
-          MINOR=$(echo "${LATEST}" | cut -d. -f1,2)
           sed -i "s|infrahub-sdk\[all,ctl\]==${CURRENT}|infrahub-sdk[all,ctl]==${LATEST}|" pyproject.toml
-          # Keep the assertion in test_pins.py aligned with the pin.
-          sed -i -E "s|startswith\(\"[0-9]+\.[0-9]+\"\)|startswith(\"${MINOR}\")|" tests/unit/test_pins.py
-          sed -i -E "s|pinned_to_[0-9]+_[0-9]+|pinned_to_$(echo "${MINOR}" | tr '.' '_')|" tests/unit/test_pins.py
+          # Read back, so a specifier that changes shape fails here rather than
+          # opening an empty pull request.
+          grep -qF "infrahub-sdk[all,ctl]==${LATEST}" pyproject.toml || {
+            echo "::error::The infrahub-sdk specifier did not take the rewrite."
+            exit 1
+          }
+
+      - uses: astral-sh/setup-uv@v7
+        if: steps.latest.outputs.latest != steps.latest.outputs.current
+        with:
+          version: "0.9.18"
+
+      # Without this the pull request carries a pyproject.toml and a uv.lock
+      # that disagree about the pin.
+      - name: Refresh the lock
+        if: steps.latest.outputs.latest != steps.latest.outputs.current
+        run: uv lock
 
       - name: Open a pull request
         if: steps.latest.outputs.latest != steps.latest.outputs.current

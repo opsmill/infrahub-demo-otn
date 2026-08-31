@@ -16,8 +16,15 @@ updates:
         # infrahub-sdk is excluded here and grouped alone below. An SDK bump
         # can change traverse_paths signatures, so it gets a reviewable PR of
         # its own rather than being buried in a bundle.
+        #
+        # `exclude-patterns`, not a regex lookahead in `patterns`. Dependabot
+        # matches these as globs, so `^(?!infrahub-sdk$).*` matched nothing and
+        # the group silently covered no package: #2 and #3 arrived as separate
+        # pull requests where one grouped request was intended.
         patterns:
-          - "^(?!infrahub-sdk$).*"
+          - "*"
+        exclude-patterns:
+          - "infrahub-sdk"
       infrahub-sdk:
         patterns:
           - "infrahub-sdk"
