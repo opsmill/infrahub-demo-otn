@@ -47,13 +47,13 @@ jobs:
 
       - name: Checkout source repository
         if: steps.gate.outputs.ready == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: source-repo
 
       - name: Checkout target repository
         if: steps.gate.outputs.ready == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: opsmill/infrahub-docs
           token: ${{ secrets.PAT_TOKEN }}
