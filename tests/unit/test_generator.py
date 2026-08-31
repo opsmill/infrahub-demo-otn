@@ -892,7 +892,7 @@ def _saturated_corridor() -> dict[str, Any]:
 def test_the_saturated_corridor_scenario_refuses_a_400g_and_grooms_a_100g(
     occupies: int, odu_type: str, groomed: bool
 ) -> None:
-    """The two figures `docs/docs/demo-otn/provisioning-scenarios.mdx` publishes for
+    """The two figures `docs/docs/provisioning-scenarios.mdx` publishes for
     scenario two.
 
     Same route, same zero free channels, opposite answers, and the only difference

@@ -88,7 +88,7 @@ here rather than becoming an attribute.
 
 +3 dBm per channel is at the top of the realistic range: across 96 channels it
 is +22.8 dBm composite, a high-power C-band booster rather than a typical one.
-`docs/docs/demo-otn/link-budget.mdx` says so where a reader will see it.
+`docs/docs/link-budget.mdx` says so where a reader will see it.
 """
 
 LAUNCH_POWER_PER_CHANNEL_MDBM = db_to_mdb(LAUNCH_POWER_PER_CHANNEL_DBM)

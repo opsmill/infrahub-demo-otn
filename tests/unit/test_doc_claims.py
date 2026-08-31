@@ -311,7 +311,7 @@ def test_every_invoke_command_the_pages_run_is_a_task_that_exists() -> None:
     defined |= set(re.findall(r"@task\(name=\"([a-z-]+)\"\)", tasks))
 
     offenders = []
-    for page in sorted((REPO_ROOT / "docs" / "docs" / "demo-otn").glob("*.mdx")):
+    for page in sorted((REPO_ROOT / "docs" / "docs").glob("*.mdx")):
         # `uv run invoke` and not a bare `invoke`: the pages also say "an invoke
         # task" in prose, and a reader never types that.
         for command in set(re.findall(r"uv run invoke ([a-z][a-z-]*)", page.read_text())):

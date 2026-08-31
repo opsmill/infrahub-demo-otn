@@ -428,7 +428,7 @@ nodes:
       # It does not cover a gap. It refuses a repeat of segment 2 and is blind
       # to the sequence 1, 2, 4, because a schema constrains what is written and
       # cannot notice what is missing. The completeness check owns that ground,
-      # and why is in `docs/docs/demo-otn/client-mapping.mdx`.
+      # and why is in `docs/docs/client-mapping.mdx`.
       - ["service", "segment_sequence__value"]
     attributes:
       - name: name
