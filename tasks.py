@@ -112,7 +112,7 @@ WALKTHROUGH = (
     "demo-infiniband",
     "demo-refusal",
 )
-"""The runbook order in `docs/docs/demo-otn/loadable-scenarios.mdx`, and what the
+"""The runbook order in `docs/docs/loadable-scenarios.mdx`, and what the
 `demo` task runs. `demo-setup` comes before it and `demo-clean` after it."""
 
 
@@ -1068,7 +1068,7 @@ def docs(context: Context) -> None:
 # --------------------------------------------------------------------------- #
 # Demo scenarios
 #
-# One task per step of the three walkthrough pages under docs/docs/demo-otn/:
+# One task per step of the three walkthrough pages under docs/docs/:
 # provisioning-scenarios.mdx for the two that write, reporting-scenarios.mdx for
 # the six that read, and loadable-scenarios.mdx for the loadable pairs and the
 # runbook. WALKTHROUGH below is the runbook order, and `demo` runs it.

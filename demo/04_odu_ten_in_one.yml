@@ -9,7 +9,7 @@
 # London to Milan each map into an `ODU2` taking 8 tributary slots, and all ten
 # land in the same `ODU4` line container, which offers 80. Ten eights are eighty,
 # so after the tenth that container reads 80 of 80, and the eleventh circuit is
-# refused. This is the story `docs/docs/demo-otn/client-mapping.mdx` narrates
+# refused. This is the story `docs/docs/client-mapping.mdx` narrates
 # under "SDH over OTN, ten customers in one ODU4".
 #
 # **Why London to Milan, and not Frankfurt to Vienna.** The story needs an

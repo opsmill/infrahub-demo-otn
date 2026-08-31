@@ -40,7 +40,7 @@ SCHEMA_DIR = REPO_ROOT / "schemas"
 OBJECT_DIR = REPO_ROOT / "objects"
 SCRIPT_DIR = REPO_ROOT / "scripts"
 DEMO_DIR = REPO_ROOT / "demo"
-DOC_DIR = REPO_ROOT / "docs" / "docs" / "demo-otn"
+DOC_DIR = REPO_ROOT / "docs" / "docs"
 
 
 @cache

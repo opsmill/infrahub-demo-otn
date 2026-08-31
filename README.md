@@ -76,8 +76,8 @@ not a data center. Clone it, run one command, and browse 2342 objects and eight
 reports. No prior Infrahub experience needed.
 
 > Start with [Quick start](#quick-start) below, then the docs site: the
-> [quick start page](docs/docs/demo-otn/quickstart.mdx) takes you from a clone to
-> a merge that will not close, and the [demo guide](docs/docs/demo-otn/demo-guide.mdx)
+> [quick start page](docs/docs/quickstart.mdx) takes you from a clone to
+> a merge that will not close, and the [demo guide](docs/docs/demo-guide.mdx)
 > covers the eight scenarios.
 
 **Transport engineer:** You want to know whether the optical model is real. The
@@ -86,14 +86,14 @@ is a scaled integer with the unit in the attribute name, and the demo reports
 its negative results: 400ZR reaches nothing on this network, Madrid has no
 diverse route, and one site pair breaks the dispersion limit.
 
-> Go to the [link budget](docs/docs/demo-otn/link-budget.mdx) and the
-> [schema reference](docs/docs/demo-otn/schema-reference.mdx).
+> Go to the [link budget](docs/docs/link-budget.mdx) and the
+> [schema reference](docs/docs/schema-reference.mdx).
 
 **Implementer:** You want patterns for generators that refuse, checks that
 replace stored state, and reports that read a branch. The decision layer imports
 no SDK, so all of it is tested with no server running.
 
-> Go to the [developer guide](docs/docs/demo-otn/developer-guide.mdx).
+> Go to the [developer guide](docs/docs/developer-guide.mdx).
 
 ---
 
@@ -195,7 +195,7 @@ leaving them out. On the shipped dataset all ten catalog modes still fit on that
 corridor, eight of them only on channel 95. Load `demo/04_odu_ten_in_one.yml`,
 which spends the one wide block, and all ten fit nowhere.
 
-> The [spectral model](docs/docs/demo-otn/spectral-model.mdx) page has the
+> The [spectral model](docs/docs/spectral-model.mdx) page has the
 > widths, the guard band and the arithmetic.
 
 ---
@@ -243,23 +243,23 @@ which spends the one wide block, and all ten fit nowhere.
 
 This file is the half you read before you clone: what the demo is, what you can
 do with it, and how to start it. The
-[overview](docs/docs/demo-otn/overview.mdx) is the half you read once it is
+[overview](docs/docs/overview.mdx) is the half you read once it is
 running: why the model is shaped the way it is, and what each layer answers.
 Where both state a figure, it is the same figure.
 
 | Topic | Resource |
 |---|---|
-| **What this models** | [Overview](docs/docs/demo-otn/overview.mdx) |
-| **Set the environment up** | [Install and load the demo](docs/docs/demo-otn/installation-setup.mdx) |
-| **Run the demo** | [Demo guide](docs/docs/demo-otn/demo-guide.mdx) |
-| **Optical concepts** | [Concepts](docs/docs/demo-otn/concepts.mdx) |
-| **The link budget math** | [Link budget](docs/docs/demo-otn/link-budget.mdx) |
-| **Why free spectrum overstates capacity** | [Spectral model](docs/docs/demo-otn/spectral-model.mdx) |
-| **Every kind and attribute** | [Schema reference](docs/docs/demo-otn/schema-reference.mdx) |
-| **AI and HPC latency** | [AI payloads](docs/docs/demo-otn/ai-payloads.mdx) |
-| **Client signal mapping** | [Client mapping](docs/docs/demo-otn/client-mapping.mdx) |
-| **The map on every PoP** | [Network map](docs/docs/demo-otn/network-map.mdx) · [ODU map](docs/docs/demo-otn/odu-map.mdx) |
-| **Change the repository** | [Developer guide](docs/docs/demo-otn/developer-guide.mdx) |
+| **What this models** | [Overview](docs/docs/overview.mdx) |
+| **Set the environment up** | [Install and load the demo](docs/docs/installation-setup.mdx) |
+| **Run the demo** | [Demo guide](docs/docs/demo-guide.mdx) |
+| **Optical concepts** | [Concepts](docs/docs/concepts.mdx) |
+| **The link budget math** | [Link budget](docs/docs/link-budget.mdx) |
+| **Why free spectrum overstates capacity** | [Spectral model](docs/docs/spectral-model.mdx) |
+| **Every kind and attribute** | [Schema reference](docs/docs/schema-reference.mdx) |
+| **AI and HPC latency** | [AI payloads](docs/docs/ai-payloads.mdx) |
+| **Client signal mapping** | [Client mapping](docs/docs/client-mapping.mdx) |
+| **The map on every PoP** | [Network map](docs/docs/network-map.mdx) · [ODU map](docs/docs/odu-map.mdx) |
+| **Change the repository** | [Developer guide](docs/docs/developer-guide.mdx) |
 | **Infrahub core docs** | [Generators](https://docs.infrahub.app/topics/generator) · [Checks](https://docs.infrahub.app/topics/check) |
 
 ---

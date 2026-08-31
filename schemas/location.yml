@@ -105,7 +105,7 @@ nodes:
       # `tests/unit/test_geant_dataset.py` reads it to refuse an `oms` on any
       # span touching a customer site, which is what keeps a coarse metro tail
       # out of the budget engine and its 1550 nm coefficient. Full reasoning in
-      # `docs/docs/demo-otn/schema-reference.mdx`, "site_type keeps the PoPs a
+      # `docs/docs/schema-reference.mdx`, "site_type keeps the PoPs a
       # filter".
       - name: site_type
         kind: Dropdown

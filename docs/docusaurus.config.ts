@@ -26,10 +26,10 @@ const config: Config = {
       'classic',
       {
         docs: {
-          editUrl: 'https://github.com/opsmill/infrahub-demo-otn/tree/stable/docs',
+          editUrl: 'https://github.com/opsmill/infrahub-demo-otn/tree/main/docs',
           path: 'docs',
           routeBasePath: '/',
-          sidebarPath: './sidebars/sidebars-demo-otn.ts',
+          sidebarPath: './sidebars.ts',
           sidebarCollapsed: true,
         },
         blog: false,
@@ -48,7 +48,7 @@ const config: Config = {
         alt: 'Infrahub',
         src: 'img/infrahub-hori.svg',
         srcDark: 'img/infrahub-hori-dark.svg',
-        href: '/demo-otn/overview',
+        href: '/overview',
       },
       items: [
         {
