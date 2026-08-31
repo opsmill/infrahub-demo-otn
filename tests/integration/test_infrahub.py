@@ -47,7 +47,7 @@ from typing import Any
 import httpx
 import pytest
 from infrahub_sdk import InfrahubClient
-from infrahub_sdk.exceptions import GraphQLError
+from infrahub_sdk.exceptions import Error as InfrahubSDKError
 from infrahub_sdk.protocols import CoreGenericRepository
 from infrahub_sdk.testing.docker import TestInfrahubDockerClient
 from infrahub_sdk.testing.repository import GitRepo
@@ -117,6 +117,21 @@ slower than the machine the local figures come from, and 300 seconds was not
 enough there: the import did not finish, and the two tests that read what it
 produces failed behind it. infrahub-demo-dc allows the same 900 for the same
 step.
+"""
+
+PIPELINE_TIMEOUT = 1800
+"""How long a proposed change may take to produce the checks asserted below, in
+seconds.
+
+Twelve minutes was the previous window, and it split two runs of the same
+commit: one runner produced every validator inside it and another had reached
+three of the nine checks when it closed, reporting `osnr_margin` as a check
+that never ran. Validators appear one at a time in name order, so the window
+has to cover the whole suite rather than the first few.
+
+infrahub-demo-dc allows 1800 for the equivalent wait. The loop exits at the
+first poll where both checks are present, so a host that is keeping up finishes
+in the five minutes it always did.
 """
 
 DEFINITION_TIMEOUT = 600
@@ -593,21 +608,30 @@ class TestInfrahub(TestInfrahubDockerClient):
         transient = ""
         started = time.monotonic()
         elapsed = 0.0
-        # Twelve minutes. With this host to itself the pipeline finishes well
-        # inside five, and the rest is headroom for a loaded host: with a second
-        # Infrahub stack up on the same Docker daemon no repository validator
-        # appears within three hundred seconds, and a window that ends before
-        # the pipeline does reports a busy machine as a check that never ran.
-        while elapsed < 720:
+        # See PIPELINE_TIMEOUT. With this host to itself the pipeline finishes
+        # well inside five minutes; the rest is headroom for a loaded host,
+        # where a window that ends before the pipeline does reports a busy
+        # machine as a check that never ran.
+        while elapsed < PIPELINE_TIMEOUT:
             try:
                 validators = await client.filters(kind="CoreValidator", proposed_change__ids=[change.id])
-            except GraphQLError as error:
+            except InfrahubSDKError as error:
                 # The pipeline pushes both Infrahub and the graph database hard
                 # while this polls, and the server answers 503 "Unable to
                 # connect to the database" under that load. That is a retry, not
                 # a result: raising here reports a database hiccup as a missing
                 # check.
-                transient = str(error)
+                #
+                # The SDK's base error, not `GraphQLError`. A 503 arrives in two
+                # shapes and only one of them is a GraphQL error: when both API
+                # servers are momentarily busy the load balancer answers first,
+                # with an HTML body that never parses, and the SDK raises
+                # `JsonDecodeError`. That escaped the narrower clause and ended
+                # the run outright, which is how a busy moment came to be
+                # reported as a broken pipeline. Everything the SDK raises here
+                # means the same thing, and the assertion below still fails
+                # naming the last one if every poll failed.
+                transient = f"{type(error).__name__}: {error}"
                 await asyncio.sleep(10)
                 elapsed = time.monotonic() - started
                 continue
@@ -624,6 +648,7 @@ class TestInfrahub(TestInfrahubDockerClient):
 
         for name in EXPECTED_CHECKS:
             assert any(name in label for label in found), (
-                f"no validator for {name!r} on the proposed change after {elapsed:.0f}s. "
+                f"no validator for {name!r} on the proposed change after {elapsed:.0f}s "
+                f"of a {PIPELINE_TIMEOUT}s window. "
                 f"Validators found: {sorted(found) or 'none'}"
             )
