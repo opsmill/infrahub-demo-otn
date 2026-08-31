@@ -234,6 +234,34 @@ jobs:
       # that job's import probe only covers `infrahub_demo_otn.units`.
       - name: Build the image the testcontainers stack runs
         run: uv run invoke build
+      # The compose project lives in pytest's temp directory and the stack bind
+      # mounts files out of it: haproxy.cfg, prometheus.yml, ./repos, ./backups.
+      # A bind mount is resolved by the Docker daemon, which here is the host's,
+      # while pytest's default temp root is inside the runner container. The
+      # host has no /tmp/pytest-of-root, so Docker creates a directory at each
+      # path instead, and haproxy given a directory where its config should be
+      # prints its usage text and exits. `up --wait` then fails at about ninety
+      # seconds with nothing in any container log to say why.
+      #
+      # /var/lib/github/ghrunner_N/_temp is the same path in both places.
+      # infrahub-demo-dc derives it the same way and for the same reason.
+      #
+      # Skipped rather than guessed when the runner name carries no ghrunnerN
+      # token, which is what a hosted runner looks like: there the default temp
+      # root is already correct, and the derivation would produce
+      # /var/lib/github//_temp, a path that exists nowhere and fails the same
+      # way this step exists to prevent.
+      - name: Point pytest at a temp root the Docker host shares
+        env:
+          RUNNER_LABEL: ${{ runner.name }}
+        run: |
+          set -euo pipefail
+          if RUNNER_ID=$(echo "${RUNNER_LABEL}" | grep -o 'ghrunner[0-9]\+'); then
+            echo "PYTEST_DEBUG_TEMPROOT=/var/lib/github/${RUNNER_ID/ghrunner/ghrunner_}/_temp" >> "$GITHUB_ENV"
+            echo "Runner '${RUNNER_LABEL}': temp root set for shared-daemon bind mounts."
+          else
+            echo "::notice::Runner '${RUNNER_LABEL}' carries no ghrunner<N> token; leaving pytest's default temp root."
+          fi
       # infrahub-testcontainers is pinned to 1.11.0, the same version
       # docker-compose runs, so this exercises the version the demo ships
       # against rather than whatever is newest.
