@@ -373,7 +373,7 @@ attribute performance figures to companies that never supplied them."""
 
 AMPLIFIER_NOISE_FIGURE_MDB = 4000
 """4.0 dB on every amplifier. A good low-noise EDFA, at the favourable end of
-realistic, which `docs/docs/demo-otn/link-budget.mdx` states rather than hides."""
+realistic, which `docs/docs/link-budget.mdx` states rather than hides."""
 
 PMD_COEFFICIENT_FS_PER_ROOT_KM = 100
 """0.1 ps per root kilometre, the polarisation mode dispersion of the fibre.
