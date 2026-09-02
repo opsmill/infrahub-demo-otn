@@ -457,6 +457,7 @@ def test_the_pipeline_runs_nine_checks() -> None:
     """
     names = sorted(entry.name for entry in CONFIG.check_definitions)
     assert names == [
+        "carrier_termination",
         "channel_collision",
         "channel_count_consistency",
         "container_capacity",

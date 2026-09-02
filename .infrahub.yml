@@ -76,6 +76,16 @@ queries:
   # booleans.
   - name: monitor_completeness
     file_path: "./queries/monitor_completeness.gql"
+  # Rooted on OtnOpticalCarrier and unfiltered, although the check judges active
+  # carriers only. `status__value: "active"` would be the cheaper query and it is
+  # not used: the check has to state how many carriers it skipped and why, and a
+  # query that drops those rows leaves the scope to be inferred from silence.
+  # provisionable.gql is unfiltered on the same shape of argument. It also
+  # fetches each section's two ROADMs, which is what makes the site that stopped
+  # terminating a wavelength nameable from relationships rather than parsed out
+  # of the carrier's name.
+  - name: carrier_termination
+    file_path: "./queries/carrier_termination.gql"
 
 # Every `watch.files` list below this line is generated. Run
 # `uv run python scripts/generate_watch_lists.py` after any import changes under
@@ -220,6 +230,31 @@ check_definitions:
   - name: monitor_completeness
     file_path: "./checks/monitor_completeness.py"
     class_name: MonitorCompletenessCheck
+  # Global, and the reason is the one directly above worded for the other kind of
+  # absence: an absence is not an edit. Deleting a transponder touches the
+  # transponder, and OtnGenericDevice.ports cascades to its line ports, so the
+  # carrier left terminated at one end is not in the change at all. A targeted
+  # check bound to the edited objects would be handed a deleted device and never
+  # the orphaned wavelength, and would report green over it.
+  #
+  # The state exists to be found. OtnLinePort.carrier and
+  # OtnOpticalCarrier.line_ports both carry on_delete: no-action, chosen over
+  # cascade so that pulling a transponder leaves the wavelength visibly
+  # unterminated instead of deleting it, its line container and the services
+  # groomed into it. This check is what makes that visibility mean something.
+  #
+  # It judges active carriers only. A wavelength the service generator has just
+  # provisioned is planned and binds no line port by design, and failing that
+  # flow is not what this is for. The check's summary names how many it skipped.
+  #
+  # Withdrawn in e70c245 and back here now. It was right and the model was
+  # wrong: it fired on every segment of `demo/06_mad_waw_16qam.yml` because an
+  # O-E-O regenerator held no line port, so a regenerated circuit read as two
+  # half-dark wavelengths. Every regenerator carries two line ports now and the
+  # logic is unchanged from the withdrawn form.
+  - name: carrier_termination
+    file_path: "./checks/carrier_termination.py"
+    class_name: CarrierTerminationCheck
 
 python_transforms:
   - name: budget_report

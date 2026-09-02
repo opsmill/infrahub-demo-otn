@@ -2187,3 +2187,244 @@ def test_a_router_is_not_judged_and_the_summary_names_the_kinds_that_are_not() -
     summary = " ".join(_messages(check, "INFO"))
     assert "rtr-fra-01" not in summary
     assert "Routers, patch panels and ODU switches carry no monitor and are not judged here" in summary
+    assert "rtr-fra-01" not in summary
+    assert "Routers, patch panels and ODU switches carry no monitor and are not judged here" in summary
+
+
+# ---------------------------------------------------------------------------
+# Carrier termination
+# ---------------------------------------------------------------------------
+
+TERMINATION = "carrier_termination"
+
+AMS_MIL = "oc-ch002-ams-mil"
+AMSTERDAM = "Amsterdam"
+FRANKFURT = "Frankfurt"
+MILAN = "Milan"
+"""One wavelength on the shipped route Amsterdam to Milan, which crosses
+Frankfurt. Two sections and three sites is the smallest shape that makes the
+endpoint derivation say something a single section would not: Frankfurt is
+touched twice and is not an end, so a check that named every site on the route
+would name the wrong one."""
+
+
+def _line_port(name: str, device: str, site: str | None) -> dict[str, Any]:
+    """One line port in the shape `carrier_termination.gql` returns it.
+
+    `site` of `None` is a real state rather than a defensive branch:
+    `OtnGenericDevice.site` is `optional: true`, because the schema says a device
+    has to be creatable before its site record exists.
+    """
+    node: dict[str, Any] = {"name": _attribute(device), "site": _one({"name": _attribute(site)})}
+    if site is None:
+        node.pop("site")
+    return {"name": _attribute(name), "device": _one(node)}
+
+
+def _section(name: str, site_a: str, site_b: str) -> dict[str, Any]:
+    """One section between two ROADMs, each named by its site and nothing else.
+
+    The check reads no ROADM name, so the payload holds none. Building it richer
+    than the query would let the check read a field no server would send it.
+    """
+    return {
+        "name": _attribute(name),
+        "roadm_a": _one({"site": _one({"name": _attribute(site_a)})}),
+        "roadm_b": _one({"site": _one({"name": _attribute(site_b)})}),
+    }
+
+
+AMS_FRA = _section("oms-ams-fra", AMSTERDAM, FRANKFURT)
+FRA_MIL = _section("oms-fra-mil", FRANKFURT, MILAN)
+
+
+def _wavelength(
+    name: str,
+    channel: int,
+    *,
+    status: str = "active",
+    ports: tuple[dict[str, Any], ...] = (),
+    sections: tuple[dict[str, Any], ...] = (AMS_FRA, FRA_MIL),
+) -> dict[str, Any]:
+    return {
+        "id": name,
+        "__typename": "OtnOpticalCarrier",
+        "name": _attribute(name),
+        "status": _attribute(status),
+        "channel": _one({"channel_number": _attribute(channel)}),
+        "line_ports": _edges(*ports),
+        "sections": _edges(*sections),
+    }
+
+
+def _termination_payload(*carriers: dict[str, Any]) -> dict[str, Any]:
+    return {"OtnOpticalCarrier": _edges(*carriers)}
+
+
+BOTH_ENDS = (
+    _line_port("L1", "xpdr-ams-01", AMSTERDAM),
+    _line_port("L1", "xpdr-mil-01", MILAN),
+)
+"""What every shipped wavelength holds: one line port at each end of its route.
+Forty carriers and eighty bound ports on `main`, so the failing payloads below
+exist only here."""
+
+
+def test_a_wavelength_terminated_at_both_ends_passes_and_the_summary_counts_it() -> None:
+    """The count is the requirement, not decoration.
+
+    A green result that says only "passed" cannot be told apart from a query that
+    returned nothing, which is the failure mode this repository deleted a check
+    of another name for.
+    """
+    check = _run(_termination_payload(_wavelength(AMS_MIL, 2, ports=BOTH_ENDS)), TERMINATION)
+    assert _messages(check, "ERROR") == []
+    summary = " ".join(_messages(check, "INFO"))
+    assert "1 active carrier(s) examined, every one terminated at both ends" in summary, summary
+
+
+def test_a_wavelength_left_with_one_end_fails_and_names_the_site_that_stopped_terminating_it() -> None:
+    """The state a deleted transponder reaches, and the one this check exists for.
+
+    `OtnGenericDevice.ports` cascades, so deleting the Amsterdam transponder
+    deletes its line ports; `OtnLinePort.carrier` does not, so the wavelength
+    stays and is now terminated at Milan alone. Proven against a live branch as
+    well, per FR-027: a check observed only passing is not evidence.
+
+    Amsterdam is derived from the route rather than parsed out of the carrier's
+    name, so the assertion that Frankfurt is absent is the load-bearing one.
+    Frankfurt is on the route and is not an end, and a check that read the sites
+    off the sections without counting them would name it.
+    """
+    carrier = _wavelength(AMS_MIL, 2, ports=(_line_port("L1", "xpdr-mil-01", MILAN),))
+    check = _run(_termination_payload(carrier), TERMINATION)
+    errors = _messages(check, "ERROR")
+    assert len(errors) == 1, errors
+    assert AMS_MIL in errors[0]
+    assert "channel 2" in errors[0]
+    assert f"Nothing at {AMSTERDAM} terminates it" in errors[0], errors[0]
+    assert f"only {MILAN} terminates it" in errors[0], errors[0]
+    assert FRANKFURT not in errors[0], errors[0]
+    failures = [log for log in check.logs if log["level"] == "ERROR"]
+    assert [(log["object_id"], log["object_type"]) for log in failures] == [(AMS_MIL, "OtnOpticalCarrier")]
+    assert "1 of them terminated at fewer than 2 ends" in " ".join(_messages(check, "INFO"))
+
+
+def test_two_line_ports_at_one_site_is_one_end_terminated_and_not_two() -> None:
+    """The state an operator reaches by re-binding the wavelength to the wrong spare.
+
+    Amsterdam's transponder is pulled, `OtnGenericDevice.ports` cascades its line
+    ports away, and the wavelength is re-bound to the spare `L2` on the Milan
+    transponder instead. Two line ports hold it and both are at Milan, so
+    Amsterdam is still dark. A check that counted ports would call this
+    terminated, which is why the verdict counts the ends the route derives.
+
+    The finding has to say two ports at Milan rather than Milan, because an
+    operator told only that Milan terminates it would go looking for the port
+    that is missing at Milan, and nothing is missing at Milan.
+    """
+    both_at_milan = (_line_port("L1", "xpdr-mil-01", MILAN), _line_port("L2", "xpdr-mil-01", MILAN))
+    check = _run(_termination_payload(_wavelength(AMS_MIL, 2, ports=both_at_milan)), TERMINATION)
+    errors = _messages(check, "ERROR")
+    assert len(errors) == 1, errors
+    assert "only 2 line ports at Milan terminate it" in errors[0], errors[0]
+    assert f"Nothing at {AMSTERDAM} terminates it" in errors[0], errors[0]
+    assert "1 of them terminated at fewer than 2 ends" in " ".join(_messages(check, "INFO"))
+
+
+def test_a_third_line_port_bound_to_a_two_ended_wavelength_fails() -> None:
+    """The opposite fault, and the schema cannot refuse it.
+
+    `OtnLinePort.carrier` is `cardinality: one` on the port side, which stops a
+    port naming two wavelengths and says nothing about how many ports name one.
+    So N ports can bind one carrier and a check asking only for at least two
+    would pass every one of them. Both ends are terminated here, so nothing is
+    dark: the fault is a port holding spectrum on a wavelength it does not
+    terminate, and the message says that instead of borrowing the dark-end
+    wording.
+    """
+    three = (*BOTH_ENDS, _line_port("L2", "xpdr-mil-01", MILAN))
+    check = _run(_termination_payload(_wavelength(AMS_MIL, 2, ports=three)), TERMINATION)
+    errors = _messages(check, "ERROR")
+    assert len(errors) == 1, errors
+    assert AMS_MIL in errors[0]
+    assert f"3 line ports bind it, at {AMSTERDAM} and {MILAN}, where a wavelength has 2 ends" in errors[0], errors[0]
+    assert "terminates it" not in errors[0], errors[0]
+    summary = " ".join(_messages(check, "INFO"))
+    assert "1 bound to more line ports than a wavelength has ends" in summary, summary
+
+
+def test_an_active_wavelength_with_no_line_port_at_all_fails() -> None:
+    """The degenerate case of the same rule, not a second rule.
+
+    Reachable by deleting both transponders, and it is the case FR-027 words the
+    requirement around. Both ends are named, because both are gone.
+    """
+    check = _run(_termination_payload(_wavelength(AMS_MIL, 2)), TERMINATION)
+    errors = _messages(check, "ERROR")
+    assert len(errors) == 1, errors
+    assert "no line port terminates it" in errors[0], errors[0]
+    assert f"Nothing at {AMSTERDAM} and {MILAN} terminates it" in errors[0], errors[0]
+
+
+def test_a_planned_carrier_binding_no_line_port_is_not_a_failure_and_the_summary_says_so() -> None:
+    """The scope, asserted from the side that would make this check unusable.
+
+    `generators/optical_service.py` provisions a wavelength and binds no line
+    port, so every demo scenario that provisions a service leaves exactly this
+    object on the branch. Judging it would fail the provisioning flow on every
+    proposed change. The summary naming the skipped carrier is the other half:
+    scope inferred from silence is scope nobody can check.
+    """
+    planned = _wavelength("oc-ch014-ber-ams", 14, status="planned")
+    check = _run(_termination_payload(_wavelength(AMS_MIL, 2, ports=BOTH_ENDS), planned), TERMINATION)
+    assert _messages(check, "ERROR") == []
+    summary = " ".join(_messages(check, "INFO"))
+    assert "1 active carrier(s) examined" in summary, summary
+    assert "1 planned carrier(s) are outside the scope" in summary, summary
+
+
+def test_a_decommissioned_carrier_is_skipped_and_counted_separately() -> None:
+    """The other skipped status, and the summary keeps the two apart.
+
+    A decommissioned wavelength has had its equipment removed on purpose, so it
+    is out of scope for the same reason a planned one is and for the opposite
+    cause. Counted per status rather than as one "skipped" total, because a
+    branch holding three planned and one decommissioned carrier is telling a
+    reader two different things.
+    """
+    retired = _wavelength("oc-ch017-ams-mil", 17, status="decommissioned")
+    check = _run(_termination_payload(retired), TERMINATION)
+    assert _messages(check, "ERROR") == []
+    summary = " ".join(_messages(check, "INFO"))
+    assert "No active carrier is on this branch, so none can be unterminated" in summary, summary
+    assert "1 decommissioned carrier(s) are outside the scope" in summary, summary
+
+
+def test_a_route_that_is_not_a_two_ended_path_is_not_guessed_at() -> None:
+    """A finding says what it knows. Where the route says nothing, neither does it.
+
+    A carrier holding no sections has no derivable ends, so there is no site to
+    name. The alternative is a message that names an end the data does not
+    support, which is worse than a message that says the far end is unknown.
+    """
+    carrier = _wavelength(AMS_MIL, 2, ports=(_line_port("L1", "xpdr-mil-01", MILAN),), sections=())
+    check = _run(_termination_payload(carrier), TERMINATION)
+    errors = _messages(check, "ERROR")
+    assert len(errors) == 1, errors
+    assert "its route does not say where that end is" in errors[0], errors[0]
+    assert AMSTERDAM not in errors[0], errors[0]
+
+
+def test_a_line_port_on_a_device_with_no_site_is_named_by_the_device() -> None:
+    """`OtnGenericDevice.site` is optional, and the schema says why.
+
+    A device has to be creatable before its site record exists. A finding reading
+    "only None terminates it" would be the check's own bug reported as a data
+    fault, so the device name stands in.
+    """
+    carrier = _wavelength(AMS_MIL, 2, ports=(_line_port("L1", "xpdr-mil-01", None),))
+    check = _run(_termination_payload(carrier), TERMINATION)
+    errors = _messages(check, "ERROR")
+    assert len(errors) == 1, errors
+    assert "only xpdr-mil-01 terminates it" in errors[0], errors[0]

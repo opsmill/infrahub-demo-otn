@@ -1,0 +1,111 @@
+# Every wavelength, the ports that terminate it and the route it runs over.
+#
+# **Unfiltered, and that is the deliberate half.** The check judges active
+# carriers only, and `OtnOpticalCarrier(status__value: "active")` would be a
+# cheaper query that answers the same question. It is not used, because a check
+# that silently drops rows cannot say how many it dropped, and the summary here
+# has to state the boundary of what was judged rather than leave it inferred from
+# silence. Forty carriers is the whole population, so the saving would be a
+# handful of nodes and the cost would be a green result that reads as evidence
+# about wavelengths nobody looked at. `provisionable.gql` is unfiltered on the
+# same shape of argument.
+#
+# `line_ports` is the answer itself. Each port names its device and that device's
+# site, so a finding can say which site stopped terminating the wavelength rather
+# than only that a port went missing. No inline fragment: `line_ports` peers
+# `OtnLinePort`, which is concrete, and `device` peers the generic
+# `OtnGenericDevice` where both `name` and `site` are declared, so every field
+# below exists on every type the relationship can return.
+#
+# `sections` with both ROADMs is what makes the missing end nameable. A carrier
+# holds no endpoints of its own, so the two ends of its route are derived: each
+# section names `roadm_a` and `roadm_b`, each ROADM names its site, and the sites
+# touched by exactly one section are the ends. That is read from relationships,
+# never from the carrier's name. A site parsed out of `oc-ch002-ams-mil` would be
+# the naming-convention mistake the constitution names, and it would keep working
+# right up until a carrier is named something else.
+#
+# `channel` carries the channel number and nothing else. The centre frequency is
+# not selected: `channel_collision.gql` needs it to compute an occupied width and
+# this check computes no spectrum at all.
+#
+# `id` and `__typename`: `queries/service_trace.gql` says why every query here
+# selects them. Every finding is logged against the carrier, which is the object
+# an operator would open.
+query CarrierTermination {
+  OtnOpticalCarrier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        status {
+          value
+        }
+        channel {
+          node {
+            channel_number {
+              value
+            }
+          }
+        }
+        line_ports {
+          edges {
+            node {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                  site {
+                    node {
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+              roadm_a {
+                node {
+                  site {
+                    node {
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+              roadm_b {
+                node {
+                  site {
+                    node {
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

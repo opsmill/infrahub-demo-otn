@@ -124,3 +124,59 @@ spec:
       carriers:
         - oc-ch073-mad-fra
         - oc-ch073-fra-waw
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnLinePort
+  data:
+    # Four ports, two per half. `demo/06_mad_waw_16qam.yml` says why the edge is
+    # written from the port side in a scenario file and from the carrier side
+    # under `objects/`, and why a regenerator port names no add/drop socket.
+    #
+    # The two Madrid and Warsaw ports are the fourth free slot at each site, the
+    # one `demo/06` deliberately left. A branch carrying both files uses all four
+    # free line ports at Madrid and all four at Warsaw and needs no more, which
+    # is the arithmetic that lets the two scenarios be compared side by side.
+    - name: L2
+      device: xpdr-mad-02
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mad-01
+        - AD-04
+      center_frequency_mhz: 194950000
+      carrier: oc-ch073-mad-fra
+    - name: L1
+      device: oeo-fra-03
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      center_frequency_mhz: 194950000
+      carrier: oc-ch073-mad-fra
+    - name: L2
+      device: oeo-fra-03
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      center_frequency_mhz: 194950000
+      carrier: oc-ch073-fra-waw
+    - name: L2
+      device: xpdr-waw-02
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-waw-01
+        - AD-04
+      center_frequency_mhz: 194950000
+      carrier: oc-ch073-fra-waw

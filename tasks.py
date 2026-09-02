@@ -83,6 +83,7 @@ CHECKS = (
     "provisionable",
     "channel_count_consistency",
     "monitor_completeness",
+    "carrier_termination",
 )
 
 DEMO_BRANCH = "demo"
