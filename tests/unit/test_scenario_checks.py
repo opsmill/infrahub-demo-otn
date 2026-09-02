@@ -98,6 +98,22 @@ Outcome = Passes | Fails | NeedsGenerator
 
 PASSES = Passes()
 
+NO_PATH_YET = NeedsGenerator(
+    0,
+    "`checks/diversity.py` compares the ducts under two services' optical paths, and a scenario file "
+    "declares no optical path: that is 25 ordered hops derived from a route, and no human writes one into "
+    "YAML. So this check reads an empty field in every view here and is silent whatever the scenario says. "
+    "It is declared rather than recorded as a pass, because a pass would claim the sweep had judged "
+    "something. `demo/09_diversity_fra_feeds.yml` shares `cd-fra-north` between two services and fails this "
+    "check on a live branch; `tests/unit/test_demo_scenarios.py` is what holds both diversity scenarios to "
+    "the ducts their headers promise",
+)
+"""The one check this module cannot judge at all, on any file.
+
+Named once and used twelve times so the hole is a shape a reader can see, rather
+than twelve cells that each look like a verdict.
+"""
+
 PAR_MAD = Fails(
     2,
     "Paris to Madrid is short of margin in both directions on the reference mode. It is the shipped "
@@ -132,7 +148,7 @@ _DEFAULT: dict[str, Outcome] = {
     "osnr_margin": PAR_MAD,
     "channel_collision": PASSES,
     "container_capacity": PASSES,
-    "diversity": PASSES,
+    "diversity": NO_PATH_YET,
     "provisionable": PASSES,
     "channel_count_consistency": PASSES,
     "monitor_completeness": PASSES,
@@ -197,13 +213,8 @@ two regenerator line ports, and the two Madrid and Warsaw slots `06` left free."
 
 _quiet("08_diversity_mil_feeds.yml")
 _quiet("09_diversity_fra_feeds.yml")
-"""Both diversity scenarios are quiet here and only one of them is quiet on a
-live branch. `checks/diversity.py` compares the ducts under two services' optical
-paths, and a scenario file declares no optical path, so neither is judged before
-the generator runs. That is a limit of the view rather than a verdict, and it is
-not marked `NeedsGenerator` because the check logs nothing either way: there is
-no count to be wrong about. `tests/unit/test_demo_scenarios.py` is what holds
-`09` to sharing `cd-fra-north` and `08` to not sharing anything."""
+"""The two files the `diversity` cell exists for, and the two the sweep can say
+least about. `NO_PATH_YET` above carries the reason."""
 
 _quiet(
     "10_amplifier_without_monitor.yml",
@@ -321,13 +332,15 @@ def test_each_scenario_against_each_check(scenario: str, check_name: str) -> Non
         assert not errors, f"{check_name} was expected to pass {scenario} and logged: {errors[0]}"
         return
 
-    assert errors, (
-        f"{check_name} was expected to report {expected.count} error(s) on {scenario} and reported none. "
-        f"The reason on record: {expected.reason}"
-    )
+    # A count of zero is a real declaration and not a pass in disguise. It says
+    # the check is silent here and that its silence is not evidence, which is the
+    # whole of what `NeedsGenerator` records about `diversity`. Asserting on the
+    # count either way means a cell that starts reporting fails, which is what a
+    # reader of that declaration would want.
     assert len(errors) == expected.count, (
         f"{check_name} reported {len(errors)} error(s) on {scenario}, not the {expected.count} declared. "
-        f"The reason on record: {expected.reason}. First: {errors[0]}"
+        f"The reason on record: {expected.reason}. "
+        f"{'First: ' + errors[0] if errors else 'It reported nothing.'}"
     )
 
 
