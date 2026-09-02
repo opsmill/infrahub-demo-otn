@@ -252,7 +252,7 @@ def _check_class(name: str) -> Any:
 
 
 @cache
-def _errors(check_name: str, file_name: str) -> tuple[str, ...]:
+def _errors(check_name: str, file_name: str | None) -> tuple[str, ...]:
     check = _check_class(check_name)(branch="scenario-sweep")
     check.validate(payload(check_name, file_name))
     return tuple(str(log["message"]) for log in check.logs if log["level"] == "ERROR")
@@ -378,15 +378,19 @@ def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
       `tests/unit/test_geant_dataset.py`'s two-line-ports-per-wavelength
       arithmetic arriving through a different door.
     """
-    verdicts = {name: len(_errors(name, "00_services.yml")) for name in CHECKS}
-    shipped_only = {name: len(_errors(name, "00_services.yml")) for name in CHECKS}
-    assert verdicts == shipped_only
+    verdicts = {name: len(_errors(name, None)) for name in CHECKS}
+    with_services = {name: len(_errors(name, "00_services.yml")) for name in CHECKS}
+    assert verdicts == with_services, (
+        "loading two service requests onto a branch changed a check's verdict. Neither service names a route "
+        "or a wavelength, so nothing a check reads has moved, and a difference here means the overlay is "
+        "writing more than the file declares"
+    )
 
     assert verdicts["osnr_margin"] == 2, "the sweep should find the Paris to Madrid deficit in both directions"
     for quiet in ("container_capacity", "monitor_completeness", "channel_collision", "carrier_termination"):
         assert verdicts[quiet] == 0, f"{quiet} fails the shipped plant, which nothing else in the suite says"
 
-    par_mad = _errors("osnr_margin", "00_services.yml")
+    par_mad = _errors("osnr_margin", None)
     assert all("oms-par-mad" in message for message in par_mad), par_mad
 
 
