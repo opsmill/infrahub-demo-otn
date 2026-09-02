@@ -208,8 +208,8 @@ def test_the_inventory_the_installation_page_promises_is_what_loads() -> None:
     Feature 025 moved all three. Transponders stopped being two or four per site
     and became `max(2, ceil(terminations / 2))`, which is 59 against 40, and each
     one drags a line port pair, a client port pair, a ROADM add/drop port pair
-    and a receiver monitor with it. Devices went 422 to 441, ports 1355 to 1488
-    and the load 2190 to 2342.
+    and a receiver monitor with it. Devices went 422 to 441, ports 1355 to 1490
+    and the load 2190 to 2344.
     """
     devices = (
         "OtnRouter",
@@ -236,9 +236,9 @@ def test_the_inventory_the_installation_page_promises_is_what_loads() -> None:
         "OtnReceiverMonitor",
     )
     total = sum(len((document.get("spec") or {}).get("data") or []) for document in object_documents())
-    assert total == 2342, "the pages say the load is 2342 objects"
+    assert total == 2344, "the pages say the load is 2344 objects"
     assert sum(len(objects_of_kind(kind)) for kind in devices) == 441, "the pages say 441 devices"
-    assert sum(len(objects_of_kind(kind)) for kind in ports) == 1488, "the pages say 1488 ports"
+    assert sum(len(objects_of_kind(kind)) for kind in ports) == 1490, "the pages say 1490 ports"
 
 
 # ---------------------------------------------------------------------------
@@ -679,13 +679,26 @@ def test_routers_carry_no_element_class() -> None:
 
 
 def test_the_connected_to_edge_is_declared_on_one_side_only() -> None:
-    """Declaring both sides splits one edge into two phantom one-way links."""
+    """Declaring both sides splits one edge into two phantom one-way links.
+
+    Every transponder line port patches into an add/drop port, and the two
+    populations are equal, so the patch is total on that side. A regenerator
+    line port patches into nothing here: the add/drop bank at Frankfurt is
+    already fully patched to transponders, and inventing a socket the ROADM
+    inventory does not hold would be worse than saying nothing. Those ports are
+    dark, so there is no light to route through a patch that does not exist.
+    """
     add_drop = [port for port in objects_of_kind("OtnRoadmAddDropPort") if "connected_to" in port]
     assert not add_drop, "connected_to declared on the ROADM side as well as the line side"
-    linked = [port for port in objects_of_kind("OtnLinePort") if "connected_to" in port]
-    assert len(linked) == len(objects_of_kind("OtnLinePort")), "some line ports are unconnected"
+
+    transponder_ports = _line_ports_on_transponders()
+    linked = [port for port in transponder_ports if "connected_to" in port]
+    assert len(linked) == len(transponder_ports), "some transponder line ports are unconnected"
     targets = [tuple(port["connected_to"]) for port in linked]
     assert len(targets) == len(set(targets)), "two line ports share one add/drop port"
+
+    patched = [str(port["name"]) for port in _line_ports_on_odu_switches() if "connected_to" in port]
+    assert not patched, "an O-E-O line port claims an add/drop port the plant has not got: " + "; ".join(patched)
 
 
 def test_the_eurohpc_attachments_are_the_six_the_design_names() -> None:
@@ -1206,6 +1219,86 @@ def _transponders_by_site() -> dict[str, int]:
     return dict(counts)
 
 
+@cache
+def _line_ports_on_transponders() -> tuple[dict[str, Any], ...]:
+    """The line ports that hang off a transponder, which used to be all of them.
+
+    A regenerator holds line ports too, and it holds them on different terms: it
+    patches into no add/drop port, it sits beside no client port, and it is not
+    one of the shelves the placement rule sizes. Six assertions in this module
+    were written when a line port could only be a transponder's, and each of them
+    is about the transponder population rather than about line ports as such. The
+    split is here so those six say which population they mean, instead of
+    quietly counting a device the rule they encode never described.
+
+    `test_a_regenerator_carries_two_dark_line_ports_and_a_cross_connect_none` is
+    the other half, and it is what holds the ports this excludes.
+    """
+    transponders = {str(box["name"]) for box in objects_of_kind("OtnTransponder")}
+    return tuple(port for port in objects_of_kind("OtnLinePort") if str(port["device"]) in transponders)
+
+
+@cache
+def _line_ports_on_odu_switches() -> tuple[dict[str, Any], ...]:
+    switches = {str(box["name"]) for box in objects_of_kind("OtnOduSwitch")}
+    return tuple(port for port in objects_of_kind("OtnLinePort") if str(port["device"]) in switches)
+
+
+def test_every_line_port_sits_on_a_transponder_or_an_odu_switch() -> None:
+    """The two populations account for all of them, so neither test can miss one.
+
+    Without this the split above is a filter that silently drops a line port on a
+    third kind of device, and both halves would pass while the port went
+    unexamined.
+    """
+    counted = len(_line_ports_on_transponders()) + len(_line_ports_on_odu_switches())
+    assert counted == len(objects_of_kind("OtnLinePort")), "a line port sits on neither a transponder nor an O-E-O"
+
+
+def test_a_regenerator_carries_two_dark_line_ports_and_a_cross_connect_none() -> None:
+    """An O-E-O regenerator receives a wavelength and transmits a new one.
+
+    That is line-side optics, and until this feature the model gave it none, so a
+    regenerated circuit read as two half-dark wavelengths. Two ports each, one
+    facing each segment the shelf joins.
+
+    A cross-connect gets none, and that is the distinction rather than an
+    omission. It grooms ODU containers behind a transponder at the electrical
+    layer and terminates no wavelength. `oxc-mil-01` is patched to 37 wavelengths
+    that already terminate on Milan transponders, so a line port on it would make
+    all 37 over-terminated, which is what stopped `odu_switches` from being
+    counted as the termination answer.
+
+    **Both shipped ports are dark, and that is the plant rather than a gap.** All
+    25 wavelengths `oeo-fra-01` is patched to run Frankfurt to Milan and
+    terminate on transponders at both ends, so no two of them chain and nothing
+    is regenerated at Frankfurt here. The regeneration happens on the scenario
+    branches. A port bound to one of those 25 would be a third terminator on a
+    wavelength that has two.
+    """
+    by_device: dict[str, list[str]] = {}
+    for port in _line_ports_on_odu_switches():
+        by_device.setdefault(str(port["device"]), []).append(str(port["name"]))
+
+    modes = {str(box["name"]): str(box["switching_mode"]) for box in objects_of_kind("OtnOduSwitch")}
+    regenerators = sorted(name for name, mode in modes.items() if mode == "regenerator")
+    cross_connects = sorted(name for name, mode in modes.items() if mode == "cross_connect")
+
+    assert regenerators == ["oeo-fra-01"], "the shipped dataset holds one regenerator"
+    assert cross_connects == ["oxc-fra-01", "oxc-mil-01"]
+
+    assert sorted(by_device) == regenerators, "line ports on an O-E-O device that does not regenerate"
+    assert all(sorted(names) == ["L1", "L2"] for names in by_device.values()), by_device
+
+    named = _line_ports_by_carrier()
+    lit = [
+        f"{port['device']}/{port['name']}"
+        for port in _line_ports_on_odu_switches()
+        if (str(port["device"]), str(port["name"])) in named or "center_frequency_mhz" in port
+    ]
+    assert not lit, "a shipped regenerator port is bound to a wavelength that already has two ends: " + "; ".join(lit)
+
+
 def test_each_pop_carries_a_transponder_per_two_terminations_above_a_floor_of_two() -> None:
     """The placement rule, `max(2, ceil(terminations / 2))`, checked against the data.
 
@@ -1310,13 +1403,13 @@ def test_thirty_eight_line_ports_are_dark_and_the_arithmetic_says_which() -> Non
 
     site_of = {str(box["name"]): str(box["site"]) for box in objects_of_kind("OtnTransponder")}
     dark: Counter[str] = Counter()
-    for port in objects_of_kind("OtnLinePort"):
+    for port in _line_ports_on_transponders():
         if (str(port["device"]), str(port["name"])) not in named:
             dark[site_of[str(port["device"])]] += 1
 
     expected = {site: 2 * count - terminations[site] for site, count in placed.items()}
     assert dict(dark) == {site: count for site, count in expected.items() if count}
-    assert sum(dark.values()) == 38, f"38 dark line ports out of 118, not {sum(dark.values())}"
+    assert sum(dark.values()) == 38, f"38 dark transponder line ports out of 118, not {sum(dark.values())}"
 
     assert sorted(site for site, count in dark.items() if count == 4) == [
         "bru",
@@ -1355,7 +1448,7 @@ def test_no_pop_drops_below_the_floor_and_a_dark_pop_sits_on_it() -> None:
     assert all(placed[site] == 2 for site in dark), {site: placed[site] for site in dark}
 
     site_of = {str(box["name"]): str(box["site"]) for box in objects_of_kind("OtnTransponder")}
-    unlit = [port for port in objects_of_kind("OtnLinePort") if site_of[str(port["device"])] in set(dark)]
+    unlit = [port for port in _line_ports_on_transponders() if site_of[str(port["device"])] in set(dark)]
     assert len(unlit) == 4 * len(dark), "a dark PoP should carry four line ports, two per transponder"
     named = _line_ports_by_carrier()
     bound = [
@@ -1374,14 +1467,21 @@ def test_the_add_drop_client_and_line_port_populations_stay_one_to_one() -> None
     re-asserted here so the three counts and the edge that ties them together
     move as one; `test_the_connected_to_edge_is_declared_on_one_side_only` is
     what checks the edge's own uniqueness.
+
+    The line-port side is the transponder population and not every line port. A
+    regenerator carries two of its own and neither an add/drop port nor a client
+    port beside them: it takes light off one wavelength and puts it on another,
+    so there is no client tributary to break out and no add/drop socket free at
+    the site. Counting those two here would make a one-to-one rule about
+    transponders read as a rule about the whole plant, and it is not one.
     """
-    line = objects_of_kind("OtnLinePort")
+    line = _line_ports_on_transponders()
     assert len(objects_of_kind("OtnRoadmAddDropPort")) == len(line)
     assert len(objects_of_kind("OtnClientPort")) == len(line)
 
     per_device = {
-        kind: Counter(str(port["device"]) for port in objects_of_kind(kind))
-        for kind in ("OtnLinePort", "OtnClientPort")
+        "OtnLinePort": Counter(str(port["device"]) for port in line),
+        "OtnClientPort": Counter(str(port["device"]) for port in objects_of_kind("OtnClientPort")),
     }
     assert set(per_device["OtnLinePort"]) == set(per_device["OtnClientPort"])
     assert set(per_device["OtnLinePort"].values()) == {2}

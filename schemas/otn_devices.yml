@@ -665,9 +665,28 @@ nodes:
       # terminate the light and re-originate it. Choosing the cover is a search
       # over the carriers this relationship names, not a traversal this
       # relationship makes possible.
+      #
+      # **This edge is attachment, and it is not the termination answer.** The
+      # label used to say "Carriers terminated here" and the shipped data has
+      # always used the edge to mean "wavelengths patched to this shelf", which
+      # is a different claim. A regenerator does terminate the two it joins; a
+      # cross-connect grooms ODU containers behind a transponder and terminates
+      # nothing, and `oxc-mil-01` names 37 wavelengths that already terminate on
+      # Milan transponders. One label covering both readings is what made a
+      # check believe the wrong one.
+      #
+      # What terminates a wavelength is `OtnLinePort.carrier` and nothing else.
+      # Every regenerator holds two line ports, so the ports answer for the
+      # regenerated case as well as the direct one, and this edge is left saying
+      # only what it holds.
+      #
+      # The `identifier` does not move and cannot cheaply be moved: Infrahub
+      # freezes it at first load and rejects a change with `not_supported`, so
+      # splitting this into `terminates` and `grooms` would cost a
+      # remove-and-re-add on both sides to draw a line the ports already draw.
       - name: carriers
         peer: OtnOpticalCarrier
-        label: Carriers terminated here
+        label: Carriers patched to this shelf
         kind: Attribute
         cardinality: many
         optional: true

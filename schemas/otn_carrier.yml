@@ -123,12 +123,22 @@ nodes:
       # frozen the moment a load succeeds. Changing it afterwards is rejected
       # with `not_supported` and costs a remove-and-re-add on both sides.
       #
-      # Many, because a wavelength is terminated at each of its ends: the
-      # junction before this carrier and the junction after it are two different
-      # devices.
+      # Many, because a wavelength can be patched to a shelf at each of its ends:
+      # the device before this carrier and the device after it are two different
+      # shelves.
+      #
+      # **Attachment, not termination.** This label used to read "ODU switches
+      # terminating this carrier" and the data has always meant "switches this
+      # wavelength is patched to". A regenerator does terminate the two
+      # wavelengths it joins, and a cross-connect grooms containers behind a
+      # transponder and terminates nothing, so one label could not be true for
+      # both. `line_ports` below is the termination answer, for a regenerated
+      # circuit exactly as for a direct one, because a regenerator holds line
+      # ports of its own. Nothing should read this edge to decide what terminates
+      # what.
       - name: odu_switches
         peer: OtnOduSwitch
-        label: ODU switches terminating this carrier
+        label: ODU switches this carrier is patched to
         kind: Attribute
         cardinality: many
         optional: true

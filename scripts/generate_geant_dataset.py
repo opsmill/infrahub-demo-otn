@@ -1451,6 +1451,48 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
                         )
                     )
 
+    # An O-E-O regenerator receives a wavelength and transmits a new one, so it
+    # has line-side optics. Until this loop existed it had none, and a
+    # regenerated circuit read as two half-dark wavelengths: the outer end of
+    # each segment terminated on a transponder and the inner end terminated on
+    # nothing at all.
+    #
+    # Keyed on `switching_mode`, not on the device name. A cross-connect grooms
+    # ODU containers behind a transponder at the electrical layer and terminates
+    # no wavelength, so it gets no line port. Giving it one would put a third
+    # terminator on all 37 wavelengths `oxc-mil-01` is patched to, which is the
+    # over-termination that made counting `odu_switches` unworkable in the first
+    # place. A fourth O-E-O device added to ODU_SWITCHES gets ports if it
+    # regenerates and none if it does not, which is the rule rather than a list.
+    #
+    # **Both ports are dark, and that is the shipped truth rather than an
+    # omission.** All 25 wavelengths `oeo-fra-01` is patched to run Frankfurt to
+    # Milan and already terminate on transponders at both ends, so no two of them
+    # form a chain and nothing is regenerated at Frankfurt in this dataset. The
+    # regeneration happens on the scenario branches, where `demo/` lights
+    # wavelengths that meet at a regenerator. Binding either port here would put
+    # a third terminator on a wavelength that has two.
+    #
+    # A dark port omits center_frequency_mhz rather than writing a null, the same
+    # way the 38 dark transponder ports above do. It also omits connected_to:
+    # every add/drop port at Frankfurt is patched to a transponder line port, and
+    # inventing a patch that the plant does not hold would be worse than saying
+    # nothing.
+    for switch_name, _, mode, _ in ODU_SWITCHES:
+        if mode != "regenerator":
+            continue
+        for line in (1, 2):
+            ports["OtnLinePort"].append(
+                _port(
+                    f"L{line}",
+                    switch_name,
+                    "line",
+                    tx_power_mdbm=1000,
+                    rx_sensitivity_mdbm=-18000,
+                    connector_type="LC",
+                )
+            )
+
     # The role comes from the chain, not from the name. `amplifier_chain` knows
     # both the position and the chain length, so it is the only place the
     # booster-or-preamp question can be answered, and nothing here parses a

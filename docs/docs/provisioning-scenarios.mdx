@@ -62,7 +62,7 @@ join a group that does not exist yet.
 The task skips the dataset load when the branch already holds it, so a second
 run costs seconds rather than minutes.
 
-A schema load onto a branch already holding the 2342-object dataset runs longer
+A schema load onto a branch already holding the 2344-object dataset runs longer
 than the client's 120 second timeout. The server finishes anyway. Poll
 `/api/schema?branch=provision-ber-ams-400g` rather than running the load again,
 and wait until `nodes` plus `generics` reaches the same count the endpoint

@@ -3530,6 +3530,20 @@ spec:
       connected_to:
         - roadm-waw-01
         - AD-04
+    - name: L1
+      device: oeo-fra-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+    - name: L2
+      device: oeo-fra-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
 
 ---
 apiVersion: infrahub.app/v1
