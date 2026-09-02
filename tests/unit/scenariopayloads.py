@@ -55,6 +55,13 @@ QUERY_DIR = REPO_ROOT / "queries"
 Record = dict[str, Any]
 Key = tuple[str, ...]
 View = dict[str, dict[Key, Record]]
+Index = dict[tuple[str, str], dict[tuple[str, Key], list[tuple[str, Key]]]]
+"""(identifier, field name) -> (kind, id) -> the peers that field returns.
+
+Keyed by the field and not only by the identifier, because a self-referential
+relationship has both of its roles on one kind. `_inverse_name` says what that
+costs when it is not done.
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +238,7 @@ def scenario_files() -> tuple[str, ...]:
 
 
 @cache
-def edges(file_name: str | None = None) -> dict[str, dict[tuple[str, Key], list[tuple[str, Key]]]]:
+def edges(file_name: str | None = None) -> Index:
     """The edge index for one merged view, built once per view.
 
     Cached per scenario file because the sweep asks for the same view nine times,
@@ -242,12 +249,40 @@ def edges(file_name: str | None = None) -> dict[str, dict[tuple[str, Key], list[
     return _build_edges(merged(file_name))
 
 
-def _build_edges(view: View) -> dict[str, dict[tuple[str, Key], list[tuple[str, Key]]]]:
-    """identifier -> (kind, id) -> the peers reachable on that identifier.
+@cache
+def _inverse_name(peer: str, identifier: str, forward: str) -> str | None:
+    """What the far side calls the same edge, when it calls it anything.
+
+    Two fields share an identifier and that is what makes them one relationship:
+    `OtnLinePort.carrier` and `OtnOpticalCarrier.line_ports`, `OtnGenericPort.device`
+    and `OtnGenericDevice.ports`. Some relationships have no far side at all,
+    `OtnOpticalCarrier.sections` being one, because a section declares no inverse
+    and cannot be asked what rides it.
+
+    Naming the far side is what keeps a **self-referential** relationship from
+    folding in on itself. `otn_container__children` joins
+    `OtnContainer.parent_container` to `OtnContainer.child_containers`, both on
+    one kind, so an index keyed by identifier alone puts a container's parent and
+    its children in one bucket and every container comes back holding its own
+    parent as a child. `container_capacity.gql` selects `child_containers`, so
+    that is a payload no branch holds being handed to a check.
+    """
+    for candidate in _concrete(peer):
+        for field in schema()[candidate].relationships.values():
+            if field.identifier == identifier and field.name != forward:
+                return field.name
+    return None
+
+
+def _build_edges(view: View) -> Index:
+    """(identifier, field name) -> (kind, id) -> the peers that field returns.
 
     Built in both directions from whichever side the data wrote, which is what
     lets `OtnOpticalCarrier.line_ports` answer on a branch where only
     `OtnLinePort.carrier` was written, and the other way round.
+
+    **Keyed by the field and not only by the identifier**, for the
+    self-referential reason `_inverse_name` above states.
 
     **One edge however many times it is written.** A relationship is keyed by its
     identifier on the server, so a scenario file restating a port with its
@@ -257,17 +292,20 @@ def _build_edges(view: View) -> dict[str, dict[tuple[str, Key], list[tuple[str, 
     over-terminated, which is a false failure in exactly the direction this
     module exists to test.
     """
-    index: dict[str, dict[tuple[str, Key], list[tuple[str, Key]]]] = {}
+    index: Index = {}
     for kind, records in view.items():
         for key, record in records.items():
             for field in schema()[kind].relationships.values():
                 if field.name not in record:
                     continue
                 candidates = _concrete(field.peer)
+                inverse = _inverse_name(field.peer, field.identifier, field.name)
                 for raw in _resolve_peers(view, record[field.name], candidates):
-                    bucket = index.setdefault(field.identifier, {})
-                    for side, peer in (((kind, key), raw), (raw, (kind, key))):
-                        reachable = bucket.setdefault(side, [])
+                    sides = [((field.identifier, field.name), (kind, key), raw)]
+                    if inverse is not None:
+                        sides.append(((field.identifier, inverse), raw, (kind, key)))
+                    for bucket_key, side, peer in sides:
+                        reachable = index.setdefault(bucket_key, {}).setdefault(side, [])
                         if peer not in reachable:
                             reachable.append(peer)
     return index
@@ -313,15 +351,29 @@ _TOKEN = re.compile(r"\.\.\.\s+on\s+(\w+)|(\w+)\s*(?:\([^)]*\))?|([{}])")
 def _parse(text: str) -> dict[str, Any]:
     """A stored query as a nested selection tree.
 
-    Arguments are dropped. Every query a check binds is unfiltered, deliberately
-    and for a reason each of them states: a check that judges a subset has to be
-    able to say what it skipped, and a filtered query leaves the scope to be
-    inferred from silence. A query that grew an argument would be resolved here
-    against the whole collection, so this asserts that none has.
+    Arguments are dropped, so a query that grew one would be resolved against the
+    whole collection and the sweep would judge rows the server would never send.
+    Every query a check binds is unfiltered today, deliberately and for a reason
+    each of them states: a check that judges a subset has to be able to say what
+    it skipped, and a filtered query leaves the scope to be inferred from
+    silence. So an argument raises here rather than being ignored.
+
+    `limit` is the one allowed, because it selects no rows by value.
+    `queries/units_import.gql` fetches `CoreAccount(limit: 1)` and the check
+    reads none of it: that query exists to prove the worker can reach the server
+    and import the shared package.
+
+    Checking for a `$` alone was the first version of this and it was too narrow:
+    it caught `(status__value: $status)` and let `(status__value: "active")`
+    through, which is the same filter written the other way.
     """
     stripped = re.sub(r"#[^\n]*", "", text)
-    if re.search(r"\(\s*\$", stripped):
-        raise ValueError("this resolver reads unfiltered queries only, and this one takes a variable")
+    for arguments in re.findall(r"\(([^)]*)\)", stripped):
+        named = {name for name in re.findall(r"(\w+)\s*:", arguments)}
+        if named - {"limit"}:
+            raise ValueError(
+                f"this resolver reads unfiltered queries only, and this one takes {sorted(named - {'limit'})}"
+            )
 
     root: dict[str, Any] = {}
     stack: list[dict[str, Any]] = [root]
@@ -387,7 +439,7 @@ def selection(query_name: str) -> dict[str, Any]:
 
 def _node(
     view: View,
-    index: dict[str, dict[tuple[str, Key], list[tuple[str, Key]]]],
+    index: Index,
     kind: str,
     key: Key,
     fields: dict[str, Any],
@@ -407,7 +459,7 @@ def _node(
             continue
         relationship = schema()[kind].relationships.get(field)
         if relationship is not None:
-            peers = index.get(relationship.identifier, {}).get((kind, key), [])
+            peers = index.get((relationship.identifier, relationship.name), {}).get((kind, key), [])
             allowed = set(_concrete(relationship.peer))
             peers = [peer for peer in peers if peer[0] in allowed]
             if relationship.cardinality == "one":

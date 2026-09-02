@@ -118,6 +118,9 @@ left. That is what makes the asymmetry a rule about time rather than a leniency
 somebody chose, and the spec records the alternative that was refused: counting
 only carriers whose `status` is `active` looks tidier and does not work, because
 nothing in this repository moves a carrier from `planned` to `active` on merge.
+A generator-provisioned wavelength is written `planned` and stays there until the
+field turns it up, so an `active` filter would under-count every corridor the
+generator has ever lit.
 
 `reading_can_lag` is per comparison, because the argument is about the subject and
 not about the arithmetic. A degree monitor is judged against a live design, so its

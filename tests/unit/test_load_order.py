@@ -41,6 +41,13 @@ Key = tuple[str, ...]
 
 
 def _key(kind: str, record: Record) -> Key:
+    """A record's human-friendly ID.
+
+    A kind the schema does not declare is keyed on `name` alone, which is what
+    every Infrahub built-in an object file here creates uses.
+    """
+    if kind not in schema():
+        return (str(record.get("name", "")),)
     return tuple(str(record.get(part.split("__")[0], "")) for part in schema()[kind].hfid)
 
 
@@ -61,13 +68,6 @@ def _references(kind: str, record: Record, known: set[tuple[str, Key]]) -> list[
         if value is None:
             continue
         candidates = _peer_kinds(field.peer)
-        if not candidates:
-            # A peer this repository does not declare is an Infrahub built-in,
-            # `BuiltinTag` on `OtnSite.tags` being the one that occurs. The
-            # server resolves those against kinds no file here creates, so this
-            # test has nothing to say about them and says nothing rather than
-            # reporting six sites for naming tags that exist.
-            continue
         raw = value if isinstance(value, list) else [value]
 
         flat = tuple(str(part) for part in raw if not isinstance(part, list))
@@ -86,9 +86,21 @@ def _references(kind: str, record: Record, known: set[tuple[str, Key]]) -> list[
 
 
 def _peer_kinds(peer: str) -> tuple[str, ...]:
+    """The kinds a relationship to `peer` can land on.
+
+    A concrete kind is itself; a generic is every kind that inherits it. A peer
+    this repository's schema does not declare at all is an Infrahub built-in, and
+    `BuiltinTag` on `OtnSite.tags` is one an object file both creates and names,
+    so it is returned as itself rather than dropped. An earlier version skipped
+    it and justified the skip by saying the server resolves those "against kinds
+    no file here creates", which is false here: `objects/10_geant_tags.yml`
+    creates the six tags that `objects/11_geant_sites.yml` names, and the load
+    order between those two files is exactly the kind of thing this test is for.
+    """
     if peer in schema():
         return (peer,)
-    return tuple(name for name in schema() if peer in _inherits(name))
+    inheriting = tuple(name for name in schema() if peer in _inherits(name))
+    return inheriting or (peer,)
 
 
 def _inherits(kind: str) -> tuple[str, ...]:
@@ -111,7 +123,21 @@ _INHERITS = _build_inherits()
 
 
 def _all_keys(kind: str) -> set[Key]:
-    return set(merged(None).get(kind, {}))
+    """Every record of one kind in the shipped dataset, keyed as the loader sees it.
+
+    Read straight out of the files rather than out of `merged(None)`, because the
+    merged view drops kinds the schema does not declare and this test does not.
+    """
+    if kind in schema():
+        return set(merged(None).get(kind, {}))
+    return {
+        (str(record.get("name", "")),)
+        for path in object_files()
+        for document in _documents(path.read_text())
+        if str((document.get("spec") or {}).get("kind")) == kind
+        for record in (document.get("spec") or {}).get("data") or []
+        if isinstance(record, dict)
+    }
 
 
 def _documents(text: str) -> list[Record]:
@@ -125,12 +151,17 @@ def _walk(paths: list[Any], known: set[tuple[str, Key]]) -> list[str]:
         for document in _documents(path.read_text()):
             spec = document.get("spec") or {}
             kind = str(spec.get("kind") or "")
-            if kind not in schema():
+            if not kind:
                 continue
             for record in spec.get("data") or []:
                 if not isinstance(record, dict):
                     continue
-                for field, value in _references(kind, record, known):
+                # A kind the schema does not declare has no relationships this
+                # test can read, so it contributes a declaration and no
+                # references. That is the whole of what a BuiltinTag record is
+                # to the load order: something a later file can name.
+                references = _references(kind, record, known) if kind in schema() else []
+                for field, value in references:
                     complaints.append(
                         f"{path.name}: {kind} {record.get('name')!r} names {value!r} on `{field}`, "
                         "which nothing has declared at that point in the load order"

@@ -47,20 +47,28 @@ from typing import Any
 import pytest
 from infrahub_sdk.ctl.repository import get_repository_config
 
-from tests.unit.conftest import REPO_ROOT
+from tests.unit.conftest import REPO_ROOT, object_documents
 from tests.unit.scenariopayloads import merged, payload, scenario_files, schema
 
 CONFIG = get_repository_config(REPO_ROOT / ".infrahub.yml")
 
-GENERATOR_RELATIONSHIPS = ("optical_path",)
+GENERATOR_RELATIONSHIPS = ("optical_path", "child_containers")
 """What only a generator writes.
 
 A scenario file declares services, wavelengths, containers and hardware. It never
 declares an optical path: that is 25 ordered hops the generator derives from a
-route it chose, and no human writes one into YAML. So a check that reads
-`optical_path` reads a field that is empty in every merged view and full on every
-branch the pipeline actually runs against, and that is the whole of the
-difference this module cannot see.
+route it chose, and no human writes one into YAML.
+
+`child_containers` is the other one, and it is the softer of the two. A scenario
+file can declare a container under a parent, and `demo/05_odu_mixed_fill.yml` and
+`demo/90_fra_mil_saturated.yml` both do, so `container_capacity` is judged on
+those. `demo/04_odu_ten_in_one.yml` is the case this covers: the ODU4 it declares
+is filled by ten client containers the generator grooms into it, so the file that
+exists to exercise that check declares nothing for it to read.
+
+A check that reads one of these reads a field the merged view leaves empty and
+the pipeline finds full, and that is the whole of the difference this module
+cannot see.
 """
 
 
@@ -174,6 +182,14 @@ _quiet("03_infiniband_service.yml")
 
 _quiet(
     "04_odu_ten_in_one.yml",
+    container_capacity=NeedsGenerator(
+        0,
+        "the ODU4 this file declares is filled by ten client containers the generator grooms into it, so "
+        "before the generator runs the sweep sees a parent with no children and the check reports that no "
+        "container on the branch holds one. That is a true reading of the loaded state and it judges nothing: "
+        "this is the scenario built to exercise container_capacity, and offline it exercises none of it. "
+        "`tests/unit/test_checks.py` is where the packing arithmetic is held",
+    ),
     provisionable=NeedsGenerator(
         1,
         "`svc-lon-mil-sdh-11` carries `refusal_accepted` and, before the generator runs, carries no refusal "
@@ -312,8 +328,22 @@ def test_every_registered_check_can_be_swept(check_name: str) -> None:
     resolver cannot read is a check outside the sweep, and a sweep with a hole in
     it reports green over the hole.
     """
+    view = merged(None)
     built = payload(check_name, None)
-    assert built, f"{check_name} resolved to an empty payload"
+    assert built, f"{check_name} resolved to no collections at all"
+
+    # Every record the view holds for a rooted kind has to come back. A count is
+    # the assertion rather than "not empty", because several of these
+    # collections are legitimately empty on the default branch and their
+    # emptiness is a fact rather than a failure: no shipped object declares a
+    # diversity group and no shipped object is a service. What would be a
+    # failure is the resolver returning fewer than the view holds, which is how
+    # a query it cannot read becomes a check swept over nothing and passing.
+    for kind, collection in built.items():
+        expected = len(view.get(kind, {}))
+        assert len(collection["edges"]) == expected, (
+            f"{check_name} resolved {len(collection['edges'])} {kind} where the branch holds {expected}"
+        )
     _errors(check_name, "00_services.yml")
 
 
@@ -485,12 +515,32 @@ def test_no_cross_connect_anywhere_carries_a_line_port() -> None:
         assert not offenders, f"{scenario or 'the default branch'} gives a cross-connect line-side optics: {offenders}"
 
 
-def test_the_resolver_reads_every_kind_the_schema_declares() -> None:
-    """No kind resolves by accident.
+def test_the_resolver_reads_every_kind_the_object_files_declare() -> None:
+    """No kind is dropped on the way in, and none is keyed to nothing.
 
-    A kind the resolver cannot key would silently hold no records, and every
-    check that reads it would then be swept against an empty collection and pass.
+    `scenariopayloads._apply` skips a document whose kind the schema does not
+    declare, which is how a typo in a `spec.kind` would become a collection the
+    resolver silently holds no records for. Every check reading it would then be
+    swept against an empty collection and pass. So the kinds are read straight
+    out of the files here rather than out of the view the skip has already
+    filtered.
+
+    An earlier version of this asserted `set(merged(None)) <= set(schema())`,
+    which is true by construction because the skip guarantees it. That is a test
+    that cannot fail, and this module is about cells that cannot fail.
     """
+    declared = {
+        str((document.get("spec") or {}).get("kind"))
+        for document in object_documents()
+        if (document.get("spec") or {}).get("kind")
+    }
+    # `Otn` is what this repository declares. `BuiltinTag`, `CoreStandardGroup`
+    # and `CoreGeneratorGroup` come from Infrahub and are not in `schemas/`, so
+    # the resolver drops them and nothing here misses them: no check query roots
+    # on one, and `queries/units_import.gql`'s `CoreAccount` is a probe the check
+    # never reads. A typo in an `Otn` kind is the case this catches.
+    unknown = sorted(kind for kind in declared - set(schema()) if kind.startswith("Otn"))
+    assert not unknown, f"object files declare Otn kinds the schema does not, so the resolver drops them: {unknown}"
+
     unkeyed = [kind for kind, records in merged(None).items() if any(part == "" for key in records for part in key)]
     assert not unkeyed, f"records whose human-friendly ID resolved to an empty part: {unkeyed}"
-    assert set(merged(None)) <= set(schema())
