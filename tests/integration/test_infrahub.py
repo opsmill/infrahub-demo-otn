@@ -98,10 +98,18 @@ repository sync is what applies that file. A test that created the group would
 pass whether or not the repository can.
 """
 
-EXPECTED_CHECKS = ("channel_collision", "osnr_margin")
-"""The two data checks a proposed change must run. `units_import` is the third
+EXPECTED_CHECKS = ("channel_collision", "osnr_margin", "carrier_termination")
+"""The three data checks a proposed change must run. `units_import` is another
 registered check; it is not asserted here because it passes or fails on the
-worker image rather than on the change."""
+worker image rather than on the change.
+
+`carrier_termination` is named because a registration is not evidence. It was
+withdrawn in `e70c245` and brought back with the regenerator line ports that make
+it readable, and the way that comes undone is quietly: an entry that never syncs,
+a class name that does not match, a query the server rejects. All three fail as a
+validator that never appears, and none of them fails as a red pipeline. So the
+check is asserted here by name, on a real proposed change, against a live
+server."""
 
 POLL_INTERVAL = 10
 """Seconds between polls for anything the task worker does asynchronously."""
