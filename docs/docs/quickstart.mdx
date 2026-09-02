@@ -2,6 +2,11 @@
 title: Quick start
 ---
 
+import blocked from './media/quickstart-blocked.png';
+import artifacts from './media/quickstart-map.png';
+import refusal from './media/quickstart-refusal.png';
+import service from './media/quickstart-service.png';
+
 # Quick start
 
 Go from a fresh clone to a proposed change Infrahub will not merge. You
@@ -64,9 +69,9 @@ something to run in.
 Infrahub is then at [http://localhost:8000](http://localhost:8000).
 
 <figure className="doc-figure">
-  <a href="/img/quickstart-map.png" target="_blank" rel="noopener noreferrer">
+  <a href={artifacts} target="_blank" rel="noopener noreferrer">
   <img
-    src="/img/quickstart-map.png"
+    src={artifacts}
     alt="Berlin's Artifacts tab in Infrahub, listing two artifacts named network-map and odu-map, both with status Ready and content type image/svg+xml, each with a checksum, a storage id and the artifact definition that produced it."
   />
   </a>
@@ -113,9 +118,9 @@ walks all six candidates, including why the winning route anchors on channel 2
 rather than channel 1.
 
 <figure className="doc-figure">
-  <a href="/img/quickstart-service.png" target="_blank" rel="noopener noreferrer">
+  <a href={service} target="_blank" rel="noopener noreferrer">
   <img
-    src="/img/quickstart-service.png"
+    src={service}
     alt="The svc-ber-ams-400g service in Infrahub with status Active, an optical path named path-svc-ber-ams-400g, a container named odu-svc-ber-ams-400g, and both the rejection code and rejection detail fields empty."
   />
   </a>
@@ -196,9 +201,9 @@ and `channel_collision` fails because the three regenerator wavelength pairs
 this file loads overlap in spectrum on purpose.
 
 <figure className="doc-figure">
-  <a href="/img/quickstart-refusal.png" target="_blank" rel="noopener noreferrer">
+  <a href={refusal} target="_blank" rel="noopener noreferrer">
   <img
-    src="/img/quickstart-refusal.png"
+    src={refusal}
     alt="The svc-mad-waw-400g service in Infrahub with status Rejected, a rejection code of Optical budget, the full rejection detail naming both the direct route and the regenerator chain that failed, and Refusal Accepted set to false."
   />
   </a>
@@ -212,9 +217,9 @@ this file loads overlap in spectrum on purpose.
 </figure>
 
 <figure className="doc-figure">
-  <a href="/img/quickstart-blocked.png" target="_blank" rel="noopener noreferrer">
+  <a href={blocked} target="_blank" rel="noopener noreferrer">
   <img
-    src="/img/quickstart-blocked.png"
+    src={blocked}
     alt="The Checks tab of a proposed change in Infrahub, headed Admin wants to merge oeo-refused into main, listing sixteen validators. Summary rings across the top read Artifact, Data, Generator, Repository and Schema in green and User in red. Thirteen rows carry a green tick; three carry a red warning triangle: Check: provisionable, Check: channel_collision and Check: osnr_margin."
   />
   </a>

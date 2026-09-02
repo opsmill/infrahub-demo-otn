@@ -529,7 +529,7 @@ def test_the_artifact_copy_count_is_the_pop_count() -> None:
 
 
 def test_the_published_map_legends_are_the_renderers_captions() -> None:
-    """`docs/static/img/*.svg` are the pictures a reader actually looks at.
+    """`docs/docs/media/*.svg` are the pictures a reader actually looks at.
 
     These two are rendered from a live branch and copied in by hand, so no test
     and no gate connects them to the renderer that produced them. That is how
@@ -542,7 +542,7 @@ def test_the_published_map_legends_are_the_renderers_captions() -> None:
     test that demanded a byte match would fail on a re-render that changed
     nothing a reader would notice.
     """
-    published = (REPO_ROOT / "docs" / "static" / "img" / "odu-map.svg").read_text()
+    published = (REPO_ROOT / "docs" / "docs" / "media" / "odu-map.svg").read_text()
     low, middle, high = HEADROOM_BAND_EDGES_SLOTS
 
     for band, expected_range in (
