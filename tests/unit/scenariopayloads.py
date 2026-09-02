@@ -248,6 +248,14 @@ def _build_edges(view: View) -> dict[str, dict[tuple[str, Key], list[tuple[str, 
     Built in both directions from whichever side the data wrote, which is what
     lets `OtnOpticalCarrier.line_ports` answer on a branch where only
     `OtnLinePort.carrier` was written, and the other way round.
+
+    **One edge however many times it is written.** A relationship is keyed by its
+    identifier on the server, so a scenario file restating a port with its
+    carrier while the carrier already names the port produces one edge and not
+    two. Without the dedupe below the second writer would add a duplicate peer
+    and `carrier_termination` would read a correctly terminated wavelength as
+    over-terminated, which is a false failure in exactly the direction this
+    module exists to test.
     """
     index: dict[str, dict[tuple[str, Key], list[tuple[str, Key]]]] = {}
     for kind, records in view.items():
@@ -258,8 +266,10 @@ def _build_edges(view: View) -> dict[str, dict[tuple[str, Key], list[tuple[str, 
                 candidates = _concrete(field.peer)
                 for raw in _resolve_peers(view, record[field.name], candidates):
                     bucket = index.setdefault(field.identifier, {})
-                    bucket.setdefault((kind, key), []).append(raw)
-                    bucket.setdefault(raw, []).append((kind, key))
+                    for side, peer in (((kind, key), raw), (raw, (kind, key))):
+                        reachable = bucket.setdefault(side, [])
+                        if peer not in reachable:
+                            reachable.append(peer)
     return index
 
 
