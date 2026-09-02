@@ -1324,3 +1324,44 @@ async def test_generate_falls_through_to_the_chain_once_the_direct_wavelength_ca
         {"hfid": ["odu-line-oc-seg-bc"]},
     ]
     assert writes[-1].data["status_value"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_a_wavelength_the_generator_lights_arrives_planned_and_not_active() -> None:
+    """The status a carrier is created with, and it is the whole of the argument.
+
+    `_carrier` allocates spectrum on a route. It writes no line port, places no
+    transponder and takes no receiver reading, so the wavelength it creates is
+    designed and not yet turned up. `active` claimed light on a fibre nothing is
+    transmitting into.
+
+    **What made the difference matter.** `checks/carrier_termination.py` judges
+    active carriers, so an active carrier with no optics at either end is a fault
+    it reports, on every provisioning branch, every run. The check's own docstring
+    and `docs/docs/provisioning-scenarios.mdx` both already described this carrier
+    as `planned` and neither had been compared against the code, which is how a
+    restored check came within one commit of failing the quick start's headline
+    proposed change.
+
+    **Nothing else reads the field, and that was counted rather than assumed.**
+    `checks/channel_collision.py` selects `status` and never filters on it, so a
+    planned wavelength still holds its spectrum and the collision check is still
+    the reservation. `checks/osnr_margin.py` budgets every carrier on the branch
+    whatever its status. `queries/odu_map.gql` says in its own comment that the
+    map reads neither status nor a client signal. The one reader is
+    `transforms/service_trace.py`, which prints it.
+
+    Pinned here because no other test in this file reaches the lighting path, so
+    the value could be changed back without anything going red.
+    """
+    instance = _provisioner()
+    selection = _selection("oms-fra-mil", ("oms-fra-mil",), 12)
+
+    carrier = await instance._carrier("svc-x", selection)  # noqa: SLF001
+
+    written = next(write for write in instance.client.writes if write.kind == "OtnOpticalCarrier")
+    assert written.data["status"] == "planned", (
+        "a wavelength with no line port at either end is designed, not turned up, and "
+        "carrier_termination reports an active one that terminates nowhere"
+    )
+    assert carrier is not None
