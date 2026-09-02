@@ -920,36 +920,9 @@ class OpticalServiceGenerator(InfrahubGenerator):
             data={
                 "name": self._carrier_name(service_name),
                 "description": f"{service_name} on channel {selection.channel} via {selection.route.key}",
-                # **`planned`, not `active`, and the difference is hardware.**
-                # This method allocates spectrum on a route. It writes no line
-                # port, places no transponder and takes no receiver reading, so
-                # the wavelength it creates is designed and not yet turned up.
-                # `active` claimed light on a fibre that nothing is transmitting
-                # into, and `checks/carrier_termination.py` is what makes the
-                # difference matter: it judges active carriers, so an active
-                # carrier with no optics at either end is a fault it reports on
-                # every provisioning branch. The check's own docstring and the
-                # provisioning page both already described this carrier as
-                # `planned`; the code said otherwise and nothing had compared
-                # the two.
-                #
-                # Nothing else reads this field. `channel_collision` selects it
-                # and never filters on it, so a planned wavelength still holds
-                # its spectrum and the collision check is still the reservation.
-                # `osnr_margin` budgets every carrier on the branch whatever its
-                # status. The ODU map reads neither status nor a client signal.
-                # The one reader is `transforms/service_trace.py`, which prints
-                # it, and printing "planned" for a wavelength with no optics is
-                # the trace becoming more accurate rather than less.
-                #
-                # Nothing moves a carrier from `planned` to `active` when a
-                # change merges, which `specs/024-monitor-consistency-checks`
-                # records as the reason `channel_count_consistency` must not
-                # filter on this field. That gap is unchanged and this does not
-                # widen it: turn-up is a field activity that this repository
-                # does not model, and the wavelength waits at `planned` until
-                # somebody binds a line port to it, which is exactly what an
-                # engineer looking at the record should see.
+                # Planned, not active: this allocates spectrum and places no
+                # hardware. `carrier_termination` judges active carriers, so
+                # `active` here would fail every provisioning branch.
                 "status": "planned",
                 "channel": channel.id,
                 "optical_mode": {"hfid": [selection.mode.name]},

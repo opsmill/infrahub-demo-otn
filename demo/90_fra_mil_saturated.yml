@@ -338,24 +338,14 @@ spec:
       member_of_groups:
         - optical_services
 ---
-# The shelves that terminate the three fill wavelengths, and the optics on them.
+# The shelves that terminate the three fill wavelengths. Frankfurt to Milan has
+# one free line port at each end and three new wavelengths need three, so one
+# shelf goes in at each site.
 #
-# A corridor is full because somebody installed the equipment that filled it, so
-# the file that fills it racks that equipment. Frankfurt to Milan has one free
-# line port at each end in the shipped inventory and three new wavelengths need
-# three at each, so one shelf goes in at each site.
-# `checks/carrier_termination.py` is what makes this necessary rather than
-# decorative: a wavelength with no optic at an end is lit in the plan and reaches
-# no equipment, and the check says so.
-#
-# Readings copied from `xpdr-fra-13` and `xpdr-mil-19`, the shipped shelves on
-# this same corridor. Nothing here invents a figure: the dataset generator
-# derives a receiver reading from the route it terminates, and a scenario file
-# cannot do that arithmetic honestly.
+# Readings copied from `xpdr-fra-13` and `xpdr-mil-19` on the same corridor.
 #
 # `demo/04_odu_ten_in_one.yml` names the same two shelves. The two files are
-# alternatives on the same corridor and are never loaded onto one branch, which
-# `oc-ch094` proves: it runs London to Milan there and Frankfurt to Milan here.
+# alternatives and are never loaded onto one branch.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:

@@ -347,25 +347,12 @@ spec:
       member_of_groups:
         - optical_services
 ---
-# The shelves that terminate the three wavelengths above, and the optics on them.
+# The shelves that terminate the three wavelengths above. Frankfurt and Milan
+# have one free line port each and three new wavelengths need three, so the
+# scenario that fills the corridor racks the shelves that fill it.
 #
-# **Why this file installs hardware.** A wavelength cannot be lit without an
-# optic at each end, and `checks/carrier_termination.py` gates on exactly that.
-# The corridor this scenario fills has one free line port at Frankfurt and one at
-# Milan, and three new wavelengths need three at each, so the scenario that
-# lights them is the scenario that racks the shelves. That is the honest reading
-# rather than a workaround: a corridor is full because somebody installed the
-# equipment that filled it.
-#
-# One transponder at each end, two line ports on each, and one receiver monitor
-# each because `checks/monitor_completeness.py` gates on a monitored device
-# arriving without its monitor.
-#
-# The readings are `xpdr-fra-13` and `xpdr-mil-19` verbatim. Those two sit on
-# this same corridor at this same length, so a new shelf beside them reports what
-# they report. Nothing here computes a reading from a route: the dataset
-# generator does that from the plant, and a figure invented in a scenario file
-# would be a plausible-looking number rather than a derived one.
+# Readings are `xpdr-fra-13` and `xpdr-mil-19` verbatim: same corridor, same
+# length. A figure invented here would look plausible rather than be derived.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:
@@ -384,9 +371,8 @@ spec:
       vendor: Generic
       model: T-400G
 ---
-# The add/drop sockets the two new shelves patch into, continuing each ROADM's
-# numbering. Frankfurt ran to AD-26 and Milan to AD-38 in the shipped inventory,
-# and both banks were fully patched, so a shelf added here needs its own.
+# Add/drop sockets for the new shelves, continuing each ROADM's numbering.
+# Frankfurt ran to AD-26 and Milan to AD-38, both banks fully patched.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:
@@ -449,21 +435,13 @@ spec:
       cd_fs_per_nm: 13260000
       dgd_fs: 2700
 ---
-# Six line ports, two per wavelength. Three of them are shipped ports restated
-# with the wavelength they now hold, which the loader applies as an update, and
-# three are on the shelves above.
+# Six line ports, two per wavelength: three shipped ports restated with the
+# wavelength they now hold, three on the shelves above. Written from the port
+# side here because the carriers are declared at the top of this file; under
+# `objects/` the ports load first, so the edge is written from the carrier side.
 #
-# The edge is written from the port side here and from the carrier side under
-# `objects/`, which is a load-order difference and not a modelling one:
-# `14_geant_ports.yml` loads before `17_geant_carriers.yml`, so a shipped port
-# cannot name a wavelength that does not exist yet. In this file the carriers are
-# declared at the top, so it can.
-#
-# `xpdr-lon-01`'s receiver monitor still reports darkness after L1 takes a
-# wavelength, and that is left alone. A reading is dated and the wavelength was
-# designed onto this branch after it was taken, which is the same clock argument
-# `checks/channel_count_consistency.py` is built on. The drift report shows it
-# and nothing gates on it.
+# `xpdr-lon-01`'s monitor still reports darkness. The reading predates the
+# wavelength, so the drift report shows it and nothing gates on it.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:

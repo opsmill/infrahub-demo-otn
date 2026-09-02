@@ -261,35 +261,14 @@ kind: Object
 spec:
   kind: OtnLinePort
   data:
-    # The optics that terminate the six segments, twelve ports, two per
-    # wavelength. Without them each of the six is a lit wavelength with nothing
-    # on either end, which is what `checks/carrier_termination.py` reports.
+    # Twelve ports, two per wavelength. Six are shipped transponder ports
+    # restated with the wavelength they now carry; the loader applies that as an
+    # update. The other six are the point of the file: a regenerator has
+    # line-side optics, so the inner end of each split terminates on the shelf
+    # and needs no transponder port at Paris, Frankfurt or Prague.
     #
-    # **The edge is written from this side here, and from the carrier side under
-    # `objects/`.** It is one edge on one identifier either way, so which side
-    # writes it is a load-order question. In `objects/` the ports load before the
-    # carriers, so a port naming a wavelength names one that does not exist yet
-    # and `carriers_with_line_ports` writes the carrier side instead. In this
-    # file the carriers are declared above and the regenerators just above this,
-    # so every reference here resolves at insert time.
-    #
-    # **Six of the twelve are shipped ports restated.** A load applies them as an
-    # update, adding the wavelength and the colour to a transponder port that was
-    # dark on `main`. Madrid and Warsaw each hold four free line ports and this
-    # scenario takes three of each, leaving one apiece for
-    # `demo/07_mad_waw_qpsk.yml`, so a branch carrying both files still fits.
-    #
-    # **The other six are new, and they are the point of the file.** A
-    # regenerator receives a wavelength and transmits a new one, so it has
-    # line-side optics, and the inner end of every split terminates on them. No
-    # Paris, Frankfurt or Prague transponder port is needed for the inner ends,
-    # which is what makes the three splits fit a plant that has one free line
-    # port at Paris and one at Frankfurt.
-    #
-    # No `connected_to` on the six regenerator ports. Every add/drop port at
-    # those three sites is already patched to a transponder line port, and
-    # claiming a socket the ROADM inventory has not got would be a worse record
-    # than none.
+    # Written from the port side here because the carriers are declared above.
+    # No `connected_to`: every add/drop port at those sites is already patched.
 
     # Channel 70, cut at Paris.
     - name: L1
