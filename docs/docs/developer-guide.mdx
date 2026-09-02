@@ -155,23 +155,23 @@ any of them.
 
 | File | What it is | When it changes |
 | --- | --- | --- |
-| `docs/static/img/network-map.svg` | The illustration on the overview and network map pages | Deliberately, when the network, the palette or the basemap changes |
-| `docs/static/img/odu-map.svg` | The illustration on the overview and ODU map pages | On the same terms |
+| `docs/docs/media/network-map.svg` | The illustration on the overview and network map pages | Deliberately, when the network, the palette or the basemap changes |
+| `docs/docs/media/odu-map.svg` | The illustration on the overview and ODU map pages | On the same terms |
 | `tests/unit/fixtures/network_map_*.svg` | Four test references, invariants | Effectively never |
 | `tests/unit/fixtures/odu_map_*.svg` | Four test references, invariants | Effectively never |
 
 #### The illustrations on the documentation pages
 
-`docs/static/img/network-map.svg` is Berlin's rendered artifact, checked in so
+`docs/docs/media/network-map.svg` is Berlin's rendered artifact, checked in so
 the pages have a picture without a running stack.
-`docs/static/img/odu-map.svg` is the same idea for the ODU map. Both are
+`docs/docs/media/odu-map.svg` is the same idea for the ODU map. Both are
 snapshots, not generated files: refresh them when the network, the palette or the
 basemap changes, by fetching the artifact off a loaded stack.
 
 ```bash
 uv run invoke load-repository        # if the stack has no repository yet
 # then, from the Artifacts tab on Berlin, download network-map and odu-map and
-# save them as docs/static/img/network-map.svg and docs/static/img/odu-map.svg
+# save them as docs/docs/media/network-map.svg and docs/docs/media/odu-map.svg
 ```
 
 #### The golden renders under tests
