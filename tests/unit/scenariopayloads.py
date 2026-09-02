@@ -1,43 +1,4 @@
-"""A branch, assembled offline, in the shape a check's stored query returns it.
-
-**What this exists for.** Feature 025 shipped `carrier_termination`, a check that
-was correct about a rule and wrong about the data. It was verified against a
-synthetic violation and against `objects/`, and never against a single file in
-`demo/`, which is where it fired on six wavelengths at once. The withdrawal
-commit called that out and this module is the answer to it:
-`tests/unit/test_scenario_checks.py` holds every scenario file to every
-registered check, and this is what builds the payload each of those runs needs.
-
-**Why a resolver rather than one payload builder per check.**
-`tests/unit/test_checks.py` hand-builds a payload per check, which is right for
-what that module does: it constructs states the shipped data does not hold, so it
-has to author them. This module has the opposite job. It has real data and needs
-it in nine different shapes, one per stored query, and the shapes are already
-written down in `queries/*.gql`. Hand-writing nine builders would restate nine
-selection sets that already exist, and the tenth check registered would silently
-have no sweep until somebody noticed. So the query is read and the schema is
-read, and the payload follows from the two.
-
-That has a cost worth naming. A resolver can agree with itself and disagree with
-the server, and a sweep that is wrong in the same direction as the thing it
-tests is worse than no sweep.
-`test_scenario_checks.py::test_the_resolver_reproduces_what_the_hand_built_payloads_find`
-is the counterweight: the shipped view is run through every check and compared
-against the verdicts `test_checks.py` pins from payloads a human wrote.
-
-**What a merged view is.** One scenario file loaded onto a branch cut from the
-default one. Records from `objects/` first, then the file's records applied over
-them by kind and human-friendly ID, which is what `infrahubctl object load` does:
-a record naming an object that exists updates it, and a record naming one that
-does not creates it. Nothing merges two scenario files, because several of them
-contradict each other on purpose.
-
-**What it does not model.** Anything a generator writes. A scenario file is
-input, so a merged view is the branch immediately after the load and before any
-generator has run. `optical_path` is empty on every service in every view, and
-that is the state a check sees when the pipeline reaches it on a data-only
-branch.
-"""
+"""A branch, assembled offline, in the shape a check's stored query returns it."""
 
 from __future__ import annotations
 
@@ -56,12 +17,7 @@ Record = dict[str, Any]
 Key = tuple[str, ...]
 View = dict[str, dict[Key, Record]]
 Index = dict[tuple[str, str], dict[tuple[str, Key], list[tuple[str, Key]]]]
-"""(identifier, field name) -> (kind, id) -> the peers that field returns.
-
-Keyed by the field and not only by the identifier, because a self-referential
-relationship has both of its roles on one kind. `_inverse_name` says what that
-costs when it is not done.
-"""
+"""(identifier, field name) -> (kind, id) -> the peers that field returns."""
 
 
 # ---------------------------------------------------------------------------
@@ -70,15 +26,7 @@ costs when it is not done.
 
 
 class Field:
-    """One relationship, as much of it as resolving needs.
-
-    `identifier` is what makes an inverse reachable. The object files write each
-    edge from one side only, and which side is a load-order decision rather than
-    a modelling one: `objects/` writes `OtnOpticalCarrier.line_ports` because the
-    ports load first, and `demo/` writes `OtnLinePort.carrier` because there the
-    carriers do. One edge on one identifier either way, so a reader has to find
-    it from whichever side wrote it.
-    """
+    """One relationship, as much of it as resolving needs."""
 
     __slots__ = ("cardinality", "identifier", "name", "peer")
 
@@ -101,14 +49,7 @@ class Kind:
 
 @cache
 def schema() -> dict[str, Kind]:
-    """Every concrete kind, with what it inherits folded in.
-
-    Generics are read for their attributes, relationships and
-    `human_friendly_id`, and then dropped: nothing in an object file declares a
-    generic, so only concrete kinds hold records. `inherit_from` is flat here for
-    the same reason it is flat in the schema files, which is that a generic may
-    not inherit a generic in this model.
-    """
+    """Every concrete kind, with what it inherits folded in."""
     raw_generics: dict[str, Record] = {}
     raw_nodes: dict[str, Record] = {}
     for path in sorted(SCHEMA_DIR.glob("*.yml")):
@@ -149,12 +90,7 @@ def schema() -> dict[str, Kind]:
 
 @cache
 def _concrete(peer: str) -> tuple[str, ...]:
-    """The kinds a relationship to `peer` can land on.
-
-    A relationship that peers a generic can hold any kind that inherits it, which
-    is why `OtnGenericDevice.ports` cannot be filtered by kind on the server
-    either. Resolving one has to consider every concrete kind under the generic.
-    """
+    """The kinds a relationship to `peer` can land on."""
     if peer in schema():
         return (peer,)
     raw: list[str] = []
@@ -167,12 +103,7 @@ def _concrete(peer: str) -> tuple[str, ...]:
 
 
 def _key(kind: str, record: Record) -> Key:
-    """A record's human-friendly ID, as the tuple the schema declares.
-
-    `device__name__value` reaches through a relationship, and in an object file
-    that relationship is a plain string, so the traversal is a lookup of the
-    field named by the first segment.
-    """
+    """A record's human-friendly ID, as the tuple the schema declares."""
     parts: list[str] = []
     for part in schema()[kind].hfid:
         field = part.split("__")[0]
@@ -239,34 +170,13 @@ def scenario_files() -> tuple[str, ...]:
 
 @cache
 def edges(file_name: str | None = None) -> Index:
-    """The edge index for one merged view, built once per view.
-
-    Cached per scenario file because the sweep asks for the same view nine times,
-    once per registered check, and walking every relationship on every one of the
-    two thousand records nine times over twelve files is the difference between a
-    test that runs in the two-second suite and one that does not.
-    """
+    """The edge index for one merged view, built once per view."""
     return _build_edges(merged(file_name))
 
 
 @cache
 def _inverse_name(peer: str, identifier: str, forward: str) -> str | None:
-    """What the far side calls the same edge, when it calls it anything.
-
-    Two fields share an identifier and that is what makes them one relationship:
-    `OtnLinePort.carrier` and `OtnOpticalCarrier.line_ports`, `OtnGenericPort.device`
-    and `OtnGenericDevice.ports`. Some relationships have no far side at all,
-    `OtnOpticalCarrier.sections` being one, because a section declares no inverse
-    and cannot be asked what rides it.
-
-    Naming the far side is what keeps a **self-referential** relationship from
-    folding in on itself. `otn_container__children` joins
-    `OtnContainer.parent_container` to `OtnContainer.child_containers`, both on
-    one kind, so an index keyed by identifier alone puts a container's parent and
-    its children in one bucket and every container comes back holding its own
-    parent as a child. `container_capacity.gql` selects `child_containers`, so
-    that is a payload no branch holds being handed to a check.
-    """
+    """What the far side calls the same edge, when it calls it anything."""
     for candidate in _concrete(peer):
         for field in schema()[candidate].relationships.values():
             if field.identifier == identifier and field.name != forward:
@@ -275,23 +185,7 @@ def _inverse_name(peer: str, identifier: str, forward: str) -> str | None:
 
 
 def _build_edges(view: View) -> Index:
-    """(identifier, field name) -> (kind, id) -> the peers that field returns.
-
-    Built in both directions from whichever side the data wrote, which is what
-    lets `OtnOpticalCarrier.line_ports` answer on a branch where only
-    `OtnLinePort.carrier` was written, and the other way round.
-
-    **Keyed by the field and not only by the identifier**, for the
-    self-referential reason `_inverse_name` above states.
-
-    **One edge however many times it is written.** A relationship is keyed by its
-    identifier on the server, so a scenario file restating a port with its
-    carrier while the carrier already names the port produces one edge and not
-    two. Without the dedupe below the second writer would add a duplicate peer
-    and `carrier_termination` would read a correctly terminated wavelength as
-    over-terminated, which is a false failure in exactly the direction this
-    module exists to test.
-    """
+    """(identifier, field name) -> (kind, id) -> the peers that field returns."""
     index: Index = {}
     for kind, records in view.items():
         for key, record in records.items():
@@ -312,15 +206,7 @@ def _build_edges(view: View) -> Index:
 
 
 def _resolve_peers(view: View, value: Any, candidates: tuple[str, ...]) -> list[tuple[str, Key]]:
-    """Match a relationship value against the records it could name.
-
-    The value is matched rather than parsed. A composite ID and a list of simple
-    ones look alike in YAML, so the only reliable reading is to try the record
-    tables and keep what is there. A value naming nothing resolves to nothing and
-    is dropped, which is the same thing the server does with a dangling
-    human-friendly ID: it refuses the load, and a load that never happened has no
-    edge to read.
-    """
+    """Match a relationship value against the records it could name."""
     found: list[tuple[str, Key]] = []
     if value is None:
         return found
@@ -349,24 +235,7 @@ _TOKEN = re.compile(r"\.\.\.\s+on\s+(\w+)|(\w+)\s*(?:\([^)]*\))?|([{}])")
 
 
 def _parse(text: str) -> dict[str, Any]:
-    """A stored query as a nested selection tree.
-
-    Arguments are dropped, so a query that grew one would be resolved against the
-    whole collection and the sweep would judge rows the server would never send.
-    Every query a check binds is unfiltered today, deliberately and for a reason
-    each of them states: a check that judges a subset has to be able to say what
-    it skipped, and a filtered query leaves the scope to be inferred from
-    silence. So an argument raises here rather than being ignored.
-
-    `limit` is the one allowed, because it selects no rows by value.
-    `queries/units_import.gql` fetches `CoreAccount(limit: 1)` and the check
-    reads none of it: that query exists to prove the worker can reach the server
-    and import the shared package.
-
-    Checking for a `$` alone was the first version of this and it was too narrow:
-    it caught `(status__value: $status)` and let `(status__value: "active")`
-    through, which is the same filter written the other way.
-    """
+    """A stored query as a nested selection tree."""
     stripped = re.sub(r"#[^\n]*", "", text)
     for arguments in re.findall(r"\(([^)]*)\)", stripped):
         named = {name for name in re.findall(r"(\w+)\s*:", arguments)}
@@ -415,13 +284,7 @@ def _parse(text: str) -> dict[str, Any]:
 
 
 def _strip(fields: dict[str, Any]) -> dict[str, Any]:
-    """Drop the `edges` and `node` wrappers, keeping the fields under them.
-
-    A stored query spells the connection out because GraphQL requires it. The
-    resolver puts the wrappers back on the way out, from the relationship's own
-    cardinality, so carrying them through the middle would mean reading the same
-    fact from two places and only one of them being the schema.
-    """
+    """Drop the `edges` and `node` wrappers, keeping the fields under them."""
     while set(fields) in ({"edges"}, {"node"}):
         fields = next(iter(fields.values()))
     return {name: _strip(children) for name, children in fields.items()}

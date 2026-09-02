@@ -1,39 +1,4 @@
-"""Load this repository into a live Infrahub and read it back.
-
-A demo whose scenarios are never executed by CI is a demo that is already broken
-and nobody has noticed. This is the job that stops that being true.
-
-This layer and `tests/unit/test_geant_dataset.py` catch different failures. The
-unit layer catches a claim regression: a seed edit that breaks a route length.
-This one catches a load regression: a renamed attribute, an unresolvable
-reference, a bound violation, a relationship declared on both sides. A load
-defect is invisible to the first layer, so neither layer replaces the other.
-
-Every read assertion checks the GraphQL `errors` array rather than the HTTP
-status. A bound violation returns **200** with an `errors` array, so a test that
-checks `response.status_code` passes on exactly the failure it was written to
-catch. `test_a_bound_violation_returns_200_with_an_errors_array` asserts that
-transport behaviour directly, so if a future Infrahub starts returning 4xx this
-module says so instead of silently relaxing.
-
-**Everything lives in one class.** `infrahub_testcontainers` exposes its
-fixtures through `TestInfrahubDocker`, and every one of them is `scope="class"`:
-`infrahub_compose`, `infrahub_app`, `infrahub_port`, `tmp_directory`,
-`remote_repos_dir`. A second class is a second Infrahub, a second graph
-database, message queue, cache and task worker. Test methods run in
-definition order, and each one below depends on the state the previous left.
-
-**So `pytest -k` cannot be used to re-run one of these.** Deselecting the
-earlier methods deselects the ones that create the branch and load the data, and
-every survivor then fails with `Branch: geant-integration not found` at HTTP 404,
-which reads like a broken test rather than a broken selection. Run the whole
-class or nothing.
-
-**Stop the demo stack before running this.** The two stacks share no port and no
-database, but they do share the machine's memory, and during feature 016 the
-pair exhausted the container runtime and the test database was killed, failing
-twelve of thirteen tests for a reason unrelated to the code.
-"""
+"""Load this repository into a live Infrahub and read it back."""
 
 from __future__ import annotations
 
@@ -73,85 +38,26 @@ OPTICAL_ELEMENT_KINDS = (
     "OtnRamanPump",
     "OtnOduSwitch",
 )
-"""Every kind inheriting OtnOpticalElement. `OtnRouter` is deliberately absent.
-
-Two assertions read this tuple and both are exact: one compares it against the
-set of kinds the live generic returns, and one compares the live
-`OtnOpticalElement` count against the manifest sum over these kinds. A kind
-added to the schema and forgotten here fails both, which is the point.
-
-It has fired once. Feature 017 added `OtnOduSwitch`, which inherits the generic
-because `OtnPathHop.element` peers it, and every offline gate stayed green: the
-schema loads, the queries pass, and no unit test enumerates the live generic.
-Only a query against a loaded graph could tell."""
+"""Every kind inheriting OtnOpticalElement. `OtnRouter` is deliberately absent."""
 
 TARGET_GROUP = "optical_services"
 TARGET_GROUP_KIND = "CoreGeneratorGroup"
-"""The generator target group `.infrahub.yml` names, and the kind it must be.
-
-The kind matters. The dispatcher does not recognise a `CoreStandardGroup` for
-this purpose, and a group of the wrong kind fails silently by never firing,
-which is the worse of the two ways to be wrong.
-
-Nothing in this module creates it. `objects/00_groups.yml` does, and the
-repository sync is what applies that file. A test that created the group would
-pass whether or not the repository can.
-"""
+"""The generator target group `.infrahub.yml` names, and the kind it must be."""
 
 EXPECTED_CHECKS = ("channel_collision", "osnr_margin", "carrier_termination")
-"""The three data checks a proposed change must run. `units_import` is another
-registered check; it is not asserted here because it passes or fails on the
-worker image rather than on the change.
-
-`carrier_termination` is named because a registration is not evidence. It was
-withdrawn in `e70c245` and brought back with the regenerator line ports that make
-it readable, and the way that comes undone is quietly: an entry that never syncs,
-a class name that does not match, a query the server rejects. All three fail as a
-validator that never appears, and none of them fails as a red pipeline. So the
-check is asserted here by name, on a real proposed change, against a live
-server."""
+"""The three data checks a proposed change must run. `units_import` is another."""
 
 POLL_INTERVAL = 10
 """Seconds between polls for anything the task worker does asynchronously."""
 
 REPO_SYNC_TIMEOUT = 900
-"""Clone plus import of every check, generator, transform and artifact
-definition in this repository, in seconds.
-
-A ceiling, not a target. The polls below return the moment their condition
-holds, so a generous ceiling costs nothing on a host that is keeping up. It
-exists because a four-core CI runner running one task worker is several times
-slower than the machine the local figures come from, and 300 seconds was not
-enough there: the import did not finish, and the two tests that read what it
-produces failed behind it. infrahub-demo-dc allows the same 900 for the same
-step.
-"""
+"""Clone plus import of every check, generator, transform and artifact."""
 
 PIPELINE_TIMEOUT = 1800
-"""How long a proposed change may take to produce the checks asserted below, in
-seconds.
-
-Twelve minutes was the previous window, and it split two runs of the same
-commit: one runner produced every validator inside it and another had reached
-three of the nine checks when it closed, reporting `osnr_margin` as a check
-that never ran. Validators appear one at a time in name order, so the window
-has to cover the whole suite rather than the first few.
-
-infrahub-demo-dc allows 1800 for the equivalent wait. The loop exits at the
-first poll where both checks are present, so a host that is keeping up finishes
-in the five minutes it always did.
-"""
+"""How long a proposed change may take to produce the checks asserted below, in."""
 
 DEFINITION_TIMEOUT = 600
-"""How long a definition may take to appear after the repository reports itself
-in sync, in seconds.
-
-Sync completing and the definitions existing are two different events. The
-generator-definition test used to read straight after the sync test returned
-and so depended on them being one, which holds on a fast host and does not on a
-loaded one. infrahub-demo-dc waits for definitions separately, on its own
-ceiling, for this reason.
-"""
+"""How long a definition may take to appear after the repository reports itself."""
 
 pytestmark = pytest.mark.integration
 
@@ -172,15 +78,7 @@ class TestInfrahub(TestInfrahubDockerClient):
         infrahub_version: str,
         deployment_type: str | None,
     ) -> InfrahubDockerCompose:
-        """The stack `TestInfrahubDocker` builds, with room to start slowly.
-
-        Overridden rather than extended because the fixture it replaces is
-        declared on the base class, which puts it ahead of anything a conftest
-        offers. The body is that fixture's, plus the rewrite: the healthchecks
-        are literals in the packaged compose file and no environment variable
-        reaches them, so the copy `init` writes has to be edited between `init`
-        and `start`.
-        """
+        """The stack `TestInfrahubDocker` builds, with room to start slowly."""
         compose = InfrahubDockerCompose.init(
             directory=tmp_directory,
             version=infrahub_version,
@@ -195,17 +93,7 @@ class TestInfrahub(TestInfrahubDockerClient):
 
     @pytest.fixture(scope="class")
     def clean_source(self, tmp_directory: Path) -> Path:
-        """A copy of the committed tree, and nothing else.
-
-        `GitRepo.init()` runs `shutil.copytree(..., ignore=ignore_patterns(".git"))`
-        and nothing more. Its `directories_to_ignore` field is declared and never
-        read. Handing it the working tree copies `.venv/`, `docs/node_modules/`,
-        `docs/build/` and both caches, then feeds every file to a pure-Python
-        git implementation. That does not raise; it looks like a hang.
-
-        `git archive HEAD` gives exactly the tracked files, which is also the
-        more correct input: what Infrahub imports should be what is committed.
-        """
+        """A copy of the committed tree, and nothing else."""
         export = tmp_directory / "clean-source"
         export.mkdir(parents=True, exist_ok=True)
         archive = subprocess.run(  # noqa: S603
@@ -247,17 +135,7 @@ class TestInfrahub(TestInfrahubDockerClient):
         assert response.errors == {}
 
     def test_load_objects(self, address: str) -> None:
-        """Create the branch and load every object file through `infrahubctl`.
-
-        Through the command-line tool rather than the SDK on purpose: that is
-        the loader a demo operator runs, and the failures this layer exists to
-        catch are the loader's failures.
-
-        `execute_command` sets `INFRAHUB_ADDRESS` and `INFRAHUB_API_TOKEN` for
-        the subprocess. Both are needed: `infrahubctl` resolves the address from
-        `.env` but never the token, so an unauthenticated read succeeds while
-        the first write fails with "Authentication failure".
-        """
+        """Create the branch and load every object file through `infrahubctl`."""
         for command in (
             f"infrahubctl branch create {BRANCH}",
             f"infrahubctl schema load schemas/ --branch {BRANCH}",
@@ -277,15 +155,7 @@ class TestInfrahub(TestInfrahubDockerClient):
         assert {kind: data[kind]["count"] for kind in MANIFEST} == MANIFEST
 
     def test_the_five_catalog_files_all_loaded(self, address: str) -> None:
-        """The object files carry numeric load-order prefixes. Renaming one must
-        not drop it, and a dropped file loads silently as zero objects.
-
-        `OtnClientSignal` and `OtnCwdmChannel` are both absent from
-        `scripts/geant_manifest.json`, which holds the generated kinds only, so
-        neither the manifest loop above nor `test_object_counts_match_the_manifest`
-        covers them. These two literals are the only assertions in the repository
-        that move when a catalog row is added.
-        """
+        """The object files carry numeric load-order prefixes. Renaming one must."""
         data = self.query(
             address,
             "{ OtnFrequencyGrid { count } OtnCwdmChannel { count } OtnFiberType { count } "
@@ -298,13 +168,7 @@ class TestInfrahub(TestInfrahubDockerClient):
         assert data["OtnClientSignal"]["count"] == 11
 
     def test_the_optical_element_query_excludes_routers(self, address: str) -> None:
-        """The inheritance boundary, asserted against a live graph.
-
-        Light terminates at a router, so a router contributes no insertion loss,
-        so a query against the generic must not return one. Tidying the list by
-        adding the generic to the router would break the query the budget engine
-        depends on.
-        """
+        """The inheritance boundary, asserted against a live graph."""
         data = self.query(address, "{ OtnOpticalElement { count edges { node { __typename } } } }")
         kinds = {edge["node"]["__typename"] for edge in data["OtnOpticalElement"]["edges"]}
         assert "OtnRouter" not in kinds
@@ -312,70 +176,16 @@ class TestInfrahub(TestInfrahubDockerClient):
         assert data["OtnOpticalElement"]["count"] == sum(MANIFEST[kind] for kind in OPTICAL_ELEMENT_KINDS)
 
     def test_the_congested_corridor_carries_forty_wavelengths(self, address: str) -> None:
-        """The capacity headline, counted against loaded objects.
-
-        Filtering carriers by section name is what makes the one-sided
-        carrier-to-section relationship enough: no inverse on the section kind
-        is needed to answer "how full is this section".
-        """
-        data = self.query(
-            address,
-            """{
-              direct: OtnOpticalCarrier(sections__name__value: "oms-fra-mil") { count }
-              amsfra: OtnOpticalCarrier(sections__name__value: "oms-ams-fra") { count }
-              geneva: OtnOpticalCarrier(sections__name__value: "oms-fra-gva") { count }
-              quiet:  OtnOpticalCarrier(sections__name__value: "oms-ams-bru") { count }
-            }""",
-        )
+        """The capacity headline, counted against loaded objects."""
+        data = self.query(address, """{.""")
         assert data["direct"]["count"] == 40, "4,134,400 MHz of a 4,800,000 MHz C-band"
         assert data["amsfra"]["count"] == 7, "occupancy is uneven on purpose"
         assert data["geneva"]["count"] == 0, "the alternative route is empty, which is the point"
         assert data["quiet"]["count"] == 0
 
     def test_inline_amplifiers_have_no_site_and_endpoint_amplifiers_do(self, address: str) -> None:
-        """An amplifier hut is not a PoP, and the optional site
-        relationship is what lets the model say so instead of inventing one.
-
-        The names carry nothing. Which chain an amplifier is in is which of its
-        two section relationships is set, and that is what is asserted here: the
-        forward booster has `oms_a2b` and no `oms_b2a`, and its opposite has the
-        other. A query naming only one direction would pass against a model that
-        had lost the other, so both are read.
-
-        Frankfurt to Milan is nine spans, so twenty amplifiers across ten huts.
-        Hut 0 is Frankfurt and takes ordinals 01 and 02; hut 9 is Milan and takes
-        19 and 20. The forward chain takes the odd ordinal of each pair, so 01 is
-        the booster at Frankfurt, 03 is the first inline hut, and 20 is the
-        reverse chain's booster at Milan.
-        """
-        data = self.query(
-            address,
-            """{
-              inline: OtnAmplifier(name__value: "amp-fra-mil-03") {
-                edges { node {
-                  site { node { shortname { value } } }
-                  oms_a2b { node { name { value } } }
-                  oms_b2a { node { name { value } } }
-                } }
-              }
-              booster: OtnAmplifier(name__value: "amp-fra-mil-01") {
-                edges { node {
-                  site { node { shortname { value } } }
-                  oms_sequence { value }
-                  oms_a2b { node { name { value } } }
-                  oms_b2a { node { name { value } } }
-                } }
-              }
-              reverse: OtnAmplifier(name__value: "amp-fra-mil-20") {
-                edges { node {
-                  site { node { shortname { value } } }
-                  oms_sequence { value }
-                  oms_a2b { node { name { value } } }
-                  oms_b2a { node { name { value } } }
-                } }
-              }
-            }""",
-        )
+        """An amplifier hut is not a PoP, and the optional site."""
+        data = self.query(address, """{.""")
         inline = data["inline"]["edges"][0]["node"]
         booster = data["booster"]["edges"][0]["node"]
         reverse = data["reverse"]["edges"][0]["node"]
@@ -396,15 +206,7 @@ class TestInfrahub(TestInfrahubDockerClient):
 
     def test_the_eurohpc_tags_reach_their_sites(self, address: str) -> None:
         """A facility is a core tag plus an edge router, not a new kind."""
-        data = self.query(
-            address,
-            """{
-              OtnSite(shortname__value: "fra") {
-                edges { node { tags { edges { node { name { value } } } } } }
-              }
-              OtnRouter(role__value: "edge") { count }
-            }""",
-        )
+        data = self.query(address, """{.""")
         tags = [edge["node"]["name"]["value"] for edge in data["OtnSite"]["edges"][0]["node"]["tags"]["edges"]]
         assert tags == ["eurohpc-jupiter"]
         assert data["OtnRouter"]["count"] == 6
@@ -412,18 +214,7 @@ class TestInfrahub(TestInfrahubDockerClient):
     def test_the_carrier_resolves_its_channel_and_its_mode(self, address: str) -> None:
         """The quoted-string channel reference resolves to a real channel,
         and the channel renders the same frequency an optical port would."""
-        data = self.query(
-            address,
-            """{
-              OtnOpticalCarrier(name__value: "oc-ch047-fra-mil") {
-                edges { node {
-                  channel { node { display_label center_frequency_display { value } } }
-                  optical_mode { node { name { value } } }
-                  sections { count }
-                } }
-              }
-            }""",
-        )
+        data = self.query(address, """{.""")
         node = data["OtnOpticalCarrier"]["edges"][0]["node"]
         assert node["channel"]["node"]["display_label"] == "Ch47"
         assert node["channel"]["node"]["center_frequency_display"]["value"] == "193.65 THz"
@@ -431,19 +222,7 @@ class TestInfrahub(TestInfrahubDockerClient):
         assert node["sections"]["count"] == 1
 
     def test_the_error_protocol_every_check_and_transform_here_is_built_on(self, address: str) -> None:
-        """A stated exception to the rule that a test must fail on a change to
-        this repository and not on a change to Infrahub alone.
-
-        This one fails only if Infrahub changes, and it stays. Every check,
-        generator and transform in this repository reads its errors out of a
-        200 response body rather than off the status line, so this is the
-        executable statement of a premise the demo's own Python is built on.
-        Keep it. If it ever fails, the repository's error handling is what
-        needs rewriting, not this test.
-
-        It is also the one test that must not use the `query` helper: it checks
-        the transport the helper is built on.
-        """
+        """A stated exception to the rule that a test must fail on a change to."""
         response = httpx.post(
             f"{address}/graphql/{BRANCH}",
             json={
@@ -472,12 +251,7 @@ class TestInfrahub(TestInfrahubDockerClient):
         remote_repos_dir: Path,
         clean_source: Path,
     ) -> None:
-        """Register this repository in Infrahub and wait for the import.
-
-        Until this ran, nothing in this project had ever exercised the
-        proposed-change pipeline: the checks were only ever invoked as terminal
-        output and the artifact definition had never produced a file.
-        """
+        """Register this repository in Infrahub and wait for the import."""
         repo = GitRepo(
             name="infrahub-demo-otn",
             src_directory=clean_source,
@@ -499,30 +273,7 @@ class TestInfrahub(TestInfrahubDockerClient):
             )
 
     def test_the_generator_definition_resolves_its_target_group(self, address: str, default_branch: str) -> None:
-        """A generator definition whose target group does not resolve.
-
-        Both `generator_definitions` and `artifact_definitions` name
-        `targets: optical_services`, and the only document creating that group
-        is `objects/00_groups.yml`. If the repository config stops loading it, a
-        clean registration produces a definition with no target: the dispatcher
-        never fires, the artifact never renders, and the pipeline goes green
-        with no output.
-
-        Asserted on the definition rather than on the group. A group that
-        exists proves the object file loaded; a definition whose `targets`
-        resolves is the thing that was broken. The peer's kind is asserted too,
-        because a `CoreStandardGroup` of the right name is exactly the silent
-        failure this guards.
-
-        Read on the default branch: the repository sync applies `objects:`
-        there, not onto the branch the dataset test created.
-
-        Polled rather than read once. The repository reporting itself in sync
-        and its definitions existing are two separate events, and reading
-        straight through treats them as one. That holds on a host with the
-        stack to itself and fails on a loaded CI runner, where it reports a
-        definition that is merely late as a definition the sync never created.
-        """
+        """A generator definition whose target group does not resolve."""
         document = """{
           CoreGeneratorDefinition(name__value: "optical_service") {
             count
@@ -572,26 +323,7 @@ class TestInfrahub(TestInfrahubDockerClient):
         default_branch: str,
         address: str,
     ) -> None:
-        """Open a proposed change and assert the two data checks ran on it.
-
-        **The branch is created here, after the repository is registered.**
-        Infrahub creates a matching git branch in every registered repository at
-        the moment an Infrahub branch is created. `geant-integration` predates
-        the repository, so it has no branch on the repository side and the
-        pipeline has no commit to run that repository's checks from, and opening
-        the change from it produces `Data Integrity` and `Schema Integrity` and
-        nothing else.
-
-        The branch is also deliberately small. Loading the dataset onto it would
-        make the diff 1733 objects, and running the whole pipeline over that
-        while the graph database is still settling kills Neo4j. One site is
-        enough: both checks are global rather than targeted, so they run on any
-        change.
-
-        Asserted on validator names, never on a non-empty list. The pipeline is
-        asynchronous, so a truthiness check reads an empty list and passes
-        vacuously, which is how a pipeline test comes to guard nothing.
-        """
+        """Open a proposed change and assert the two data checks ran on it."""
         result = self.execute_command(command=f"infrahubctl branch create {PIPELINE_BRANCH}", address=address)
         assert result.returncode == 0, f"branch create failed:\n{result.stdout}\n{result.stderr}"
 

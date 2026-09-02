@@ -1,91 +1,20 @@
 """A lit wavelength must be terminated at both of its ends, by a line port at each.
 
-**What this covers.** Every `OtnOpticalCarrier` whose `status` is `active`, and
-the question is whether `line_ports` holds the two ports that terminate it. Two,
-not one: `schemas/otn_carrier.yml` says why the relationship is cardinality many
-in the first place, "a wavelength is terminated at each of its ends, and those
-are two ports on two devices at two sites". A carrier holding one port is
-terminated at one end and dark at the other, and that is the state this check
-exists to catch. A carrier holding none is the degenerate case of the same rule
-rather than a second rule.
+Judges `OtnOpticalCarrier` with `status: active`. A planned carrier binds no
+port by design and a decommissioned one has lost its equipment on purpose, so
+both are skipped and the summary states how many.
 
-**The verdict counts ends, not ports, and the two come apart.** A port count
-alone reads two ports as two ends, and they are not the same thing. Pull the
-Amsterdam transponder off `oc-ch002-ams-mil`, let `OtnGenericDevice.ports`
-cascade its line ports away, and an operator re-binding the wavelength to the
-spare `L2` on `xpdr-mil-01` leaves it holding two ports that are both at Milan
-while Amsterdam is dark. Counting ports calls that terminated. So the sites the
-ports sit at are compared against the ends the route derives, and a route end
-nothing sits at is the finding. The other direction is the same mistake
-mirrored: `OtnLinePort.carrier` is `cardinality: one` on the port side only, so
-nothing stops a third port naming a wavelength that has two ends, and a count
-that only asks for at least two would pass that as well. Three ports is its own
-finding, worded as its own fault.
+The verdict counts ends, not ports. Two ports both sitting at Milan is not a
+terminated wavelength, so the sites the ports sit at are compared against the
+ends derived from the route: each section names two ROADMs, each ROADM names
+its site, and a site touched by exactly one section is an end. Three ports is
+its own finding.
 
-**Scoped to `status: active`, and the scope is the check.** A carrier the service
-generator has just provisioned on a branch is `planned` and binds no line port at
-all, by design: `generators/optical_service.py` allocates spectrum on a route and
-does not place hardware. Judging a planned carrier would fail the provisioning
-flow this check is not about, on every proposed change that runs it. A
-`decommissioned` carrier is skipped for the mirror-image reason, that its
-equipment being gone is the point of the status. The summary states how many
-carriers each skipped status accounted for, so the boundary of what was judged is
-read rather than inferred from silence.
-
-**Which half the schema already carries, so a later reader does not widen this.**
-The port side, entirely. `OtnLinePort.carrier` is `cardinality: one`, so no port
-can name two wavelengths, and the peer it names is guaranteed to exist by the
-graph. The check says nothing about a port, and it must not grow to: that would
-be re-asserting a constraint the server already refuses writes against.
-
-What the schema cannot carry is the carrier side, for two reasons either of which
-is sufficient. `line_ports` cannot be `optional: false`, because a freshly
-provisioned carrier legally has an empty list and the load would fail on it,
-which is R-004a's second argument for `on_delete: no-action` as well. And
-Infrahub has no minimum-cardinality constraint, so "at least two peers" is not a
-sentence the schema can say even where the emptiness is not legal. The
-constitution's counterweight covers the rest: a schema constrains what is
-written, and nothing is written to the carrier when a transponder is deleted, so
-there is no write for a constraint to refuse.
-
-**The state is reachable because the schema was built to leave it visible.**
-`OtnGenericDevice.ports` is `kind: Component` with `on_delete: cascade`, so
-deleting a transponder deletes its line ports. The deletion stops there:
-`OtnLinePort.carrier` and `OtnOpticalCarrier.line_ports` both carry
-`on_delete: no-action`, chosen deliberately over cascade in R-004a because a
-cascade would delete the wavelength out from under the far-end transponder, take
-the line container and the services groomed into it with it, and make the fault
-disappear instead of showing it. Leaving a fault reachable and then not looking
-at it would be the worse half of that decision. This check is the other half.
-
-**The frequency check is not this check.** FR-027 originally proposed asserting
-that a line port's `center_frequency_mhz` matches its carrier's channel. R-014
-dropped it: the generator writes both from `channel_to_frequency_mhz`, so they
-cannot disagree by construction, and a hand edit under `objects/` already fails
-`tests/unit/test_geant_dataset.py` on the next run. A check that cannot fail is
-worse than no check, because a green result reads as evidence.
-
-**The missing end is named, and it is derived rather than parsed.** A carrier
-holds no endpoints. Its route does: each section names two ROADMs, each ROADM
-names its site, and the sites touched by exactly one of the carrier's sections
-are the two ends of the route. Subtract the sites that still terminate it and
-what is left is the site that no longer does. Reading `ams` out of the name
-`oc-ch002-ams-mil` would have been shorter and would be a naming convention doing
-a relationship's job, which this repository has already been bitten by once.
-Where the sections do not form a simple two-ended path the derivation returns
-nothing and the finding says which ends remain instead of guessing.
-
-**Global, not targeted.** An absence is not an edit. Deleting a transponder
-touches the transponder, and the carrier left with one end is not in the change
-at all, so a targeted check bound to the edited objects would never be handed it.
-`monitor_completeness` is global on exactly this argument and asks the same shape
-of question about a device with no monitor.
-
-**The logic is here and not in `src/`.** It is one status filter, one length
-test and a degree count over a handful of sections, used by nothing else. The
-shared package is where a rule goes when a generator and a check must not be able
-to disagree about it, which is the case `containers.free_slots` exists for. There
-is no second reader here to disagree with.
+The schema cannot carry this half. `line_ports` cannot be mandatory, because a
+freshly provisioned carrier legally has none, and Infrahub has no minimum
+cardinality. Nothing is written to the carrier when a transponder is deleted,
+so there is no write for a constraint to refuse. `on_delete: no-action` on both
+sides is what leaves the fault visible instead of cascading the wavelength away.
 """
 
 from collections import Counter
@@ -135,13 +64,7 @@ class CarrierTerminationCheck(InfrahubCheck):
         self._summarise(examined, skipped, unterminated, over_terminated)
 
     def _unterminated(self, carrier: dict[str, Any], terminating: list[str], dark: list[str]) -> None:
-        """One error per carrier, naming the wavelength, its channel and the gap.
-
-        Logged against the carrier rather than against the surviving port. The
-        port is fine; the wavelength is the object with the defect, and it is the
-        page an operator would open to decide whether to re-terminate it or
-        release the spectrum.
-        """
+        """One error per carrier, naming the wavelength, its channel and the gap."""
         name = str(carrier.get("name") or "")
         held = _held(terminating)
         if dark:
@@ -161,15 +84,7 @@ class CarrierTerminationCheck(InfrahubCheck):
         )
 
     def _over_terminated(self, carrier: dict[str, Any], terminating: list[str]) -> None:
-        """Both ends terminated and at least one port more than the wavelength has ends.
-
-        A separate message rather than a branch of the one above, because it is
-        the opposite fault and the consequence is the opposite too: nothing is
-        dark, and instead a port is holding spectrum on a wavelength it does not
-        terminate. The schema cannot refuse it. `OtnLinePort.carrier` is
-        `cardinality: one` on the port side, which stops a port naming two
-        wavelengths and says nothing about how many ports name one.
-        """
+        """Both ends terminated and at least one port more than the wavelength has ends."""
         name = str(carrier.get("name") or "")
         self.log_error(
             message=(
@@ -184,15 +99,7 @@ class CarrierTerminationCheck(InfrahubCheck):
         )
 
     def _summarise(self, examined: int, skipped: Counter[str], unterminated: int, over_terminated: int) -> None:
-        """One INFO line stating how many carriers were judged and how many were not.
-
-        Both halves are the requirement. The count of active carriers is what
-        makes a green result mean something rather than read as "the query
-        returned nothing". The skipped counts are what stop the scope being
-        inferred from silence, which matters most on a branch that has just
-        provisioned a wavelength: one planned carrier named here is one nobody
-        has to wonder about.
-        """
+        """One INFO line stating how many carriers were judged and how many were not."""
         boundary = (
             "Every carrier on this branch is active, so none was skipped."
             if not skipped
@@ -215,12 +122,7 @@ class CarrierTerminationCheck(InfrahubCheck):
 
 
 def _channel(carrier: dict[str, Any]) -> str:
-    """The channel number, or a word saying it is absent.
-
-    `channel` is `optional: false`, so a carrier without one cannot be written.
-    A payload without one can still be handed to the check, and a finding reading
-    "channel None" would be worse than one that says so.
-    """
+    """The channel number, or a word saying it is absent."""
     try:
         return str(peer(carrier, "channel").get("channel_number", "unknown"))
     except ValueError:
@@ -228,13 +130,7 @@ def _channel(carrier: dict[str, Any]) -> str:
 
 
 def _site_of(record: dict[str, Any]) -> str | None:
-    """The site name one hop off a device or a ROADM, or `None`.
-
-    `OtnGenericDevice.site` is `optional: true`, deliberately: the schema says a
-    device has to be creatable before its site record exists. So this is a real
-    state and not a defensive guess, and a device with no site drops out of the
-    naming rather than raising.
-    """
+    """The site name one hop off a device or a ROADM, or `None`."""
     try:
         name = peer(record, "site").get("name")
     except ValueError:
@@ -243,14 +139,7 @@ def _site_of(record: dict[str, Any]) -> str | None:
 
 
 def _terminating_sites(carrier: dict[str, Any]) -> list[str]:
-    """One entry per line port, named by the site the port's device sits at.
-
-    Per port, not per distinct site, and the reason is naming rather than the
-    verdict. Two ports at one site is a different fault from one port, and a
-    finding built off a set would word the first as the second. The verdict is
-    taken over the distinct sites in `validate`, against the ends the route
-    derives, because two ports at one site terminate one end.
-    """
+    """One entry per line port, named by the site the port's device sits at."""
     sites: list[str] = []
     for port in peers(carrier, "line_ports"):
         try:
@@ -263,14 +152,7 @@ def _terminating_sites(carrier: dict[str, Any]) -> list[str]:
 
 
 def _route_ends(carrier: dict[str, Any]) -> list[str]:
-    """The two sites at the ends of the carrier's route, or nothing.
-
-    A section is an edge between two ROADMs, so the carrier's sections are a
-    walk over sites and the ends are the two sites that exactly one section
-    touches. Anything else, a single site, a branch, a loop or a carrier with no
-    sections at all, is not a two-ended path, and naming an end off a shape this
-    does not understand would be a guess presented as a fact.
-    """
+    """The two sites at the ends of the carrier's route, or nothing."""
     touched: Counter[str] = Counter()
     for section in peers(carrier, "sections"):
         for side in ("roadm_a", "roadm_b"):
@@ -286,13 +168,7 @@ def _route_ends(carrier: dict[str, Any]) -> list[str]:
 
 
 def _held(terminating: list[str]) -> str:
-    """What does terminate the wavelength, counted per site.
-
-    Two ports at Milan reads as two ports at Milan and not as Milan, which is the
-    whole reason `_terminating_sites` returns one entry per port. An operator
-    told only that Milan terminates it would go looking for a missing port at
-    Milan, and the port at Milan is not what is missing.
-    """
+    """What does terminate the wavelength, counted per site."""
     if not terminating:
         return "no line port terminates it"
     counts = Counter(terminating)

@@ -1,20 +1,4 @@
-"""Recompute the documented numeric claims from the generated dataset.
-
-The route lengths, latencies and capacity figures quoted in the documentation
-are stated intent. This module recomputes every one of them from the committed
-object files, so a claim and the data behind it cannot drift apart.
-
-It lives here rather than only in the integration test. The integration test
-needs Docker, a pulled image and a container start; it runs last and it is
-skipped on a documentation-only change, so a seed edit that broke a route length
-would stay invisible until then. The two layers catch different failures: this
-one catches a claim regression in milliseconds, the integration test catches a
-load regression. Neither replaces the other.
-
-Nothing here reads prose. Every number is recomputed from `objects/` and from
-`units.py`, and each assertion states the claim it is checking so a disagreement
-names the claim rather than a magic constant.
-"""
+"""Recompute the documented numeric claims from the generated dataset."""
 
 import importlib.util
 import json
@@ -190,27 +174,7 @@ def test_object_counts_match_the_manifest() -> None:
 
 
 def test_the_inventory_the_installation_page_promises_is_what_loads() -> None:
-    """`installation-setup.mdx` and `provisioning-scenarios.mdx` print this inventory
-    to a reader deciding whether to spend twenty minutes on the demo.
-
-    The manifest above covers the generated kinds one at a time. These are the
-    four figures the pages quote that no single manifest entry holds: the total
-    across every object file, the device total over eight kinds and the port
-    total over eight.
-
-    The device total moved from 419 to 422 when feature 017 shipped the three
-    O-E-O devices, and the load total from 2243 to 2246 with them. It moved
-    again to 2252 when feature 019 gave the six EuroHPC facilities a kind of
-    their own instead of a prefix on a tag name. Feature 021 took it to 2190:
-    the carrier plan dropped from 71 wavelengths to 40 so it fits the C-band by
-    width, and each wavelength takes its line container with it.
-
-    Feature 025 moved all three. Transponders stopped being two or four per site
-    and became `max(2, ceil(terminations / 2))`, which is 59 against 40, and each
-    one drags a line port pair, a client port pair, a ROADM add/drop port pair
-    and a receiver monitor with it. Devices went 422 to 441, ports 1355 to 1490
-    and the load 2190 to 2344.
-    """
+    """`installation-setup.mdx` and `provisioning-scenarios.mdx` print this inventory."""
     devices = (
         "OtnRouter",
         "OtnTransponder",
@@ -245,13 +209,7 @@ def test_the_inventory_the_installation_page_promises_is_what_loads() -> None:
 # Structural invariants.
 # ---------------------------------------------------------------------------
 def test_the_fourteen_pops_are_the_fourteen_the_design_names_plus_one_campus() -> None:
-    """Fourteen PoPs, each with coordinates, and one customer site.
-
-    Asserted through `site_type` rather than through a total. That is the whole
-    reason the attribute exists: the design names fourteen PoPs, and a dataset
-    that grows a customer endpoint should not make that claim false. The next
-    endpoint added moves the customer count and leaves this one alone.
-    """
+    """Fourteen PoPs, each with coordinates, and one customer site."""
     expected = {
         "Amsterdam", "Berlin", "Brussels", "Copenhagen", "Frankfurt", "Geneva", "Hamburg",
         "London", "Madrid", "Milan", "Paris", "Prague", "Vienna", "Warsaw",
@@ -300,12 +258,7 @@ def _customer_shortnames() -> set[str]:
 
 
 def test_the_cwdm_tail_span_carries_no_amplification_and_no_section() -> None:
-    """One span, one fiber type, one length, and nothing else attached to it.
-
-    An amplifier could not lift sixteen of the eighteen coarse wavelengths, so
-    the tail carries none. It belongs to no section either, which is what the
-    guard below turns into an invariant rather than an observation.
-    """
+    """One span, one fiber type, one length, and nothing else attached to it."""
     span = _spans_by_name()[TAIL_SPAN]
     assert span["length_m"] == 18_400
     assert span["fiber_type"] == "G.652.D"
@@ -318,21 +271,7 @@ def test_the_cwdm_tail_span_carries_no_amplification_and_no_section() -> None:
 
 
 def test_no_span_touching_a_customer_site_declares_an_oms() -> None:
-    """The one guard holding the coarse tail out of the budget engine. Measured.
-
-    The boundary reads as structural and is not. `build_span` is reached from
-    `build_section` alone, which is reached from `sections_from_graphql` alone,
-    which walks the sections and reads `spans` off each one. `oms` is optional
-    and writable, and setting it on the tail puts the span in the marshaller on
-    the very next run. With one amplifier per direction, which is exactly what
-    this generator writes per span gap, the section then validates and the tail
-    is budgeted at the stored 1550 nm coefficient with no complaint, understating
-    its loss by 0.92 dB at 1471 nm.
-
-    Written against `site_type` rather than against the tail's own name. Naming
-    the tail would define the boundary by the one object that already honours it,
-    and the next customer endpoint would be outside the guard.
-    """
+    """The one guard holding the coarse tail out of the budget engine. Measured."""
     customers = _customer_shortnames()
     assert customers, "no customer site in the dataset, so this guard is vacuous"
     offenders = [
@@ -344,14 +283,7 @@ def test_no_span_touching_a_customer_site_declares_an_oms() -> None:
 
 
 def test_only_the_two_tail_multiplexers_light_a_cwdm_wavelength() -> None:
-    """The lit-channel set is the tail and nothing else.
-
-    The earlier wording, "no multiplexer attached to a ROADM has a lit CWDM
-    channel", is not testable here: no kind in this repository declares an edge
-    between a multiplexer and a ROADM, so an assertion written against it cannot
-    fail. The set of multiplexers with a non-empty `cwdm_channels` is the thing
-    that can.
-    """
+    """The lit-channel set is the tail and nothing else."""
     multiplexers = objects_of_kind("OtnMuxDemux")
     lit = {str(device["name"]): device.get("cwdm_channels") or [] for device in multiplexers}
     assert {name for name, channels in lit.items() if channels} == TAIL_MULTIPLEXERS
@@ -368,16 +300,7 @@ def test_the_cwdm_tail_multiplexers_are_passive_and_one_sits_at_the_campus() -> 
 
 
 def test_no_object_writes_element_class() -> None:
-    """The value is determined by the kind, so it belongs to the kind.
-
-    Every concrete kind inheriting OtnOpticalElement declares element_class with
-    a default_value matching its own class. An object that wrote it would put
-    the same fact in the schema, in `__typename` and in the object file, and 361
-    of them did.
-
-    Asserted over every document rather than over the spans alone: the previous
-    version of this test covered one kind and the other five drifted unwatched.
-    """
+    """The value is determined by the kind, so it belongs to the kind."""
     offenders = [
         f"{document['spec']['kind']} {entry.get('name')}"
         for document in object_documents()
@@ -432,16 +355,7 @@ def _port_roles_by_device() -> dict[str, set[str]]:
 
 
 def test_the_dataset_ships_two_amplifiers_per_position() -> None:
-    """306, and the doubling is not a coincidence to be asserted twice.
-
-    An amplifier hut is bidirectional and this model gives each direction its
-    own object, so every one of the 153 positions in the plant carries two
-    records. The manifest holds the total; this holds the reason it is that
-    total.
-
-    Counted off the sections' two lists, because that is where the direction
-    lives now. No amplifier stores one.
-    """
+    """306, and the doubling is not a coincidence to be asserted twice."""
     amplifiers = objects_of_kind("OtnAmplifier")
     assert len(amplifiers) == 306
     per_direction = Counter(
@@ -451,13 +365,7 @@ def test_the_dataset_ships_two_amplifiers_per_position() -> None:
 
 
 def test_no_amplifier_name_carries_a_direction_and_all_306_are_distinct() -> None:
-    """A name is an identifier and carries nothing a query needs.
-
-    The chain is the relationship holding the amplifier, the position is
-    `oms_sequence`, and the role is on the amplifier's own ports. A name that has
-    to be parsed to be understood is an attribute wearing a disguise, and it is
-    the one copy the schema cannot validate.
-    """
+    """A name is an identifier and carries nothing a query needs."""
     names = [str(device["name"]) for device in objects_of_kind("OtnAmplifier")]
     assert len(names) == len(set(names)) == 306
     offenders = [name for name in names if "a2b" in name or "b2a" in name]
@@ -466,16 +374,7 @@ def test_no_amplifier_name_carries_a_direction_and_all_306_are_distinct() -> Non
 
 
 def test_every_section_has_a_booster_a_preamp_and_one_inline_per_span_gap() -> None:
-    """Per direction: one booster, one pre-amplifier, one inline per span gap.
-
-    Both chains are checked independently. A section holding a full `a2b` chain
-    and a short `b2a` one budgets correctly one way and wrongly the other, and
-    only the direction somebody happens to query reports it.
-
-    Read off `oms_sequence` and the port `role`, not off the name. Position 1 of
-    a chain is its booster and position N+1 is its pre-amplifier, and the ports
-    say the same thing a second way.
-    """
+    """Per direction: one booster, one pre-amplifier, one inline per span gap."""
     amplifiers = {str(device["name"]): device for device in objects_of_kind("OtnAmplifier")}
     roles = _port_roles_by_device()
     for section in _sections():
@@ -497,19 +396,7 @@ def test_every_section_has_a_booster_a_preamp_and_one_inline_per_span_gap() -> N
 
 
 def test_amplifier_positions_within_a_chain_are_exactly_one_to_n_plus_one() -> None:
-    """The same hole as the span's positions, one kind over.
-
-    `OtnAmplifier.oms_sequence` cannot be made unique: a uniqueness constraint
-    cannot reference an optional relationship, and the section relationships
-    have to stay optional. The budget engine walks a chain by this number, so two
-    amplifiers at position 3 make one of them invisible and the other counted
-    twice, and the totals still look plausible. Only a test catches it.
-
-    Per direction, because the two chains number independently: N spans carry
-    N+1 amplifiers each and both run 1 to N+1. Position 1 is the booster of its
-    own chain, which is at `roadm_a` going one way and at `roadm_b` going the
-    other.
-    """
+    """The same hole as the span's positions, one kind over."""
     amplifiers = {str(device["name"]): device for device in objects_of_kind("OtnAmplifier")}
     for section in _sections():
         expected = list(range(1, len(section["spans"]) + 2))
@@ -532,15 +419,7 @@ def test_every_amplifier_carries_a_noise_figure_and_a_gain() -> None:
 
 
 def test_the_raman_pumps_ship_on_vienna_to_milan_and_nowhere_else() -> None:
-    """Main ships Raman so the report and rendering paths run on the default
-    branch, and so no node kind ships with zero instances.
-
-    Vienna to Milan is 800 km over nine spans at the second-tightest margin in
-    the network, so pumping it is plausible engineering. One pump per span, all
-    injected at the B end. Paris to Madrid stays unpumped on purpose: it is the
-    section 16QAM 400G cannot close, and that finding is what the demo is for.
-    Fixing it is a branch and a proposed change, not an edit to the seed.
-    """
+    """Main ships Raman so the report and rendering paths run on the default."""
     section = {str(name) for name in next(s for s in _sections() if s["name"] == "oms-vie-mil")["spans"]}
     pumps = objects_of_kind("OtnRamanPump")
     assert len(pumps) == 9
@@ -564,27 +443,14 @@ def test_the_raman_pumps_ship_on_vienna_to_milan_and_nowhere_else() -> None:
 
 
 def test_no_pump_leaves_its_injection_end_to_the_schema_default() -> None:
-    """`injection_end` is mandatory *and* defaulted, which is the dangerous pair.
-
-    The default exists only so a mandatory attribute could be added to a kind
-    with loaded instances. It is a loading device, not a statement about this
-    network, and a pump that took it silently would sit wherever the schema
-    happened to prefer and credit its gain to whichever walk followed. The
-    generator writes the value on all nine.
-    """
+    """`injection_end` is mandatory *and* defaulted, which is the dangerous pair."""
     offenders = [str(pump["name"]) for pump in objects_of_kind("OtnRamanPump") if "injection_end" not in pump]
     assert not offenders, "pumps with no injection end of their own: " + "; ".join(offenders)
     assert {str(pump["injection_end"]) for pump in objects_of_kind("OtnRamanPump")} <= {"site_a", "site_b"}
 
 
 def test_no_pumped_span_is_driven_below_zero_loss() -> None:
-    """FR-012's floor exists, and no shipped span comes near it.
-
-    The smallest fibre loss on any span in the network is over 16 dB against a
-    15 dB per-pump ceiling, so one pump cannot reach zero. This asserts the
-    shipped combination stays well clear rather than that the clamp works, which
-    is `test_budget.py`'s job.
-    """
+    """FR-012's floor exists, and no shipped span comes near it."""
     spans = _spans_by_name()
     for pump in objects_of_kind("OtnRamanPump"):
         span = spans[str(pump["span"])]
@@ -594,21 +460,7 @@ def test_no_pumped_span_is_driven_below_zero_loss() -> None:
 
 
 def test_the_three_odu_switches_are_two_hub_cross_connects_and_one_regenerator() -> None:
-    """The devices ship where the measurements put them, not where they look tidy.
-
-    Frankfurt and Milan are the two hub sites because every one of the 71
-    wavelengths crosses `oms-fra-mil`, so 66 terminate at Milan and 45 at
-    Frankfurt against 12 at the next site. A cross-connect anywhere else would
-    terminate nothing.
-
-    The regenerator is at Frankfurt because R-013 measured the three candidate
-    splits of Madrid to Warsaw and only Frankfurt closes, at DP-QPSK 128GBd with
-    +2.745 dB and +5.740 dB. Moving it to Paris or Prague leaves one half short.
-
-    `oeo-fra-01` sorts before `oxc-fra-01`, and that is load-bearing rather than
-    incidental: both name the same 45 wavelengths, and `chains.py::junction_at`
-    takes the lowest-named device when several qualify.
-    """
+    """The devices ship where the measurements put them, not where they look tidy."""
     switches = objects_of_kind("OtnOduSwitch")
     assert len(switches) == 3, f"{len(switches)} O-E-O devices, the dataset ships three"
 
@@ -634,17 +486,7 @@ def test_the_three_odu_switches_are_two_hub_cross_connects_and_one_regenerator()
 
 
 def test_every_odu_switch_terminates_wavelengths_that_exist() -> None:
-    """FR-003 from both sides: the edges resolve, and no device is inert.
-
-    `carriers` is the whole of the junction predicate `chains.py` evaluates, so
-    the failure this catches is not a load error but a silent one. A device
-    naming a carrier that does not exist fails the object load loudly. A device
-    naming **none** loads without complaint and can never be a junction, so the
-    dataset would appear to ship a capability the demo cannot demonstrate.
-
-    The counts are asserted too, because they are the reason the two sites were
-    chosen: 25 wavelengths terminate at Frankfurt and 37 at Milan.
-    """
+    """FR-003 from both sides: the edges resolve, and no device is inert."""
     carriers = {str(carrier["name"]) for carrier in objects_of_kind("OtnOpticalCarrier")}
     expected = {"oeo-fra-01": 25, "oxc-fra-01": 25, "oxc-mil-01": 37}
 
@@ -659,13 +501,7 @@ def test_every_odu_switch_terminates_wavelengths_that_exist() -> None:
 
 
 def test_no_odu_switch_writes_the_reverse_side_of_the_carrier_edge() -> None:
-    """The edge is written once, from the device.
-
-    `OtnOpticalCarrier.odu_switches` is the inverse on the same identifier, and
-    an object load sets a relationship to exactly what the file names. Writing
-    both sides would make each file's load overwrite the other's view of one
-    edge, and the loser would be whichever loaded first.
-    """
+    """The edge is written once, from the device."""
     offenders = [str(carrier["name"]) for carrier in objects_of_kind("OtnOpticalCarrier") if "odu_switches" in carrier]
     assert not offenders, "carriers writing the reverse side of the ODU switch edge: " + "; ".join(offenders)
 
@@ -679,15 +515,7 @@ def test_routers_carry_no_element_class() -> None:
 
 
 def test_the_connected_to_edge_is_declared_on_one_side_only() -> None:
-    """Declaring both sides splits one edge into two phantom one-way links.
-
-    Every transponder line port patches into an add/drop port, and the two
-    populations are equal, so the patch is total on that side. A regenerator
-    line port patches into nothing here: the add/drop bank at Frankfurt is
-    already fully patched to transponders, and inventing a socket the ROADM
-    inventory does not hold would be worse than saying nothing. Those ports are
-    dark, so there is no light to route through a patch that does not exist.
-    """
+    """Declaring both sides splits one edge into two phantom one-way links."""
     add_drop = [port for port in objects_of_kind("OtnRoadmAddDropPort") if "connected_to" in port]
     assert not add_drop, "connected_to declared on the ROADM side as well as the line side"
 
@@ -815,12 +643,7 @@ def test_paris_to_madrid_is_the_longest_section_not_the_longest_route() -> None:
 
 
 def test_the_longest_route_trips_the_dispersion_gate() -> None:
-    """The chromatic dispersion gate does trip in this topology. The longest
-    shortest-path route in the mesh is Madrid to Warsaw at 2970 km, which
-    accumulates 50 490 ps/nm against a 50 000 ps/nm tolerance. It trips by one
-    percent, and at 400G only. A reader who assumes the gate never fires at
-    these distances is wrong, and this test is where that shows.
-    """
+    """The chromatic dispersion gate does trip in this topology. The longest."""
     families = {str(span["fiber_type"]) for span in objects_of_kind("OtnFiberSpan")}
     assert families == {"G.652.D"}, "one dispersion constant only holds while the plant is one fiber family"
 
@@ -849,14 +672,7 @@ def test_the_longest_route_trips_the_dispersion_gate() -> None:
 # Capacity, and the corrected section 3.8 reading.
 # ---------------------------------------------------------------------------
 def test_channel_references_are_quoted_strings() -> None:
-    """The human-friendly identifier is a Number attribute and a bare integer is
-    rejected before the write. A generator gets this wrong once and silently
-    thereafter.
-
-    Two kinds now, because `center_wavelength_nm` is a Number and is
-    `OtnCwdmChannel`'s human-friendly identifier, so a coarse wavelength written
-    as `1471` fails the same way a channel written as `44` does.
-    """
+    """The human-friendly identifier is a Number attribute and a bare integer is."""
     for carrier in objects_of_kind("OtnOpticalCarrier"):
         assert isinstance(carrier["channel"], str), (
             f"{carrier['name']} references its channel as {type(carrier['channel'])}"
@@ -886,17 +702,7 @@ def _seeded_intervals() -> dict[str, tuple[tuple[int, int], ...]]:
 
 
 def test_the_seeded_plan_fits_the_c_band_on_every_section() -> None:
-    """FR-020. The plan cannot ask for more spectrum than a section has.
-
-    A carrier occupies a width, not a channel number, so a plan that reads as
-    seventy-one tidy anchors can still demand 7,306,000 MHz of a 4,800,000 MHz
-    band. That is exactly what shipped before feature 021, and
-    `checks/channel_collision.py` reported 91 overlapping pairs against it.
-
-    Three claims, because the summed width fitting is necessary and not
-    sufficient: every carrier is inside the band, no two carriers on one section
-    overlap, and the total on the busiest section is under the band extent.
-    """
+    """FR-020. The plan cannot ask for more spectrum than a section has."""
     for name, intervals in _seeded_intervals().items():
         occupied = sum(upper - lower for lower, upper in intervals)
         assert occupied <= CBAND_EXTENT_MHZ, f"{name} asks for {occupied} MHz of a {CBAND_EXTENT_MHZ} MHz band"
@@ -912,18 +718,7 @@ def test_the_seeded_plan_fits_the_c_band_on_every_section() -> None:
 
 
 def test_the_free_spectrum_on_the_busiest_corridor_is_fragmented() -> None:
-    """FR-014. A demo whose free spectrum is one clean block teaches the wrong
-    shape, and under width semantics the fragmentation is not a decoration.
-
-    The 64 GBd carriers are 79,600 MHz wide and sit 100,000 MHz apart, because a
-    50 GHz grid gives them nowhere closer to stand. Every one of those 20,400 MHz
-    slivers is free spectrum that can hold nothing at all, and naming that is the
-    negative result this feature exists to produce.
-
-    One block is wide enough to anchor something, and it has to be: `demo/90` and
-    `demo/04` both saturate this corridor by filling it, and the two-layer refusal
-    they demonstrate needs the spectrum to run out there rather than here.
-    """
+    """FR-014. A demo whose free spectrum is one clean block teaches the wrong."""
     blocks = free_blocks([FreeBlock(lower, upper) for lower, upper in _seeded_intervals()["oms-fra-mil"]])
     assert len(blocks) == 26
     assert sum(block.width_mhz for block in blocks) == 665_600
@@ -978,18 +773,7 @@ def test_every_carrier_is_inside_its_modes_nominal_reach() -> None:
 # The ODU layer on the base dataset.
 # ---------------------------------------------------------------------------
 def test_every_pre_provisioned_wavelength_arrives_lit_and_empty() -> None:
-    """One line container per carrier, sized from the table, holding nothing.
-
-    The line container is dataset rather than generator output, so a missing one
-    is a data bug and this is where it is caught. A carrier with no container is
-    dark, and the ODU map draws a dark carrier as unlit rather than as roomy, so a
-    carrier the generator quietly skipped would read as a wavelength nothing can
-    ever use.
-
-    Capacity is compared against `slot_capacity` rather than against 80 and 320
-    written out here. A figure restated in a test is a figure that agrees with
-    itself and with nothing else.
-    """
+    """One line container per carrier, sized from the table, holding nothing."""
     carriers = {str(carrier["name"]) for carrier in objects_of_kind("OtnOpticalCarrier")}
     containers = objects_of_kind("OtnContainer")
 
@@ -1011,12 +795,7 @@ def test_every_pre_provisioned_wavelength_arrives_lit_and_empty() -> None:
 
 
 def test_every_line_container_is_the_type_its_carriers_line_rate_calls_for() -> None:
-    """A 100G wavelength gets an ODU4 and a 400G one an ODUC4.
-
-    The failure this catches is a generator that picked the type off something
-    other than the rate. Either mistake leaves the container loadable, the map
-    drawable and every headroom figure on it wrong by a factor of four.
-    """
+    """A 100G wavelength gets an ODU4 and a 400G one an ODUC4."""
     rates = {str(mode["name"]): int(mode["line_rate_gbps"]) for mode in objects_of_kind("OtnOpticalMode")}
     carriers = {str(carrier["name"]): carrier for carrier in objects_of_kind("OtnOpticalCarrier")}
 
@@ -1097,18 +876,7 @@ MONITOR_KINDS = (
 
 
 def _channel_counts(kind: str) -> dict[tuple[str, str], int]:
-    """(device, monitor name) -> the channel count it reports, for one kind.
-
-    Keyed by the pair because neither half is unique on its own. Every dense
-    multiplexer monitor is called `MON`, and `MON-DEG-FRA` exists on four
-    different ROADMs. `(device, name)` is the uniqueness constraint the schema
-    puts on `OtnGenericPort`, so it is the only key that cannot collapse two
-    records into one.
-
-    A monitor kind that reports no channel count contributes nothing. Three of
-    the five do not inherit `OtnChannelMonitor`, and an amplifier absent from
-    the result is the correct reading rather than a gap.
-    """
+    """(device, monitor name) -> the channel count it reports, for one kind."""
     return {
         (str(record["device"]), str(record["name"])): int(record["channel_count"])
         for record in objects_of_kind(kind)
@@ -1117,18 +885,7 @@ def _channel_counts(kind: str) -> dict[tuple[str, str], int]:
 
 
 def test_no_monitor_reports_seventy_one_channels() -> None:
-    """The regression test for the defect feature 024 exists to fix.
-
-    71 was the size of the carrier plan until feature 021 cut it to 40 so the
-    wavelengths fit the C-band by width. The generator wrote it as a literal on
-    every degree monitor and as the fallback on every dense multiplexer monitor,
-    so 56 of the 58 channel monitors kept reporting a plan that no longer
-    existed. Both numbers are now counted off the carrier plan, and 71 is not a
-    legal reading of anything in this dataset: the busiest section carries 40.
-
-    Asserted over every monitor kind rather than over the two that were wrong. A
-    stale literal is a copying mistake, and the next copy lands somewhere else.
-    """
+    """The regression test for the defect feature 024 exists to fix."""
     offenders = [
         f"{kind} {device} {name}"
         for kind in MONITOR_KINDS
@@ -1139,32 +896,14 @@ def test_no_monitor_reports_seventy_one_channels() -> None:
 
 
 def test_every_degree_monitor_reports_the_light_on_the_section_it_faces() -> None:
-    """42 degree monitors, and the distribution is the carrier plan's, not a constant.
-
-    Two degrees face `oms-fra-mil` and all 40 wavelengths cross it. Two face
-    `oms-ams-fra` at 7, two face `oms-ber-fra` at 5, and four face `oms-par-fra`
-    or `oms-vie-mil` at 3.
-
-    **32 of the 42 degrees report 0**, and that is the negative result worth
-    stating: three quarters of this network's degrees carry no light at all. 0
-    is the schema minimum on `channel_count` and a real reading rather than a
-    missing one, which is why `monitors.channels_by_section` is handed every
-    section name instead of only the ones a carrier mentions.
-    """
+    """42 degree monitors, and the distribution is the carrier plan's, not a constant."""
     counts = _channel_counts("OtnRoadmDegreeMonitor")
     assert len(counts) == 42
     assert sorted(Counter(counts.values()).items()) == [(0, 32), (3, 4), (5, 2), (7, 2), (40, 2)]
 
 
 def test_each_dense_multiplexer_monitor_reports_the_channels_terminating_at_its_site() -> None:
-    """The fourteen AWG multiplexers, by name, because nothing else can check them.
-
-    A dense multiplexer holds no relationship to the wavelengths it lights, so
-    `checks/channel_count_consistency.py` is silent about these fourteen and
-    this assertion is their only guard. The figures are the carrier plan's
-    endpoint columns: Milan terminates 37 wavelengths and Frankfurt 25, which is
-    what makes those two the hub sites, and eight PoPs terminate none at all.
-    """
+    """The fourteen AWG multiplexers, by name, because nothing else can check them."""
     counts = {device: count for (device, _), count in _channel_counts("OtnMuxDemuxMonitor").items()}
     cwdm = {"mux-ams-02", "mux-asp-01"}
     dense = {device: count for device, count in counts.items() if device not in cwdm}
@@ -1177,14 +916,7 @@ def test_each_dense_multiplexer_monitor_reports_the_channels_terminating_at_its_
 
 
 def test_the_two_cwdm_multiplexer_monitors_report_their_four_wavelengths() -> None:
-    """The one case where the relationship exists, so the count is read off it.
-
-    `mux-ams-02` and `mux-asp-01` each carry `cwdm_channels`, four of them, and
-    the monitor reports the length of that list rather than anything derived
-    from the carrier plan. The tail rides no optical multiplex section and no
-    wavelength in the plan terminates on it, so counting it the other way would
-    report both ends of a lit metro span as dark.
-    """
+    """The one case where the relationship exists, so the count is read off it."""
     counts = {device: count for (device, _), count in _channel_counts("OtnMuxDemuxMonitor").items()}
     assert counts["mux-ams-02"] == 4
     assert counts["mux-asp-01"] == 4
@@ -1192,14 +924,7 @@ def test_the_two_cwdm_multiplexer_monitors_report_their_four_wavelengths() -> No
 
 @cache
 def _terminations_from_the_object_files() -> dict[str, int]:
-    """Site shortname -> the carrier ends that land there, rebuilt from objects/.
-
-    Derived rather than read. A carrier stores the sections it rides and not
-    where it terminates, so the route is walked and the sites appearing exactly
-    once are its two ends. That keeps this figure independent of the generator's
-    `carrier_endpoints` and of `CARRIER_PLAN`, and it never parses a name for
-    meaning.
-    """
+    """Site shortname -> the carrier ends that land there, rebuilt from objects/."""
     endpoints = _section_endpoints()
     counts = {str(site["shortname"]): 0 for site in objects_of_kind("OtnSite")}
     for carrier in objects_of_kind("OtnOpticalCarrier"):
@@ -1221,19 +946,7 @@ def _transponders_by_site() -> dict[str, int]:
 
 @cache
 def _line_ports_on_transponders() -> tuple[dict[str, Any], ...]:
-    """The line ports that hang off a transponder, which used to be all of them.
-
-    A regenerator holds line ports too, and it holds them on different terms: it
-    patches into no add/drop port, it sits beside no client port, and it is not
-    one of the shelves the placement rule sizes. Six assertions in this module
-    were written when a line port could only be a transponder's, and each of them
-    is about the transponder population rather than about line ports as such. The
-    split is here so those six say which population they mean, instead of
-    quietly counting a device the rule they encode never described.
-
-    `test_a_regenerator_carries_two_dark_line_ports_and_a_cross_connect_none` is
-    the other half, and it is what holds the ports this excludes.
-    """
+    """The line ports that hang off a transponder, which used to be all of them."""
     transponders = {str(box["name"]) for box in objects_of_kind("OtnTransponder")}
     return tuple(port for port in objects_of_kind("OtnLinePort") if str(port["device"]) in transponders)
 
@@ -1245,37 +958,13 @@ def _line_ports_on_odu_switches() -> tuple[dict[str, Any], ...]:
 
 
 def test_every_line_port_sits_on_a_transponder_or_an_odu_switch() -> None:
-    """The two populations account for all of them, so neither test can miss one.
-
-    Without this the split above is a filter that silently drops a line port on a
-    third kind of device, and both halves would pass while the port went
-    unexamined.
-    """
+    """The two populations account for all of them, so neither test can miss one."""
     counted = len(_line_ports_on_transponders()) + len(_line_ports_on_odu_switches())
     assert counted == len(objects_of_kind("OtnLinePort")), "a line port sits on neither a transponder nor an O-E-O"
 
 
 def test_a_regenerator_carries_two_dark_line_ports_and_a_cross_connect_none() -> None:
-    """An O-E-O regenerator receives a wavelength and transmits a new one.
-
-    That is line-side optics, and until this feature the model gave it none, so a
-    regenerated circuit read as two half-dark wavelengths. Two ports each, one
-    facing each segment the shelf joins.
-
-    A cross-connect gets none, and that is the distinction rather than an
-    omission. It grooms ODU containers behind a transponder at the electrical
-    layer and terminates no wavelength. `oxc-mil-01` is patched to 37 wavelengths
-    that already terminate on Milan transponders, so a line port on it would make
-    all 37 over-terminated, which is what stopped `odu_switches` from being
-    counted as the termination answer.
-
-    **Both shipped ports are dark, and that is the plant rather than a gap.** All
-    25 wavelengths `oeo-fra-01` is patched to run Frankfurt to Milan and
-    terminate on transponders at both ends, so no two of them chain and nothing
-    is regenerated at Frankfurt here. The regeneration happens on the scenario
-    branches. A port bound to one of those 25 would be a third terminator on a
-    wavelength that has two.
-    """
+    """An O-E-O regenerator receives a wavelength and transmits a new one."""
     by_device: dict[str, list[str]] = {}
     for port in _line_ports_on_odu_switches():
         by_device.setdefault(str(port["device"]), []).append(str(port["name"]))
@@ -1300,18 +989,7 @@ def test_a_regenerator_carries_two_dark_line_ports_and_a_cross_connect_none() ->
 
 
 def test_each_pop_carries_a_transponder_per_two_terminations_above_a_floor_of_two() -> None:
-    """The placement rule, `max(2, ceil(terminations / 2))`, checked against the data.
-
-    A transponder holds two line ports and a line port terminates one
-    wavelength, so half the terminations rounded up is the hardware a site
-    needs. The expected count is recomputed here from the object files rather
-    than read back from `transponder_count`, so a wrong rule in the generator
-    fails instead of agreeing with itself.
-
-    Amsterdam Science Park is a customer campus on a CWDM tail. It belongs to no
-    section, terminates nothing and carries no transponder, and `build_devices`
-    does not iterate it.
-    """
+    """The placement rule, `max(2, ceil(terminations / 2))`, checked against the data."""
     terminations = _terminations_from_the_object_files()
     placed = _transponders_by_site()
 
@@ -1325,17 +1003,7 @@ def test_each_pop_carries_a_transponder_per_two_terminations_above_a_floor_of_tw
 
 @cache
 def _line_ports_by_carrier() -> dict[tuple[str, str], str]:
-    """(transponder, line port) -> the wavelength that names it, read from the carriers.
-
-    The edge lives on `OtnOpticalCarrier.line_ports` rather than on the port,
-    because `14_geant_ports.yml` loads before `17_geant_carriers.yml` and the
-    object loader resolves a human-friendly identifier at insert time. One
-    identifier, so a reader of either kind sees the same edge; the tests below
-    read it from the side the file writes it on.
-
-    A port named by two wavelengths would be a fault this mapping would hide, so
-    it is caught here rather than silently overwritten.
-    """
+    """(transponder, line port) -> the wavelength that names it, read from the carriers."""
     named: dict[tuple[str, str], str] = {}
     for carrier in objects_of_kind("OtnOpticalCarrier"):
         for device, port in carrier["line_ports"]:
@@ -1346,19 +1014,7 @@ def _line_ports_by_carrier() -> dict[tuple[str, str], str]:
 
 
 def test_every_bound_line_port_is_tuned_to_its_wavelengths_channel() -> None:
-    """A port and the channel object behind it cannot disagree.
-
-    Both figures come from `channel_to_frequency_mhz`: the generator applies it
-    to the carrier's channel when it writes the port, and the frequency grid in
-    `objects/02_frequency_grid.yml` was written from the same call. This test
-    recomputes the frequency from the channel number rather than comparing the
-    port against the grid, so it fails if either one moves.
-
-    Eighty of the 118 line ports are bound, two per wavelength. The other 38 are
-    dark and must carry neither the edge nor the frequency: an optional
-    attribute left out is what a port tuned to nothing looks like, and a written
-    null or a zero would be a value inside a band that starts at 191,350,000 MHz.
-    """
+    """A port and the channel object behind it cannot disagree."""
     channel_of = {str(carrier["name"]): int(carrier["channel"]) for carrier in objects_of_kind("OtnOpticalCarrier")}
     named = _line_ports_by_carrier()
     assert len(named) == 80, f"forty wavelengths at two ends each is eighty bound ports, not {len(named)}"
@@ -1386,17 +1042,7 @@ def test_every_bound_line_port_is_tuned_to_its_wavelengths_channel() -> None:
 
 
 def test_thirty_eight_line_ports_are_dark_and_the_arithmetic_says_which() -> None:
-    """A dark line port is a legal state, and where the 38 sit follows from the floor.
-
-    `2 x transponders - terminations` per site. Eight PoPs terminate nothing and
-    sit on the floor of two transponders, so four dark ports each; six terminate
-    an odd number, so one dark port each; the rest are full. Thirty-two plus six
-    is 38, which is the negative result this feature is careful not to round away.
-
-    The expectation is recomputed from the termination counts and the placed
-    transponders rather than listed, so a site changing sides fails here instead
-    of agreeing with a hand-written list.
-    """
+    """A dark line port is a legal state, and where the 38 sit follows from the floor."""
     terminations = _terminations_from_the_object_files()
     placed = _transponders_by_site()
     named = _line_ports_by_carrier()
@@ -1426,17 +1072,7 @@ def test_thirty_eight_line_ports_are_dark_and_the_arithmetic_says_which() -> Non
 
 
 def test_no_pop_drops_below_the_floor_and_a_dark_pop_sits_on_it() -> None:
-    """The floor is what keeps the shipped demo scenarios lightable.
-
-    Eight PoPs terminate no wavelength. Five of them are endpoints of scenarios
-    under `demo/`: Madrid and Warsaw, Prague, London, Geneva. Stripping their
-    transponders would leave a provisioned carrier with no line port to bind to,
-    so each keeps two transponders and four line ports that no wavelength uses.
-
-    Those four are asserted unbound from the carrier side. The edge is written
-    on `OtnOpticalCarrier.line_ports` and not on the port, so an unbound port is
-    one no wavelength names, and it carries no `center_frequency_mhz` either.
-    """
+    """The floor is what keeps the shipped demo scenarios lightable."""
     terminations = _terminations_from_the_object_files()
     placed = _transponders_by_site()
 
@@ -1460,21 +1096,7 @@ def test_no_pop_drops_below_the_floor_and_a_dark_pop_sits_on_it() -> None:
 
 
 def test_the_add_drop_client_and_line_port_populations_stay_one_to_one() -> None:
-    """Every line port needs an add/drop port to patch into and a client port beside it.
-
-    Asserted as populations and again per transponder, because the totals can
-    match while the distribution is lopsided. The `connected_to` side is
-    re-asserted here so the three counts and the edge that ties them together
-    move as one; `test_the_connected_to_edge_is_declared_on_one_side_only` is
-    what checks the edge's own uniqueness.
-
-    The line-port side is the transponder population and not every line port. A
-    regenerator carries two of its own and neither an add/drop port nor a client
-    port beside them: it takes light off one wavelength and puts it on another,
-    so there is no client tributary to break out and no add/drop socket free at
-    the site. Counting those two here would make a one-to-one rule about
-    transponders read as a rule about the whole plant, and it is not one.
-    """
+    """Every line port needs an add/drop port to patch into and a client port beside it."""
     line = _line_ports_on_transponders()
     assert len(objects_of_kind("OtnRoadmAddDropPort")) == len(line)
     assert len(objects_of_kind("OtnClientPort")) == len(line)
@@ -1532,12 +1154,7 @@ def _receiver_monitors() -> dict[str, dict[str, Any]]:
 
 @cache
 def _receiver_bounds() -> dict[str, tuple[int, int]]:
-    """Reading -> (min, max), read out of `schemas/otn_ports.yml`.
-
-    Read rather than restated. A bound written here as well as in the schema is
-    a bound that can disagree with the one the server enforces, and then this
-    module passes while the load refuses the record.
-    """
+    """Reading -> (min, max), read out of `schemas/otn_ports.yml`."""
     document = yaml.safe_load((SCHEMA_DIR / "otn_ports.yml").read_text())
     definitions = [node for node in document.get("nodes") or [] if node["name"] == "ReceiverMonitor"]
     assert len(definitions) == 1, "schemas/otn_ports.yml defines ReceiverMonitor other than once"
@@ -1557,14 +1174,7 @@ def _lit_transponders() -> set[str]:
 
 
 def test_every_receiver_reading_is_inside_the_bounds_its_schema_attribute_declares() -> None:
-    """FR-019, over all 59 monitors and both branches of the derivation.
-
-    The generator raises at the point of derivation for the same condition, and
-    this is the second half of that pair: the generator guards the run that
-    writes the files, and this guards the files that are committed. A reading
-    outside its range is refused by the server at load time, which is a slow and
-    distant way to find an arithmetic error.
-    """
+    """FR-019, over all 59 monitors and both branches of the derivation."""
     bounds = _receiver_bounds()
     offenders = [
         f"{device}.{reading} = {record[reading]}, outside {bounds[reading]}"
@@ -1576,15 +1186,7 @@ def test_every_receiver_reading_is_inside_the_bounds_its_schema_attribute_declar
 
 
 def test_the_lit_receivers_report_five_dispersion_figures_for_the_five_routes() -> None:
-    """FR-016 and SC-005. Dispersion follows the route, so five routes give five figures.
-
-    The expected figures are recomputed from the object files, section lengths
-    times the catalog's coefficient, rather than read back from the generator.
-    The longest is a little over twice the shortest, which is the measured
-    spread across `CARRIER_PLAN`: 780 km on Frankfurt to Milan against 1580 km
-    on Frankfurt to Vienna. Not the factor of ten a first guess suggests, and
-    saying the measured number is the point.
-    """
+    """FR-016 and SC-005. Dispersion follows the route, so five routes give five figures."""
     lengths = _section_length_m()
     by_carrier = {
         str(carrier["name"]): sum(lengths[str(section)] for section in carrier["sections"])
@@ -1604,17 +1206,7 @@ def test_the_lit_receivers_report_five_dispersion_figures_for_the_five_routes() 
 
 
 def test_amsterdam_to_milan_and_berlin_to_milan_report_different_osnr() -> None:
-    """The regression test for critique finding E-002, and the reason the cascade is
-    built one stage per span.
-
-    Both routes are fifteen spans. They differ only in the loss of six of them,
-    17,267 mdB on Amsterdam to Frankfurt against 19,700 mdB on Berlin to
-    Frankfurt, because a 470 km section divides into six shorter spans than a
-    540 km one does. Repeat a single stage fifteen times, as an earlier draft of
-    the research proposed, and the two collapse to the same figure while every
-    number on the page still looks reasonable. Amsterdam has the shorter spans,
-    so it must report the better OSNR.
-    """
+    """The regression test for critique finding E-002, and the reason the cascade is."""
     monitors = _receiver_monitors()
     # A transponder holds one monitor and can hold two wavelengths, and the
     # monitor derives from the one on L1. So the reading is attributed to the L1
@@ -1637,12 +1229,7 @@ def test_amsterdam_to_milan_and_berlin_to_milan_report_different_osnr() -> None:
 
 
 def test_every_dark_transponder_reports_loss_of_signal() -> None:
-    """FR-008a. Sixteen transponders hold no wavelength, and none of them claims health.
-
-    The monitor still exists on every one of them: `checks/monitor_completeness.py`
-    gates on a transponder that has none, and all six readings are mandatory on
-    the kind, so darkness has to be stated rather than left out.
-    """
+    """FR-008a. Sixteen transponders hold no wavelength, and none of them claims health."""
     monitors = _receiver_monitors()
     dark = sorted(set(monitors) - _lit_transponders())
     assert len(dark) == 16, f"the floor of two leaves sixteen transponders unlit, not {len(dark)}: {dark}"
@@ -1668,12 +1255,7 @@ def test_every_dark_transponder_reports_loss_of_signal() -> None:
 
 
 def _first_lit_carrier() -> Any:
-    """One carrier off the seed, as `_receiver_readings` is handed it.
-
-    Built rather than read back from `objects/`, because the derivation takes the
-    carrier the generator holds in memory and a record parsed out of YAML is a
-    different shape.
-    """
+    """One carrier off the seed, as `_receiver_readings` is handed it."""
     module = _generator_module()
     carriers = module.build_carriers()
     assert carriers, "the carrier plan is empty, so this guard is vacuous"
@@ -1681,22 +1263,7 @@ def _first_lit_carrier() -> Any:
 
 
 def test_a_carrier_that_misses_its_required_osnr_reports_a_floored_reading_and_not_a_crash() -> None:
-    """The generator has to be able to emit a wavelength that fails its mode.
-
-    `q_factor_mdb` is `FEC_THRESHOLD_Q_MDB` plus the OSNR margin and the schema
-    declares `min_value: 0`, so any carrier delivering more than 5.7 dB below its
-    mode's `required_osnr_mdb` would have produced a negative Q,
-    `_guard_receiver_readings` would have raised, and the run would emit no
-    dataset at all. The shipped plan has 3.5 dB of headroom on the tightest
-    carrier, so nothing reaches it today and no committed figure moves; that is
-    exactly why it would have gone unnoticed.
-
-    A wavelength that misses its requirement is a state this repository models on
-    purpose. `checks/osnr_margin.py` exists to report it, and refusing to write
-    the dataset is the wrong layer to raise it at. Both floors are asserted here:
-    the mode requirement lifted out of reach for the Q factor, and the
-    implementation penalty lifted out of reach for the OSNR itself.
-    """
+    """The generator has to be able to emit a wavelength that fails its mode."""
     module = _generator_module()
     carrier = _first_lit_carrier()
     subject = str(carrier["name"])
@@ -1719,15 +1286,7 @@ def test_a_carrier_that_misses_its_required_osnr_reports_a_floored_reading_and_n
 
 
 def test_the_receiver_guard_raises_when_it_cannot_resolve_the_bounds_it_guards_against() -> None:
-    """A guard that cannot find its bounds must fail, not pass everything.
-
-    `_schema_bounds` keys on the concrete kind and reads only the attributes
-    declared inline on it. Move the six readings onto an inherited generic, which
-    is the pattern `OtnGenericPort` and `OtnOpticalPort` already use, and
-    `bounds["OtnReceiverMonitor"]` goes empty. Every reading then passed,
-    including the negative and the out-of-range ones the guard exists to catch,
-    and the first sign of it would be the server refusing the load.
-    """
+    """A guard that cannot find its bounds must fail, not pass everything."""
     module = _generator_module()
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(module, "_schema_bounds", dict)

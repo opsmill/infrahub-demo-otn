@@ -1,30 +1,4 @@
-"""Every reference resolves against something already loaded when it is read.
-
-**What this is for.** `infrahubctl object load` resolves a human-friendly
-identifier at insert time and makes no deferred second pass, so a record naming
-an object that has not been inserted yet fails, and it takes the whole batch with
-it. The order is the sorted file names, then the documents inside each file, then
-the records inside each document, which is why the object files carry numeric
-prefixes.
-
-That rule was already known and already written down. `carriers_with_line_ports`
-in the dataset generator explains why the carrier writes `line_ports` rather than
-the port writing `carrier`, and `19_geant_odu_switches.yml` explains why the O-E-O
-devices load last. What did not exist was anything that checked it. Feature 026
-put two line ports on `oeo-fra-01` into `14_geant_ports.yml`, which loads five
-files before the device is created, and every unit test passed. The integration
-suite caught it half an hour later, after a container stack, a schema load and
-2344 objects.
-
-So the rule is a two-second test now. It reads the same files in the same order
-the loader does and asks, of every reference, whether the thing it names has been
-declared yet.
-
-**`demo/` too, on the same terms and one file at a time.** A scenario file is
-loaded onto a branch that already holds `objects/`, so its references may reach
-back into the shipped dataset freely and forward into nothing. Several scenario
-files contradict each other, so no two are ever considered together.
-"""
+"""Every reference resolves against something already loaded when it is read."""
 
 from __future__ import annotations
 
@@ -52,14 +26,7 @@ def _key(kind: str, record: Record) -> Key:
 
 
 def _references(kind: str, record: Record, known: set[tuple[str, Key]]) -> list[tuple[str, Any]]:
-    """The relationship values on one record that name nothing declared yet.
-
-    A value is interpreted against the whole view rather than parsed, because a
-    composite identifier and a list of simple ones look the same in YAML:
-    `connected_to: [roadm-ams-01, AD-01]` is one peer of two parts and
-    `sections: [oms-a, oms-b]` is two peers of one part. Whichever reading finds
-    records is the reading the loader will take.
-    """
+    """The relationship values on one record that name nothing declared yet."""
     unresolved: list[tuple[str, Any]] = []
     for field in schema()[kind].relationships.values():
         if field.name not in record:
@@ -86,17 +53,7 @@ def _references(kind: str, record: Record, known: set[tuple[str, Key]]) -> list[
 
 
 def _peer_kinds(peer: str) -> tuple[str, ...]:
-    """The kinds a relationship to `peer` can land on.
-
-    A concrete kind is itself; a generic is every kind that inherits it. A peer
-    this repository's schema does not declare at all is an Infrahub built-in, and
-    `BuiltinTag` on `OtnSite.tags` is one an object file both creates and names,
-    so it is returned as itself rather than dropped. An earlier version skipped
-    it and justified the skip by saying the server resolves those "against kinds
-    no file here creates", which is false here: `objects/10_geant_tags.yml`
-    creates the six tags that `objects/11_geant_sites.yml` names, and the load
-    order between those two files is exactly the kind of thing this test is for.
-    """
+    """The kinds a relationship to `peer` can land on."""
     if peer in schema():
         return (peer,)
     inheriting = tuple(name for name in schema() if peer in _inherits(name))
@@ -171,39 +128,21 @@ def _walk(paths: list[Any], known: set[tuple[str, Key]]) -> list[str]:
 
 
 def test_the_shipped_dataset_never_names_an_object_it_has_not_loaded_yet() -> None:
-    """`objects/` read in the order the loader reads it.
-
-    The numeric prefixes are the load order and they are load-bearing. Three
-    files carry a comment saying which way an edge had to be written to satisfy
-    this, and until now none of the three was checked.
-    """
+    """`objects/` read in the order the loader reads it."""
     complaints = _walk(object_files(), set())
     assert not complaints, "\n".join(complaints)
 
 
 @pytest.mark.parametrize("file_name", scenario_files())
 def test_each_scenario_never_names_an_object_it_has_not_loaded_yet(file_name: str) -> None:
-    """One scenario file, over a branch that already holds the shipped dataset.
-
-    Parametrised per file rather than looped, because scenario files are
-    alternatives: `demo/06_mad_waw_16qam.yml` and `demo/07_mad_waw_qpsk.yml`
-    describe two branches and not one state, and merging them would assert
-    against a network that never exists.
-    """
+    """One scenario file, over a branch that already holds the shipped dataset."""
     known = {(kind, key) for kind, records in merged(None).items() for key in records}
     complaints = _walk([DEMO_DIR / file_name], known)
     assert not complaints, "\n".join(complaints)
 
 
 def test_a_scenario_that_adds_a_device_declares_it_before_its_ports() -> None:
-    """The specific shape that failed, held on its own so the message names it.
-
-    A port is a component of a device and a device is created by whichever file
-    creates it. `demo/04_odu_ten_in_one.yml` and `demo/90_fra_mil_saturated.yml`
-    each rack a shelf and then hang two line ports off it, and
-    `objects/19_geant_odu_switches.yml` does the same for the regenerator. All
-    three only work because the device's document comes first.
-    """
+    """The specific shape that failed, held on its own so the message names it."""
     for file_name in scenario_files():
         added = {str(record["name"]) for record in demo_objects_of_kind(file_name, "OtnTransponder")}
         added |= {str(record["name"]) for record in demo_objects_of_kind(file_name, "OtnOduSwitch")}

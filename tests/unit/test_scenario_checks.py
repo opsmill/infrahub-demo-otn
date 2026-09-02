@@ -1,41 +1,4 @@
-"""Every scenario under `demo/`, against every check the pipeline registers.
-
-**The rule this file is.** A gating check is held to every file in `demo/`,
-whether or not the check has anything to say about it. Twelve files and nine
-checks is 108 cells and all 108 are declared below, because the failure this
-guards against is not a wrong verdict, it is a cell nobody looked at.
-
-**What it cost to learn that.** Feature 025 shipped `carrier_termination` and
-verified it two ways: against a payload holding a violation somebody wrote by
-hand, and against `objects/`. Both passed. It was withdrawn in `e70c245` because
-it fired on all six wavelengths in `demo/06_mad_waw_16qam.yml`, which is the
-scenario the quick start opens its headline proposed change from, and which
-nothing had ever run a check against. The check was right and the model was
-missing a regenerator's line ports; the withdrawal was correct and the gap that
-let it get that far was this file not existing.
-
-It found more before it was written. Counting the scenarios by hand during
-planning turned up **fourteen** unterminated wavelengths across **four** files,
-where the design and the withdrawal commit both describe six across one.
-
-**What a cell is.** One scenario file loaded over `objects/` on a branch cut from
-the default one, resolved into the shape that check's stored query returns, and
-handed to the check class named in `.infrahub.yml`.
-`tests/unit/scenariopayloads.py` does the resolving and says how.
-
-**Errors only.** A cell asserts whether the check logged an error and how many,
-not what the summary said. A check's INFO line is prose that improves, and
-pinning wording here would turn every reworded summary into a failure in a file
-about pass and fail. `tests/unit/test_checks.py` is where the wording is held.
-
-**The one thing a merged view cannot show.** A scenario file is input. It is
-loaded onto a branch and the generator runs afterwards, so a view built from the
-file alone is the branch before any generator has written to it. Two cells depend
-on that difference and are declared `NeedsGenerator` rather than pass or fail,
-with the check that reads generator output named. `test_a_needs_generator_cell_
-names_a_check_that_reads_a_generator_relationship` is what stops that outcome
-becoming a place to put a cell somebody did not want to think about.
-"""
+"""Every scenario under `demo/`, against every check the pipeline registers."""
 
 from __future__ import annotations
 
@@ -53,23 +16,7 @@ from tests.unit.scenariopayloads import merged, payload, scenario_files, schema
 CONFIG = get_repository_config(REPO_ROOT / ".infrahub.yml")
 
 GENERATOR_RELATIONSHIPS = ("optical_path", "child_containers")
-"""What only a generator writes.
-
-A scenario file declares services, wavelengths, containers and hardware. It never
-declares an optical path: that is 25 ordered hops the generator derives from a
-route it chose, and no human writes one into YAML.
-
-`child_containers` is the other one, and it is the softer of the two. A scenario
-file can declare a container under a parent, and `demo/05_odu_mixed_fill.yml` and
-`demo/90_fra_mil_saturated.yml` both do, so `container_capacity` is judged on
-those. `demo/04_odu_ten_in_one.yml` is the case this covers: the ODU4 it declares
-is filled by ten client containers the generator grooms into it, so the file that
-exists to exercise that check declares nothing for it to read.
-
-A check that reads one of these reads a field the merged view leaves empty and
-the pipeline finds full, and that is the whole of the difference this module
-cannot see.
-"""
+"""What only a generator writes."""
 
 
 # ---------------------------------------------------------------------------
@@ -138,14 +85,7 @@ def _row(file_name: str, **cells: Outcome) -> None:
 
 
 def _quiet(file_name: str, **overrides: Outcome) -> None:
-    """One scenario that changes nothing a check speaks about, other than the named cells.
-
-    Written this way because eight of the twelve files are exactly that, and
-    twelve times nine cells typed out in full would be a wall a reader skims. The
-    default is not a wildcard: every check is still named in `_DEFAULT` and a
-    tenth check registered has no entry there either, so the completeness test
-    below still fails until somebody adds it.
-    """
+    """One scenario that changes nothing a check speaks about, other than the named cells."""
     cells: dict[str, Outcome] = dict(_DEFAULT)
     cells.update(overrides)
     _row(file_name, **cells)
@@ -263,12 +203,7 @@ def _entry(name: str) -> Any:
 
 @cache
 def _check_class(name: str) -> Any:
-    """The class `.infrahub.yml` names, loaded from the file it names.
-
-    Loaded by path rather than imported, the same way `tests/unit/test_checks.py`
-    does it, so a registration pointing at a class the file does not define fails
-    here rather than at repository sync.
-    """
+    """The class `.infrahub.yml` names, loaded from the file it names."""
     entry = _entry(name)
     path = REPO_ROOT / str(entry.file_path)
     spec = importlib.util.spec_from_file_location(f"scenario_check_{name}", path)
@@ -296,13 +231,7 @@ CELLS = [(scenario, check) for scenario in SCENARIOS for check in CHECKS]
 
 
 def test_the_expectation_table_is_exactly_the_product_of_the_two_directories() -> None:
-    """Every scenario against every check, no cell missing and none invented.
-
-    Both sides are discovered rather than listed: the files come from a glob over
-    `demo/` and the checks from `check_definitions`. A thirteenth scenario or a
-    tenth check therefore turns this red until somebody says what the new cells
-    do, which is the opposite of the silence that let 025 ship.
-    """
+    """Every scenario against every check, no cell missing and none invented."""
     assert set(EXPECTED) == set(CELLS), (
         f"undeclared cells: {sorted(set(CELLS) - set(EXPECTED))}; "
         f"declared cells that do not exist: {sorted(set(EXPECTED) - set(CELLS))}"
@@ -322,12 +251,7 @@ def test_the_sweep_covers_twelve_scenarios_and_nine_checks() -> None:
 
 @pytest.mark.parametrize("check_name", CHECKS)
 def test_every_registered_check_can_be_swept(check_name: str) -> None:
-    """A payload can be built for the check and the check runs against it.
-
-    This fails rather than skips, which is the point. A check whose query the
-    resolver cannot read is a check outside the sweep, and a sweep with a hole in
-    it reports green over the hole.
-    """
+    """A payload can be built for the check and the check runs against it."""
     view = merged(None)
     built = payload(check_name, None)
     assert built, f"{check_name} resolved to no collections at all"
@@ -375,14 +299,7 @@ def test_each_scenario_against_each_check(scenario: str, check_name: str) -> Non
 
 
 def test_a_needs_generator_cell_names_a_check_that_reads_a_generator_relationship() -> None:
-    """`NeedsGenerator` is not an escape hatch, and this is what keeps it from becoming one.
-
-    A cell may only claim the generator explains it when the check's own stored
-    query selects a field no scenario file writes. `optical_path` is the one such
-    field: it is 25 ordered hops derived from a route, and nothing under `demo/`
-    declares one. A check that reads only what the YAML declares has no generator
-    to blame, so a `NeedsGenerator` on one of those fails here.
-    """
+    """`NeedsGenerator` is not an escape hatch, and this is what keeps it from becoming one."""
     for (scenario, check_name), outcome in sorted(EXPECTED.items()):
         if not isinstance(outcome, NeedsGenerator):
             continue
@@ -401,26 +318,7 @@ def test_a_needs_generator_cell_names_a_check_that_reads_a_generator_relationshi
 
 
 def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
-    """The default branch, run through all nine, against what the tree already asserts.
-
-    A resolver that is wrong in the same direction as the checks it feeds would
-    make this whole module agree with itself and with nothing else. These five
-    verdicts are pinned elsewhere from payloads a human wrote or from the
-    generated data, so agreement here is agreement with a second opinion:
-
-    - `osnr_margin` fails Paris to Madrid in both directions and nothing else,
-      which `test_checks.py::test_no_section_other_than_paris_to_madrid_fails_the_sweep`
-      holds from a hand-built payload.
-    - `container_capacity` passes, because the shipped dataset holds no parent
-      container at all.
-    - `monitor_completeness` passes, because every device that should carry a
-      monitor carries one on the default branch.
-    - `channel_collision` passes, because the re-seeded carrier plan overlaps
-      nowhere.
-    - `carrier_termination` passes on all forty, which is
-      `tests/unit/test_geant_dataset.py`'s two-line-ports-per-wavelength
-      arithmetic arriving through a different door.
-    """
+    """The default branch, run through all nine, against what the tree already asserts."""
     verdicts = {name: len(_errors(name, None)) for name in CHECKS}
     with_services = {name: len(_errors(name, "00_services.yml")) for name in CHECKS}
     assert verdicts == with_services, (
@@ -438,14 +336,7 @@ def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
 
 
 def test_every_shipped_carrier_is_terminated_at_both_ends_through_the_resolver() -> None:
-    """Forty wavelengths, two line ports each, read the way the check reads them.
-
-    `tests/unit/test_geant_dataset.py` asserts the same arithmetic against the
-    object files. This asserts it through the graph the check walks, which is the
-    part that broke: the edge is written on the carrier under `objects/` and on
-    the port under `demo/`, and a reader that only knew one side would see half
-    the plant unterminated.
-    """
+    """Forty wavelengths, two line ports each, read the way the check reads them."""
     carriers = payload("carrier_termination", None)["OtnOpticalCarrier"]["edges"]
     assert len(carriers) == 40
     counts = {str(edge["node"]["name"]["value"]): len(edge["node"]["line_ports"]["edges"]) for edge in carriers}
@@ -454,12 +345,7 @@ def test_every_shipped_carrier_is_terminated_at_both_ends_through_the_resolver()
 
 
 def test_a_regenerator_terminates_the_two_segments_it_joins_on_the_scenario_branch() -> None:
-    """`demo/06_mad_waw_16qam.yml` read through the check's own query.
-
-    This is the state feature 025 could not produce and the reason it withdrew.
-    Six wavelengths, each with a transponder at its outer end and a regenerator
-    line port at its inner one, so each is terminated at two sites.
-    """
+    """`demo/06_mad_waw_16qam.yml` read through the check's own query."""
     view = merged("06_mad_waw_16qam.yml")
     regenerators = {
         key[0] for key, record in view["OtnOduSwitch"].items() if str(record.get("switching_mode")) == "regenerator"
@@ -493,13 +379,7 @@ def test_a_regenerator_terminates_the_two_segments_it_joins_on_the_scenario_bran
 
 
 def test_no_cross_connect_anywhere_carries_a_line_port() -> None:
-    """The distinction the whole feature draws, asserted across every view.
-
-    A cross-connect grooms ODU containers behind a transponder and terminates no
-    wavelength. `oxc-mil-01` is patched to 37 that already terminate on Milan
-    transponders, so one line port on it would make all 37 over-terminated, which
-    is what stopped `odu_switches` being read as the termination answer.
-    """
+    """The distinction the whole feature draws, asserted across every view."""
     for scenario in (None, *SCENARIOS):
         view = merged(scenario)
         cross_connects = {
@@ -516,19 +396,7 @@ def test_no_cross_connect_anywhere_carries_a_line_port() -> None:
 
 
 def test_the_resolver_reads_every_kind_the_object_files_declare() -> None:
-    """No kind is dropped on the way in, and none is keyed to nothing.
-
-    `scenariopayloads._apply` skips a document whose kind the schema does not
-    declare, which is how a typo in a `spec.kind` would become a collection the
-    resolver silently holds no records for. Every check reading it would then be
-    swept against an empty collection and pass. So the kinds are read straight
-    out of the files here rather than out of the view the skip has already
-    filtered.
-
-    An earlier version of this asserted `set(merged(None)) <= set(schema())`,
-    which is true by construction because the skip guarantees it. That is a test
-    that cannot fail, and this module is about cells that cannot fail.
-    """
+    """No kind is dropped on the way in, and none is keyed to nothing."""
     declared = {
         str((document.get("spec") or {}).get("kind"))
         for document in object_documents()

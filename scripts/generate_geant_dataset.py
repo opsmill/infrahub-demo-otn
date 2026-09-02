@@ -2201,42 +2201,19 @@ def build_odu_switches(carriers: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def build_odu_switch_ports() -> list[dict[str, Any]]:
     """Two line ports on every regenerator, and none on a cross-connect.
 
-    An O-E-O regenerator receives a wavelength and transmits a new one, so it has
-    line-side optics. Until this existed it had none, and a regenerated circuit
-    read as two half-dark wavelengths: the outer end of each segment terminated
-    on a transponder and the inner end terminated on nothing at all.
+    A regenerator receives a wavelength and transmits a new one, so it has
+    line-side optics; a cross-connect grooms behind a transponder and would put
+    a third terminator on the 37 wavelengths `oxc-mil-01` is patched to. Keyed
+    on `switching_mode` so a new device follows the rule rather than a list.
 
-    **Emitted with the devices in `19_geant_odu_switches.yml`, not with the other
-    ports in `14_geant_ports.yml`, and the load order is why.** File 19 is last
-    because an O-E-O device names the wavelengths it is patched to and a carrier
-    has to exist before a device references it. A port naming
-    `device: oeo-fra-01` five files earlier names a device that does not exist
-    yet, and `infrahubctl object load` resolves a human-friendly ID at insert
-    time with no deferred second pass, so the whole batch fails. The same
-    argument put `OtnOpticalCarrier.line_ports` on the carrier rather than on the
-    port, and it points the other way here: these ports load after their device
-    because they load in the same file as it.
+    Emitted in `19_geant_odu_switches.yml` with the devices, not in
+    `14_geant_ports.yml`: `object load` resolves a human-friendly ID at insert
+    time, so a port cannot name a device five files before it exists.
 
-    **Keyed on `switching_mode`, not on the device name.** A cross-connect grooms
-    ODU containers behind a transponder at the electrical layer and terminates no
-    wavelength, so it gets no line port. Giving it one would put a third
-    terminator on all 37 wavelengths `oxc-mil-01` is patched to, which is the
-    over-termination that made counting `odu_switches` unworkable in the first
-    place. A fourth O-E-O device added to `ODU_SWITCHES` gets ports if it
-    regenerates and none if it does not, which is the rule rather than a list.
-
-    **Both shipped ports are dark, and that is the plant rather than a gap.** All
-    25 wavelengths `oeo-fra-01` is patched to run Frankfurt to Milan and already
-    terminate on transponders at both ends, so no two of them form a chain and
-    nothing is regenerated at Frankfurt in this dataset. The regeneration happens
-    on the scenario branches, where `demo/` lights wavelengths that meet at a
-    regenerator. Binding either port here would put a third terminator on a
-    wavelength that has two.
-
-    A dark port omits `center_frequency_mhz` rather than writing a null, the same
-    way the 38 dark transponder ports do. It also omits `connected_to`: every
-    add/drop port at Frankfurt is patched to a transponder line port, and
-    inventing a patch the plant does not hold would be worse than saying nothing.
+    Both shipped ports are dark. All 25 of `oeo-fra-01`'s wavelengths already
+    terminate at both ends, so binding either would over-terminate them. A dark
+    port omits `center_frequency_mhz` and `connected_to` rather than writing
+    nulls, as the 38 dark transponder ports do.
     """
     records: list[dict[str, Any]] = []
     for name, _, mode, _ in ODU_SWITCHES:
