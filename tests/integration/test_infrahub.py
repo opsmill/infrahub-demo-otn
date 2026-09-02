@@ -1,4 +1,26 @@
-"""Load this repository into a live Infrahub and read it back."""
+"""Load this repository into a live Infrahub and read it back.
+
+This layer and `tests/unit/test_geant_dataset.py` catch different failures. The
+unit layer catches a claim regression, a seed edit that breaks a route length.
+This one catches a load regression: a renamed attribute, an unresolvable
+reference, a bound violation. Neither layer replaces the other.
+
+Read assertions check the GraphQL `errors` array, not the HTTP status: a bound
+violation returns 200 with an `errors` array, so a status check passes on
+exactly the failure it was written to catch.
+
+**Everything lives in one class, and `pytest -k` cannot re-run one test.** Every
+`infrahub_testcontainers` fixture is `scope="class"`, methods run in definition
+order, and each depends on the state the previous left. Deselecting the earlier
+ones deselects the branch creation and the data load, and every survivor then
+fails with `Branch: geant-integration not found` at HTTP 404, which reads like a
+broken test rather than a broken selection. Run the whole class or nothing.
+
+**Stop the demo stack before running this.** The two stacks share no port and no
+database, but they do share the machine's memory. During feature 016 the pair
+exhausted the container runtime and killed the test database, failing twelve of
+thirteen tests for a reason unrelated to the code.
+"""
 
 from __future__ import annotations
 
@@ -69,9 +91,15 @@ class TestInfrahub(TestInfrahubDockerClient):
     # Fixtures
     # ----------------------------------------------------------------- #
 
+    # `@classmethod` on every class-scoped fixture below. pytest 10 removes the
+    # instance-method form: the fixture runs once per class while each test gets
+    # a fresh instance, so anything set on `self` would be invisible to the
+    # tests. None of these set attributes, so this is the same behaviour without
+    # the deprecation.
     @pytest.fixture(scope="class")
+    @classmethod
     def infrahub_compose(
-        self,
+        cls,
         tmp_directory: Path,
         remote_repos_dir: Path,  # noqa: ARG002 - ordering: the bind mount must exist before compose runs
         remote_backups_dir: Path,  # noqa: ARG002 - same
@@ -88,11 +116,13 @@ class TestInfrahub(TestInfrahubDockerClient):
         return compose
 
     @pytest.fixture(scope="class")
-    def address(self, infrahub_port: int) -> str:
+    @classmethod
+    def address(cls, infrahub_port: int) -> str:
         return f"http://localhost:{infrahub_port}"
 
     @pytest.fixture(scope="class")
-    def clean_source(self, tmp_directory: Path) -> Path:
+    @classmethod
+    def clean_source(cls, tmp_directory: Path) -> Path:
         """A copy of the committed tree, and nothing else."""
         export = tmp_directory / "clean-source"
         export.mkdir(parents=True, exist_ok=True)
