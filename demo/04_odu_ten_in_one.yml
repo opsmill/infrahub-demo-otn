@@ -346,3 +346,198 @@ spec:
       refusal_accepted: true
       member_of_groups:
         - optical_services
+---
+# The shelves that terminate the three wavelengths above, and the optics on them.
+#
+# **Why this file installs hardware.** A wavelength cannot be lit without an
+# optic at each end, and `checks/carrier_termination.py` gates on exactly that.
+# The corridor this scenario fills has one free line port at Frankfurt and one at
+# Milan, and three new wavelengths need three at each, so the scenario that
+# lights them is the scenario that racks the shelves. That is the honest reading
+# rather than a workaround: a corridor is full because somebody installed the
+# equipment that filled it.
+#
+# One transponder at each end, two line ports on each, and one receiver monitor
+# each because `checks/monitor_completeness.py` gates on a monitored device
+# arriving without its monitor.
+#
+# The readings are `xpdr-fra-13` and `xpdr-mil-19` verbatim. Those two sit on
+# this same corridor at this same length, so a new shelf beside them reports what
+# they report. Nothing here computes a reading from a route: the dataset
+# generator does that from the plant, and a figure invented in a scenario file
+# would be a plausible-looking number rather than a derived one.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnTransponder
+  data:
+    - name: xpdr-fra-14
+      role: edge
+      site: fra
+      insertion_loss_mdb: 0
+      vendor: Generic
+      model: T-400G
+    - name: xpdr-mil-20
+      role: edge
+      site: mil
+      insertion_loss_mdb: 0
+      vendor: Generic
+      model: T-400G
+---
+# The add/drop sockets the two new shelves patch into, continuing each ROADM's
+# numbering. Frankfurt ran to AD-26 and Milan to AD-38 in the shipped inventory,
+# and both banks were fully patched, so a shelf added here needs its own.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnRoadmAddDropPort
+  data:
+    - name: AD-27
+      device: roadm-fra-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-28
+      device: roadm-fra-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-39
+      device: roadm-mil-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-40
+      device: roadm-mil-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnReceiverMonitor
+  data:
+    - name: MON
+      device: xpdr-fra-14
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      rx_power_mdbm: -8000
+      measured_osnr_mdb: 24786
+      pre_fec_ber_ppb: 11855
+      q_factor_mdb: 16486
+      cd_fs_per_nm: 26860000
+      dgd_fs: 3900
+    - name: MON
+      device: xpdr-mil-20
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      rx_power_mdbm: -8000
+      measured_osnr_mdb: 28025
+      pre_fec_ber_ppb: 1843750
+      q_factor_mdb: 9225
+      cd_fs_per_nm: 13260000
+      dgd_fs: 2700
+---
+# Six line ports, two per wavelength. Three of them are shipped ports restated
+# with the wavelength they now hold, which the loader applies as an update, and
+# three are on the shelves above.
+#
+# The edge is written from the port side here and from the carrier side under
+# `objects/`, which is a load-order difference and not a modelling one:
+# `14_geant_ports.yml` loads before `17_geant_carriers.yml`, so a shipped port
+# cannot name a wavelength that does not exist yet. In this file the carriers are
+# declared at the top, so it can.
+#
+# `xpdr-lon-01`'s receiver monitor still reports darkness after L1 takes a
+# wavelength, and that is left alone. A reading is dated and the wavelength was
+# designed onto this branch after it was taken, which is the same clock argument
+# `checks/channel_count_consistency.py` is built on. The drift report shows it
+# and nothing gates on it.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnLinePort
+  data:
+    - name: L1
+      device: xpdr-lon-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-lon-01
+        - AD-01
+      center_frequency_mhz: 196000000
+      carrier: oc-ch094-lon-mil
+    - name: L1
+      device: xpdr-mil-20
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mil-01
+        - AD-39
+      center_frequency_mhz: 196000000
+      carrier: oc-ch094-lon-mil
+    - name: L2
+      device: xpdr-fra-13
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-fra-01
+        - AD-26
+      center_frequency_mhz: 196050000
+      carrier: oc-ch095-fra-mil
+    - name: L2
+      device: xpdr-mil-20
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mil-01
+        - AD-40
+      center_frequency_mhz: 196050000
+      carrier: oc-ch095-fra-mil
+    - name: L1
+      device: xpdr-fra-14
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-fra-01
+        - AD-27
+      center_frequency_mhz: 196100000
+      carrier: oc-ch096-fra-mil
+    - name: L2
+      device: xpdr-mil-19
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mil-01
+        - AD-38
+      center_frequency_mhz: 196100000
+      carrier: oc-ch096-fra-mil
