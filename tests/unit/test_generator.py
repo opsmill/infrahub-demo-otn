@@ -14,7 +14,12 @@ from tests.unit.test_plant import amplifier_node, roadm_node, span_node
 GENERATOR_PATH = REPO_ROOT / "generators" / "optical_service.py"
 
 CATALOG_FIELDS = ("name", "layer", "auto_selectable", "bit_rate_kbps", "default_container_type", "default_mapping")
-"""Exactly what `queries/optical_service.gql` selects on `OtnClientSignal`."""
+"""Exactly what `queries/optical_service.gql` selects on `OtnClientSignal`.
+
+Listed rather than "every key in the object file", so a payload built here can
+never carry a field the real query does not return. That is the difference
+between testing the generator and testing the object file.
+"""
 
 MAX_SWEEP_GBPS = 1600
 """`OtnOpticalMode.line_rate_gbps` is bounded at 1600, so no service can ask for
@@ -102,11 +107,7 @@ def test_no_rate_in_the_whole_range_selects_an_infiniband_row() -> None:
 
 
 def test_the_catalog_runs_out_above_412_gbps() -> None:
-    """412,500,000 kbps is the largest row, so 412 is the last rate that selects.
-
-    Hand-computed: 412 Gbps wants 412,000,000 kbps and `400GBASE-FR4` offers
-    412,500,000. 413 Gbps wants 413,000,000 and nothing offers it.
-    """
+    """412,500,000 kbps is the largest row, so 412 is the last rate that selects."""
     assert _select(412)["name"] == "400GBASE-FR4"
     assert _row("400GBASE-FR4")["bit_rate_kbps"] == 412 * KBPS_PER_GBPS + 500_000
     with pytest.raises(ValueError, match="no client signal in the catalog carries 413 Gbps"):
@@ -434,11 +435,7 @@ def _provisioner(refusal_accepted: bool = False) -> Any:
 
 
 def _service(name: str = "svc-x", signal: str = "10GBASE-LR", rate_gbps: int = 10) -> dict[str, Any]:
-    """One service in the shape the query returns it, stating its client signal.
-
-    Stated rather than selected, so the payload needs no `OtnClientSignal`
-    collection and the container type under test is the one named here.
-    """
+    """One service in the shape the query returns it, stating its client signal."""
     return {
         "id": name,
         "name": name,
@@ -759,10 +756,21 @@ MODE_FIELDS = (
 """Exactly what `queries/optical_service.gql` selects on `OtnOpticalMode`."""
 
 CARRIER_MODE_FIELDS = ("name", "baud_mbaud", "required_osnr_mdb", "cd_tolerance_fs_per_nm", "fec_latency_ns")
-"""What the same query selects on a carrier's own mode, which is five of the seven."""
+"""What the same query selects on a carrier's own mode, which is five of the seven.
+
+`baud_mbaud` is the fifth and it is not there for the budget. It is the symbol
+rate the occupied width comes from, and `plant.occupancy_from_graphql` raises
+without it rather than allocating against spectrum it could not measure.
+"""
 
 RIDDEN_MODE = "DP-QPSK 32GBd 100G"
-"""The mode every wavelength in the fixture runs."""
+"""The mode every wavelength in the fixture runs.
+
+The narrowest baud in the catalog, so `eligible_modes` ranks it first for the
+10 Gbps service and the direct route and the two chain segments are all budgeted
+against the same requirement. Its 14 dB is the lowest in the catalog, which is
+what lets a two-section route close on a fixture nobody has to tune.
+"""
 
 
 def _mode_row(name: str) -> dict[str, Any]:
@@ -777,11 +785,7 @@ def _mode_node(fields: tuple[str, ...] = MODE_FIELDS) -> dict[str, Any]:
 
 
 def _identified(record: dict[str, Any]) -> dict[str, Any]:
-    """One plant record with the `id` the query selects and `test_plant` omits.
-
-    `_element_ids` keys every hop on this, so a record without one turns a
-    provisioning run into a `KeyError` from inside `_write_hop`.
-    """
+    """One plant record with the `id` the query selects and `test_plant` omits."""
     return {"id": f"id-{record['name']['value']}", **record}
 
 

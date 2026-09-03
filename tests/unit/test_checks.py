@@ -205,22 +205,14 @@ def test_the_shipped_plant_still_holds_twenty_one_sections() -> None:
 
 
 def test_the_sweep_evaluates_every_section_in_both_directions(swept: Any) -> None:
-    """SC-001's forty-two, asserted rather than described.
-
-    The number was in the specification before anything computed it. This is
-    where it acquires a definition.
-    """
+    """SC-001's forty-two, asserted rather than described."""
     lines = [line for line in _messages(swept, "INFO") if line.startswith("Swept ")]
     assert len(lines) == 1, _messages(swept, "INFO")
     assert f"Swept {SHIPPED_EVALUATIONS} section evaluations over {SHIPPED_SECTIONS} sections" in lines[0]
 
 
 def test_the_sweep_fails_paris_to_madrid_in_both_directions(swept: Any) -> None:
-    """The payoff of the whole feature, and the reason main's check is red.
-
-    Both directions, because a single message would leave open whether the
-    other direction was fine or was never looked at.
-    """
+    """The payoff of the whole feature, and the reason main's check is red."""
     errors = _messages(swept, "ERROR")
     for direction in ("a_to_b", "b_to_a"):
         matching = [line for line in errors if line.startswith(f"{FAILING_SECTION} {direction} is short of OSNR")]
@@ -245,11 +237,7 @@ def test_the_sweep_summary_names_the_worst_direction(swept: Any) -> None:
 
 
 def test_a_branch_with_no_carriers_is_still_swept() -> None:
-    """No early return on an empty carrier list.
-
-    An `if not carriers: return` ahead of the sweep would mean a branch that
-    removed its last carrier reported nothing at all while looking like a pass.
-    """
+    """No early return on an empty carrier list."""
     check = _run(_payload(carriers=False))
     line = next(item for item in _messages(check, "INFO") if item.startswith("Swept "))
     assert f"Swept {SHIPPED_EVALUATIONS} section evaluations" in line
@@ -367,11 +355,7 @@ def _capacity_payload(*containers: dict[str, Any]) -> dict[str, Any]:
 
 
 def _shipped_containers() -> list[dict[str, Any]]:
-    """Every container in `objects/`, which is 71 line containers and no child.
-
-    The base dataset is where the live run on `main` gets its verdict, so the
-    offline suite asserts the same thing the live run reports.
-    """
+    """Every container in `objects/`, which is 71 line containers and no child."""
     return [
         _parent(str(record["name"]), str(record["odu_type"]), int(record["tributary_slot_capacity"]))
         for record in objects_of_kind("OtnContainer")
@@ -406,11 +390,7 @@ def test_an_overfilled_parent_fails_naming_the_container_and_both_figures() -> N
 
 
 def test_a_parent_within_its_capacity_passes() -> None:
-    """Two ODU2e clients in an ODU4 is eighteen slots of eighty, not sixteen.
-
-    Nine each, not eight, so this tree also pins that the check reads the stored
-    occupancy rather than assuming an ODU2's figure for a 10G client.
-    """
+    """Two ODU2e clients in an ODU4 is eighteen slots of eighty, not sixteen."""
     children = (_child("odu-fill-a", "ODU2e", 9), _child("odu-fill-b", "ODU2e", 9))
     check = _run(_capacity_payload(_parent(LINE, "ODU4", FULL_ODU4_SLOTS, *children)), CAPACITY)
 
@@ -497,7 +477,13 @@ AGREEMENT_TREE = (
     ("odu-line-oc-unsized", "STM-N", 0, (("odu-fill-w1", "VC-4", 4),)),
     ("odu-line-oc-uncounted", "ODU4", 80, (("odu-fill-v1", "ODUflex", 0),)),
 )
-"""One branch holding every verdict at once: overfilled, exactly full, roomy, a."""
+"""One branch holding every verdict at once: overfilled, exactly full, roomy, a
+parent whose type has no capacity, and a child whose count was never written.
+
+All five in one tree rather than five trees, because SC-006 is a statement about
+a branch and not about a container. A per-shape comparison would pass while the
+two disagreed about which of the five they were looking at.
+"""
 
 
 def _agreement_payload() -> dict[str, Any]:
@@ -703,11 +689,7 @@ def test_the_query_is_rooted_on_the_group_so_an_undeclared_service_is_never_fetc
 
 
 def test_a_group_of_one_says_nothing_at_all() -> None:
-    """One member declares nothing that can be broken, so there is nothing to say.
-
-    Not even that its route is unknown: an undetermined verdict is a statement
-    about a pair, and a group of one has none.
-    """
+    """One member declares nothing that can be broken, so there is nothing to say."""
     check = _run(_diversity_payload(_group("solo", _member("svc-alone"))), DIVERSITY)
     assert _messages(check, "ERROR") == []
     spoken = " ".join(_messages(check, "INFO"))
@@ -782,11 +764,7 @@ def test_an_unducted_span_is_not_a_shared_conduit() -> None:
 
 
 def test_the_summary_says_what_was_judged_even_when_no_group_exists() -> None:
-    """A green result on a branch with no declaration must not read as diversity.
-
-    It is not that nothing shares a duct. It is that nobody asked for anything
-    else, and the line says where the unconditional answer lives.
-    """
+    """A green result on a branch with no declaration must not read as diversity."""
     check = _run(_diversity_payload(), DIVERSITY)
     assert _messages(check, "ERROR") == []
     summary = _messages(check, "INFO")
@@ -844,7 +822,15 @@ QAM16_64_MBAUD = 64_000
 """79.6 GHz occupied, which is what puts channel 1 outside the band."""
 
 GRID_FILLING_MBAUD = 37_091
-"""The symbol rate whose occupied width is exactly one 50 GHz channel."""
+"""The symbol rate whose occupied width is exactly one 50 GHz channel.
+
+No catalogue mode runs at it. It exists so two carriers on adjacent anchors meet
+at exactly one frequency and share nothing, which the three seeded modes cannot
+produce: on a 50 GHz raster their edges either overlap or leave a gap.
+`test_two_touching_carriers_on_a_shared_section_pass` asserts the width first, so
+a change to the roll-off or the guard band reports that the case stopped touching
+rather than quietly passing for the wrong reason.
+"""
 
 
 def _carrier(name: str, channel: int, baud: int, *sections: str) -> dict[str, Any]:
@@ -1669,11 +1655,7 @@ def _line_port(name: str, device: str, site: str | None) -> dict[str, Any]:
 
 
 def _section(name: str, site_a: str, site_b: str) -> dict[str, Any]:
-    """One section between two ROADMs, each named by its site and nothing else.
-
-    The check reads no ROADM name, so the payload holds none. Building it richer
-    than the query would let the check read a field no server would send it.
-    """
+    """One section between two ROADMs, each named by its site and nothing else."""
     return {
         "name": _attribute(name),
         "roadm_a": _one({"site": _one({"name": _attribute(site_a)})}),
@@ -1766,11 +1748,7 @@ def test_a_third_line_port_bound_to_a_two_ended_wavelength_fails() -> None:
 
 
 def test_an_active_wavelength_with_no_line_port_at_all_fails() -> None:
-    """The degenerate case of the same rule, not a second rule.
-
-    Reachable by deleting both transponders, and it is the case FR-027 words the
-    requirement around. Both ends are named, because both are gone.
-    """
+    """The degenerate case of the same rule, not a second rule."""
     check = _run(_termination_payload(_wavelength(AMS_MIL, 2)), TERMINATION)
     errors = _messages(check, "ERROR")
     assert len(errors) == 1, errors

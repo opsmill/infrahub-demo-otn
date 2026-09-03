@@ -15,11 +15,7 @@ Key = tuple[str, ...]
 
 
 def _key(kind: str, record: Record) -> Key:
-    """A record's human-friendly ID.
-
-    A kind the schema does not declare is keyed on `name` alone, which is what
-    every Infrahub built-in an object file here creates uses.
-    """
+    """A record's human-friendly ID."""
     if kind not in schema():
         return (str(record.get("name", "")),)
     return tuple(str(record.get(part.split("__")[0], "")) for part in schema()[kind].hfid)
@@ -80,11 +76,7 @@ _INHERITS = _build_inherits()
 
 
 def _all_keys(kind: str) -> set[Key]:
-    """Every record of one kind in the shipped dataset, keyed as the loader sees it.
-
-    Read straight out of the files rather than out of `merged(None)`, because the
-    merged view drops kinds the schema does not declare and this test does not.
-    """
+    """Every record of one kind in the shipped dataset, keyed as the loader sees it."""
     if kind in schema():
         return set(merged(None).get(kind, {}))
     return {

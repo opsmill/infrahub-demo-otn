@@ -16,7 +16,23 @@ from tests.unit.scenariopayloads import merged, payload, scenario_files, schema
 CONFIG = get_repository_config(REPO_ROOT / ".infrahub.yml")
 
 GENERATOR_RELATIONSHIPS = ("optical_path", "child_containers")
-"""What only a generator writes."""
+"""What only a generator writes.
+
+A scenario file declares services, wavelengths, containers and hardware. It never
+declares an optical path: that is 25 ordered hops the generator derives from a
+route it chose, and no human writes one into YAML.
+
+`child_containers` is the other one, and it is the softer of the two. A scenario
+file can declare a container under a parent, and `demo/05_odu_mixed_fill.yml` and
+`demo/90_fra_mil_saturated.yml` both do, so `container_capacity` is judged on
+those. `demo/04_odu_ten_in_one.yml` is the case this covers: the ODU4 it declares
+is filled by ten client containers the generator grooms into it, so the file that
+exists to exercise that check declares nothing for it to read.
+
+A check that reads one of these reads a field the merged view leaves empty and
+the pipeline finds full, and that is the whole of the difference this module
+cannot see.
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -39,11 +55,7 @@ class Fails:
 
 @dataclass(frozen=True)
 class NeedsGenerator:
-    """The verdict here belongs to the branch after the generator, not before it.
-
-    Declared rather than skipped. A skip is a cell nobody reads; this is a cell
-    that states what it cannot see and names the field it cannot see it in.
-    """
+    """The verdict here belongs to the branch after the generator, not before it."""
 
     count: int
     reason: str
@@ -239,11 +251,7 @@ def test_the_expectation_table_is_exactly_the_product_of_the_two_directories() -
 
 
 def test_the_sweep_covers_twelve_scenarios_and_nine_checks() -> None:
-    """The two numbers this module's docstring publishes, read back from the tree.
-
-    Named so that a scenario quietly deleted is as visible as one quietly added.
-    A shrinking sweep is the same failure as a missing cell.
-    """
+    """The two numbers this module's docstring publishes, read back from the tree."""
     assert len(SCENARIOS) == 12, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
     assert len(CHECKS) == 9, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
     assert len(CELLS) == 108

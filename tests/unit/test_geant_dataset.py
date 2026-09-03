@@ -87,11 +87,7 @@ def _graph() -> dict[str, list[tuple[str, int, str]]]:
 
 @cache
 def _simple_paths(start: str, end: str, max_hops: int = 6) -> tuple[tuple[int, tuple[str, ...], tuple[str, ...]], ...]:
-    """Every simple path, as (metres, sites, sections), shortest first.
-
-    Enumerated exhaustively rather than shortest-path only. The design claims a
-    *ranking* of three routes, and a ranking cannot be checked by finding one.
-    """
+    """Every simple path, as (metres, sites, sections), shortest first."""
     adjacency = _graph()
     found: list[tuple[int, tuple[str, ...], tuple[str, ...]]] = []
 
@@ -127,11 +123,7 @@ def test_the_committed_files_match_a_fresh_generator_run() -> None:
 
 @cache
 def _generator_module() -> Any:
-    """The dataset generator, loaded from its path.
-
-    `scripts/` is not on the import path and must not be put there: adding it
-    changes import resolution for every module the suite loads afterwards.
-    """
+    """The dataset generator, loaded from its path."""
     spec = importlib.util.spec_from_file_location(GENERATOR.stem, GENERATOR)
     assert spec and spec.loader, f"{GENERATOR} could not be loaded"
     module = importlib.util.module_from_spec(spec)
@@ -163,11 +155,7 @@ def test_no_generated_numeric_value_is_a_float() -> None:
 
 
 def test_object_counts_match_the_manifest() -> None:
-    """The manifest is the one place a per-kind count lives.
-
-    The docs do not read it. They quote it, and `test_doc_claims.py` reads the
-    pages back and fails when a quoted figure and this manifest disagree.
-    """
+    """The manifest is the one place a per-kind count lives."""
     manifest = json.loads(MANIFEST.read_text())
     actual = {kind: len(objects_of_kind(kind)) for kind in manifest}
     assert actual == manifest
@@ -334,20 +322,12 @@ def test_spans_sum_exactly_to_their_section() -> None:
 
 
 def _chains_of(section: dict[str, Any]) -> dict[str, list[str]]:
-    """The section's two amplifier lists.
-
-    Which chain an amplifier is in is which relationship holds it, so this reads
-    the section and nothing on the amplifier. Nothing here parses a name.
-    """
+    """The section's two amplifier lists."""
     return {direction: [str(name) for name in section[f"amplifiers_{direction}"]] for direction in ("a2b", "b2a")}
 
 
 def _port_roles_by_device() -> dict[str, set[str]]:
-    """Every amplifier's ports, keyed by device, as a set of roles.
-
-    The booster and preamp vocabulary lives on `OtnGenericPort.role`, not on the
-    device and not in the name. This is the only place a test can read it from.
-    """
+    """Every amplifier's ports, keyed by device, as a set of roles."""
     roles: dict[str, set[str]] = {}
     for port in objects_of_kind("OtnAmplifierPort"):
         roles.setdefault(str(port["device"]), set()).add(str(port["role"]))
@@ -619,11 +599,7 @@ def test_the_frankfurt_to_milan_pair_is_780_and_990_km() -> None:
 
 
 def test_the_detour_fits_five_milliseconds_which_is_why_the_design_was_corrected() -> None:
-    """A 5 ms latency budget does not make the Geneva detour unprovisionable:
-    4.85 ms is inside 5 ms with 152 µs to spare. Four milliseconds is the budget
-    that actually separates the two routes. This test exists so the figure
-    cannot drift back to 5 ms.
-    """
+    """A 5 ms latency budget does not make the Geneva detour unprovisionable:"""
     detour_ns = propagation_delay_ns(_simple_paths("fra", "mil")[1][0], GROUP_INDEX_G652_MILLI)
     direct_ns = propagation_delay_ns(_simple_paths("fra", "mil")[0][0], GROUP_INDEX_G652_MILLI)
     assert detour_ns < 5_000_000, "a 5 ms budget does not separate the two routes"
@@ -686,11 +662,7 @@ def test_channel_references_are_quoted_strings() -> None:
 
 @cache
 def _seeded_intervals() -> dict[str, tuple[tuple[int, int], ...]]:
-    """Section name -> the half-open interval each carrier on it occupies.
-
-    Rebuilt from `objects/` rather than from the generator's own packer, so this
-    module measures what shipped and not what the packer intended.
-    """
+    """Section name -> the half-open interval each carrier on it occupies."""
     bauds = {str(mode["name"]): int(mode["baud_mbaud"]) for mode in objects_of_kind("OtnOpticalMode")}
     held: dict[str, list[tuple[int, int]]] = {str(section["name"]): [] for section in _sections()}
     for carrier in objects_of_kind("OtnOpticalCarrier"):

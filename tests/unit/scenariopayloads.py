@@ -17,7 +17,12 @@ Record = dict[str, Any]
 Key = tuple[str, ...]
 View = dict[str, dict[Key, Record]]
 Index = dict[tuple[str, str], dict[tuple[str, Key], list[tuple[str, Key]]]]
-"""(identifier, field name) -> (kind, id) -> the peers that field returns."""
+"""(identifier, field name) -> (kind, id) -> the peers that field returns.
+
+Keyed by the field and not only by the identifier, because a self-referential
+relationship has both of its roles on one kind. `_inverse_name` says what that
+costs when it is not done.
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -144,11 +149,7 @@ def shipped() -> View:
 
 @cache
 def merged(file_name: str | None = None) -> View:
-    """The default branch with one scenario file loaded over it.
-
-    `None` is the default branch itself, which is what the sweep compares a
-    scenario against and what the resolver's own agreement test runs on.
-    """
+    """The default branch with one scenario file loaded over it."""
     view: View = {kind: dict(records) for kind, records in shipped().items()}
     if file_name is not None:
         _apply(view, _documents(DEMO_DIR / file_name))
