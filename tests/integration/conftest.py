@@ -36,11 +36,12 @@ still wins:
    a runner agree.
 6. The stack ships sized for a workstation: two API servers of four gunicorn
    workers each and two task workers, which is ten Infrahub processes beside
-   Neo4j, Postgres, RabbitMQ, Redis, HAProxy, cAdvisor and VictoriaMetrics. Four
-   cores cannot run that well, so the gunicorn count per server and the task
-   worker count come down.
+   Neo4j, Postgres, RabbitMQ, Redis, HAProxy, cAdvisor and VictoriaMetrics. It
+   now runs at that size, on the `huge-runners` group and matching
+   infrahub-demo-dc, and the note beside the settings below says why the
+   previous throttle was wrong.
 
-   The API server count deliberately does not. It was cut to one for a while,
+   The API server count deliberately does not move either. It was cut to one for a while,
    to get the server healthy inside the roughly 110 seconds the packaged
    compose file allowed, and it cost more than it bought: one server saturates
    under pipeline load and answers HTTP 429, the SDK backs off ten seconds per
@@ -82,34 +83,18 @@ os.environ.setdefault("INFRAHUB_TESTING_DOCKER_PULL", "false")
 os.environ.setdefault("INFRAHUB_TESTING_TASKMGR_BACKGROUND_SVC_REPLICAS", "1")
 os.environ.setdefault("INFRAHUB_TESTING_TIMEOUT", "300")
 os.environ.setdefault("INFRAHUB_TIMEOUT", "300")
-CORES = os.cpu_count() or 4
-"""What the machine reports, so the two counts below size themselves to it."""
-
-TASK_WORKERS = max(1, min(4, CORES // 4))
-WEB_CONCURRENCY = max(2, min(4, CORES // 4))
-"""One task worker and two gunicorn workers per four cores, capped at four.
-
-Derived rather than fixed, because the two were pinned at 1 and 2 for a
-four-core hosted runner and `.github/workflows/ci.yml` has since moved the job
-to the `huge-runners` group. On four cores this arithmetic still yields exactly
-1 and 2, so the documented `ubuntu-latest` fallback is unchanged; on a larger
-machine it stops throttling the stack to a fraction of what is there.
-
-The task worker count is the one that matters. Every branch create, load and
-delete fires graph-wide recomputation of human friendly ids, display labels and
-computed attributes, and one worker drains that at about 150 subflows a minute.
-Run 33759629884 carried 10,461 of them, which is roughly 70 minutes of the 73
-`tests/integration/test_tasks_stack.py` took. The suite spends most of its
-wall clock waiting for that queue, not for Infrahub to answer.
-
-Capped at four rather than left to scale, because `os.cpu_count` reports the
-host's cores from inside a container and the failure mode of overshooting is
-the one item 6 above describes: no spare capacity, surfacing as timeouts, 429s
-and missed healthchecks rather than as an honest out-of-memory.
-"""
-
-os.environ.setdefault("INFRAHUB_TESTING_TASK_WORKER_COUNT", str(TASK_WORKERS))
-os.environ.setdefault("INFRAHUB_TESTING_WEB_CONCURRENCY", str(WEB_CONCURRENCY))
+# The task worker and gunicorn counts are deliberately not set here.
+#
+# They were pinned at 1 and 2 for a four-core hosted runner, and `ci.yml` has
+# since moved this job to the `huge-runners` group, so the pins throttled
+# Infrahub to a fraction of the machine it runs on. infrahub-demo-dc runs the
+# same stack on the same runner group and sets neither, taking the packaged two
+# task workers and four gunicorn workers per server. That configuration is
+# proven on this hardware, so it is the one to match rather than an arithmetic
+# of our own.
+#
+# Both remain environment variables, so a smaller machine can still throttle
+# the stack without editing this file.
 
 
 @pytest.fixture(scope="session", autouse=True)
