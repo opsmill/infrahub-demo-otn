@@ -3,9 +3,9 @@
 #
 # LocationGeneric, vendored from opsmill/schema-library, base/location.yml at
 # v1.4.11 (tag 18a5b32b84feb7bbe940492c6282b405a5c582e0). The file itself last
-# changed in commit 9256786, 2025-12-29. A hand-copied schema diverges in
-# silence, so `uv run invoke schema-vendor-diff` fetches that ref and diffs it
-# against this file. Not part of `lint`: it needs the network.
+# changed in commit 9256786, 2025-12-29. That provenance is a record of where
+# the generic came from, not a link that is kept live: this file is now mostly
+# local model, and nothing compares it against upstream.
 version: "1.0"
 
 # Vendored rather than imported whole, because a schema file is not atomic.
@@ -75,9 +75,9 @@ nodes:
     # this file or not at all.
     #
     # It is a core generic, not a vendored one, so it adds no fourth divergence
-    # to the three listed above: those are all against `LocationGeneric`, and
-    # `OtnSite` is a wholly local node that `invoke schema-vendor-diff` never
-    # compares against upstream. Two flat generics, neither inheriting the other.
+    # to the three listed at the top: those are all against `LocationGeneric`,
+    # and `OtnSite` is a wholly local node. Two flat generics, neither
+    # inheriting the other.
     inherit_from:
       - LocationGeneric
       - CoreArtifactTarget

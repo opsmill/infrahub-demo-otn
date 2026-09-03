@@ -43,12 +43,6 @@ Overridable, with the three port variables `docker-compose.override.yml` reads,
 so a test stack cannot collide with a developer's. `destroy` runs `down -v`.
 """
 
-VENDOR_SOURCE = "opsmill/schema-library base/location.yml"
-VENDOR_REF = "v1.4.11"
-VENDOR_URL = f"https://raw.githubusercontent.com/opsmill/schema-library/{VENDOR_REF}/base/location.yml"
-"""The upstream `schemas/location.yml` was copied from, and the ref it names in
-its own header. Both move together or the header is a lie."""
-
 COMPOSE = (
     f"curl -sL https://infrahub.opsmill.io/{BASE_VERSION} | "
     f"docker compose -f - -f docker-compose.override.yml -p {PROJECT}"
@@ -531,7 +525,7 @@ TASK_GROUPS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     (
         "Quality gates",
         (),
-        ("format", "lint", "schema-check", "schema-vendor-diff", "test-unit", "test", "test-integration", "docs"),
+        ("format", "lint", "schema-check", "test-unit", "test", "test-integration", "docs"),
     ),
     ("Developer tools", (), ("list", "branch-create", "branch-list", "branch-delete", "check")),
 )
@@ -1241,43 +1235,6 @@ def lint(context: Context) -> None:
 def schema_check(context: Context) -> None:
     """Check schema formatting. Offline, no Infrahub needed."""
     context.run("uv run infrahubctl schema format --check schemas/", pty=True)
-
-
-@task
-def schema_vendor_diff(context: Context) -> None:  # noqa: ARG001
-    """Diff the vendored location schema against the upstream ref it names.
-
-    `schemas/location.yml` holds LocationGeneric copied from
-    opsmill/schema-library. A hand-copied schema cannot be diffed against
-    upstream, so it diverges silently, and this is what makes the divergence
-    visible. Three differences are deliberate and listed in the file header.
-
-    Not part of `lint`: it needs the network, and a gate that needs the network
-    is a gate that fails on a plane.
-    """
-    _banner("Vendor diff", f"[dim]{VENDOR_SOURCE} at {VENDOR_REF}[/dim]")
-    try:
-        response = httpx.get(VENDOR_URL, timeout=20.0, follow_redirects=True)
-        response.raise_for_status()
-    except httpx.HTTPError as error:
-        _fail(f"Could not reach {VENDOR_URL}: {error}. This task needs the network.")
-        return
-
-    upstream = (REPO_ROOT / ".vendor-location-upstream.yml").with_suffix(".yml")
-    upstream.write_text(response.text)
-    try:
-        result = context.run(f"diff -u {upstream} schemas/location.yml", pty=True, warn=True)
-    finally:
-        upstream.unlink(missing_ok=True)
-
-    if result.exited == 0:
-        console.print("[green]ok[/green] the vendored file is identical to upstream")
-    else:
-        console.print(
-            "\n[yellow]-[/yellow] differences above. Three are deliberate and named in the header of "
-            "schemas/location.yml: LocationHosting is not taken, include_in_menu is false, and "
-            "display_labels is replaced by display_label. Anything else is drift."
-        )
 
 
 @task
