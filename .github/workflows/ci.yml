@@ -118,7 +118,9 @@ jobs:
       # .vale/styles/spelling-exceptions.txt so this does not become a game of
       # adding one word per failed run.
       #
-      # The path list matches VALE_PATHS in tasks.py. Keep the two in step.
+      # The path list mirrors VALE_PATHS in tasks.py, and
+      # test_the_ci_vale_job_reads_the_same_paths_invoke_lints reads this line
+      # and fails when the two disagree.
       - uses: errata-ai/vale-action@reviewdog
         with:
           files: '["README.md", "docs/docs", "src", "tests", "scripts", "tasks.py", "checks", "generators", "transforms", "queries", "schemas", "objects", "menus", "demo"]'

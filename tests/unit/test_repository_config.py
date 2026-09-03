@@ -13,6 +13,7 @@ registered and not defined, and a query name the Python class does not bind.
 
 import ast
 import importlib.util
+import json
 import re
 import subprocess
 import sys
@@ -607,6 +608,21 @@ def test_no_source_file_carries_a_direction_token_in_a_device_name() -> None:
     assert not offenders, "device names carrying a direction token:\n" + "\n".join(offenders)
 
 
+def _tasks_tuple(name: str) -> tuple[str, ...]:
+    """A module-level tuple of strings in `tasks.py`, read by AST.
+
+    `tasks.py` is read rather than imported. Importing it pulls in invoke, rich
+    and a docker probe to answer a question about one tuple of strings.
+    """
+    module = ast.parse((REPO_ROOT / "tasks.py").read_text())
+    for node in module.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == name for target in node.targets
+        ):
+            return tuple(str(element.value) for element in node.value.elts)  # type: ignore[attr-defined]
+    raise AssertionError(f"tasks.py no longer declares a {name} tuple")
+
+
 def test_the_invoke_check_list_names_every_registered_check() -> None:
     """`tasks.py::CHECKS` is a hand-kept mirror of `check_definitions`, and it
     drifted twice.
@@ -616,19 +632,35 @@ def test_the_invoke_check_list_names_every_registered_check() -> None:
     `invoke check --name diversity` refused a check that exists. Nothing failed:
     a shorter list is a quieter demo, not an error. This is the assertion that
     would have said so.
-
-    `tasks.py` is read rather than imported. Importing it pulls in invoke, rich
-    and a docker probe to answer a question about one tuple of strings.
     """
-    module = ast.parse((REPO_ROOT / "tasks.py").read_text())
-    listed: tuple[str, ...] = ()
-    for node in module.body:
-        if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == "CHECKS" for target in node.targets
-        ):
-            listed = tuple(str(element.value) for element in node.value.elts)  # type: ignore[attr-defined]
-    assert listed, "tasks.py no longer declares a CHECKS tuple"
-    assert set(listed) == {entry.name for entry in CONFIG.check_definitions}
+    assert set(_tasks_tuple("CHECKS")) == {entry.name for entry in CONFIG.check_definitions}
+
+
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+
+VALE_ACTION_FILES = re.compile(
+    r"uses: errata-ai/vale-action.*?^\s+files:\s*'(?P<files>\[.*?\])'",
+    re.DOTALL | re.MULTILINE,
+)
+"""The JSON list the CI vale job lints, wherever it sits inside that step."""
+
+
+def test_the_ci_vale_job_reads_the_same_paths_invoke_lints() -> None:
+    """`tasks.py::VALE_PATHS` is the second hand-kept mirror, and this is the
+    first thing enforcing it.
+
+    A comment in `ci.yml` asks a human to keep the two lists in step, which is
+    the shape `CHECKS` had before it fell two names behind. Drift is silent: the
+    CI job and the vale pass in `invoke lint` would read different trees, and a
+    path would stop being linted without anything going red.
+    """
+    match = VALE_ACTION_FILES.search(CI_WORKFLOW.read_text())
+    assert match, "ci.yml no longer runs errata-ai/vale-action with a files: list"
+    in_ci = set(json.loads(match.group("files")))
+    in_tasks = set(_tasks_tuple("VALE_PATHS"))
+    assert in_ci == in_tasks, (
+        f"only in ci.yml: {sorted(in_ci - in_tasks)}; only in tasks.py VALE_PATHS: {sorted(in_tasks - in_ci)}"
+    )
 
 
 def test_no_graphql_document_in_the_integration_suite_is_degenerate() -> None:
