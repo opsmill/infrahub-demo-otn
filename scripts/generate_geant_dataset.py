@@ -10,7 +10,7 @@ regenerates and diffs, so a hand edit under `objects/` fails on the next run.
 
 Run with no arguments to write. Run with `--check` to regenerate into a
 temporary directory and diff against what is committed, exiting non-zero on any
-difference.
+difference. Run with `--output DIR` to write somewhere other than `objects/`.
 
 Ten rules bind the output, each one a load failure or a lint failure rather than
 a style preference, and all ten are enforced by the test module. The ones worth
@@ -2487,17 +2487,35 @@ GENERATED_NAMES = [
 ]
 
 
+def manifest_for(output: Path) -> Path:
+    """Where the manifest goes for one output directory.
+
+    The committed manifest lives beside this script rather than in `objects/`,
+    so only a redirected run puts it next to the files it counts.
+    """
+    return MANIFEST if output == OBJECT_DIR else output / MANIFEST.name
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--check", action="store_true", help="regenerate into a temporary directory and diff, writing nothing"
+    )
+    mode.add_argument(
+        "--output",
+        type=Path,
+        default=OBJECT_DIR,
+        metavar="DIR",
+        help="directory to write into, with the manifest beside it (default: objects/)",
     )
     arguments = parser.parse_args(argv)
 
     if not arguments.check:
-        counts = generate(OBJECT_DIR)
-        MANIFEST.write_text(json.dumps(counts, indent=2, sort_keys=True) + "\n")
-        print(f"wrote {len(GENERATED_NAMES)} files and {MANIFEST.name}: {sum(counts.values())} objects")
+        counts = generate(arguments.output)
+        manifest = manifest_for(arguments.output)
+        manifest.write_text(json.dumps(counts, indent=2, sort_keys=True) + "\n")
+        print(f"wrote {len(GENERATED_NAMES)} files and {manifest.name}: {sum(counts.values())} objects")
         return 0
 
     with tempfile.TemporaryDirectory() as directory:

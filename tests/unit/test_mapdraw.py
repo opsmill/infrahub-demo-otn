@@ -539,14 +539,15 @@ def golden_path(case: str) -> Path:
     return FIXTURE_DIR / f"{case}.svg"
 
 
-def regenerate(case: str) -> None:
-    """Overwrite one fixture from a fresh render.
+def regenerate(case: str, destination: Path | None = None) -> Path:
+    """Write one fresh render, over the committed fixture unless told otherwise.
 
-    Never called by a test. It exists so the failure message below can name a
-    command that works, and calling it is a decision that belongs in its own
-    commit.
+    Never called by a test. A caller that only wants to look at the render
+    passes a destination and leaves the committed tree alone.
     """
-    golden_path(case).write_text(GOLDEN_CASES[case]())
+    path = destination or golden_path(case)
+    path.write_text(GOLDEN_CASES[case]())
+    return path
 
 
 def regeneration_command(case: str) -> str:

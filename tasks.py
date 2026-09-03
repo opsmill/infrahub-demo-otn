@@ -34,7 +34,12 @@ DOCS_DIRECTORY = REPO_ROOT / "docs"
 
 BASE_VERSION = os.getenv("INFRAHUB_BASE_VERSION", "1.11.0")
 IMAGE = f"opsmill/infrahub-demo-otn:{BASE_VERSION}"
-PROJECT = "infrahub-demo-otn"
+PROJECT = os.getenv("INFRAHUB_DEMO_PROJECT", "infrahub-demo-otn")
+"""The Compose project the lifecycle tasks build their commands from.
+
+Overridable, with the three port variables `docker-compose.override.yml` reads,
+so a test stack cannot collide with a developer's. `destroy` runs `down -v`.
+"""
 
 VENDOR_SOURCE = "opsmill/schema-library base/location.yml"
 VENDOR_REF = "v1.4.11"
@@ -63,8 +68,12 @@ is a path the server cannot reach. This repository has no git remote and has
 never been pushed, so a URL is not an alternative here.
 """
 
-REPOSITORY_NAME = PROJECT
-"""The name of the `CoreRepository` object. One per stack."""
+REPOSITORY_NAME = "infrahub-demo-otn"
+"""The name of the `CoreRepository` object. One per stack.
+
+Spelled out rather than read from `PROJECT`, which is now overridable: moving a
+stack to its own Compose project must not rename an object inside the graph.
+"""
 
 # Every entry under `check_definitions` in .infrahub.yml. Listed rather than
 # globbed over checks/: the registration is what makes a file a check, and an
@@ -150,8 +159,12 @@ def _load_env() -> dict[str, str]:
 
 
 def _env() -> dict[str, str]:
-    """The process environment with `.env` layered on top."""
-    return {**os.environ, **_load_env()}
+    """`.env` with the process environment on top, so an exported variable wins.
+
+    `.env` is a default and the environment is an instruction, which is the same
+    precedence `tests/integration/conftest.py` applies through `setdefault`.
+    """
+    return {**_load_env(), **os.environ}
 
 
 def _address() -> str:
@@ -176,10 +189,18 @@ def _run(context: Context, command: str, *, warn: bool = False) -> Any:
     The token goes through `env=`, never into the command string: an argument
     is visible in `ps` to every user on the machine and copied into shell
     history along with the command.
+
+    A missing `.env` is fatal only when the environment carries no address and
+    token either. `.env` is gitignored, so a CI runner has none.
     """
-    if not ENV_FILE.exists():
-        _fail(f"No {ENV_FILE} file. Copy .env.example to .env before running this.")
-    return context.run(command, pty=True, env=_env(), warn=warn)
+    environment = _env()
+    has_credentials = bool(environment.get("INFRAHUB_ADDRESS")) and bool(environment.get("INFRAHUB_API_TOKEN"))
+    if not ENV_FILE.exists() and not has_credentials:
+        _fail(
+            f"No {ENV_FILE} file and no INFRAHUB_ADDRESS and INFRAHUB_API_TOKEN in the "
+            "environment. Copy .env.example to .env before running this."
+        )
+    return context.run(command, pty=True, env=environment, warn=warn)
 
 
 def _ctl(context: Context, arguments: str, *, warn: bool = False) -> Any:
