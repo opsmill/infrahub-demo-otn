@@ -32,25 +32,33 @@ from __future__ import annotations
 
 from typing import Any
 
-import psutil
+try:
+    import psutil
+except ImportError:
+    # Nothing to guard, so say nothing. psutil is not declared in pyproject.toml;
+    # it arrives transitively with infrahub-testcontainers, which is also where
+    # the plugin patched below comes from. If psutil is gone then so is the
+    # plugin, and there is no failure left to prevent. An unguarded import would
+    # turn a dependency edge this repository does not own into a collection error
+    # for the whole suite, which is the same class of failure this file exists to
+    # remove.
+    pass
+else:
+    _original_cpu_freq = psutil.cpu_freq
 
-_original_cpu_freq = psutil.cpu_freq
+    def _cpu_freq_or_none(*args: Any, **kwargs: Any) -> Any:
+        """Report the CPU frequency, or `None` where the platform cannot.
 
+        Args:
+            *args: Passed through to `psutil.cpu_freq`.
+            **kwargs: Passed through to `psutil.cpu_freq`.
 
-def _cpu_freq_or_none(*args: Any, **kwargs: Any) -> Any:
-    """Report the CPU frequency, or `None` where the platform cannot.
+        Returns:
+            Whatever `psutil.cpu_freq` returns, or `None` when it raises.
+        """
+        try:
+            return _original_cpu_freq(*args, **kwargs)
+        except Exception:
+            return None
 
-    Args:
-        *args: Passed through to `psutil.cpu_freq`.
-        **kwargs: Passed through to `psutil.cpu_freq`.
-
-    Returns:
-        Whatever `psutil.cpu_freq` returns, or `None` when it raises.
-    """
-    try:
-        return _original_cpu_freq(*args, **kwargs)
-    except Exception:
-        return None
-
-
-psutil.cpu_freq = _cpu_freq_or_none
+    psutil.cpu_freq = _cpu_freq_or_none
