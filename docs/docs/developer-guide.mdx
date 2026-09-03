@@ -105,7 +105,7 @@ in `objects/` manually. Things that exist to make a demo step happen go in
 
 None of these imports `infrahub_sdk`. That is the rule that keeps the whole
 decision layer testable with no server running, and it is why
-`uv run invoke test-unit` finishes in a couple of seconds.
+`uv run invoke test-unit` finishes in seconds rather than minutes.
 
 The checks, transforms and generators are the layer that imports the SDK. They
 unwrap a payload, call into the modules above, and write or format the answer.
@@ -132,13 +132,14 @@ green pipeline as the evidence that it did.
 from Natural Earth 1:50m, which is public domain. The script clips them to the
 window the map draws and simplifies them into Python literals:
 
-```bash
+```text
 node scripts/extract_basemap.mjs countries-50m.json src/infrahub_demo_otn/basemap.py
 ```
 
-The input is the `world-atlas` release named at the top of the script. Run the
-extraction manually when the window or the source release changes, and commit
-the result. It never runs in CI, and the renderer reaches the network at no
+The input is the `world-atlas` release named at the top of the script. This is
+the one step with no invoke task behind it: it needs Node and a file you
+downloaded, and it is run by hand when the window or the source release changes.
+Commit the result. It never runs in CI, and the renderer reaches the network at no
 point: the data is already in the image by the time a map is drawn.
 
 The clip has to contain the frame the map draws, which is wider than the box the
@@ -219,13 +220,14 @@ So a failure here has exactly two readings, and you have to decide which:
    from the fixtures rather than from a stack, one case at a time:
 
    ```bash
-   uv run python -c "from tests.unit.test_mapdraw import regenerate; regenerate('network_map_golden')"
-   uv run python -c "from tests.unit.test_odudraw import regenerate; regenerate('odu_map_golden')"
+   uv run invoke maps-regenerate --case network_map_golden
+   uv run invoke maps-regenerate --case odu_map_golden
    ```
 
-   The case name is the fixture's file name without its suffix. The failure
-   message prints the exact command for the case that failed, so nobody has to
-   assemble it by hand.
+   The case name is the fixture's file name without its suffix, and
+   `maps-regenerate` with no `--case` re-renders all eight. The failure message
+   prints the exact command for the case that failed, so nobody has to assemble
+   it by hand.
 
 Neither kind of file is the other's substitute. The illustrations are real
 artifacts off real data and they move whenever the dataset does. The golden
@@ -354,7 +356,7 @@ rehearsal of the pipeline and should not be quoted as one.
 
 ```bash
 uv run invoke lint          # ruff format, ruff check, mypy, yamllint, rumdl, vale
-uv run invoke test-unit     # 855 tests, no Docker
+uv run invoke test-unit     # no Docker, about ten seconds
 uv run invoke schema-check  # schema formatting, offline
 uv run invoke docs          # the documentation site
 ```
@@ -438,8 +440,8 @@ no client signal, correctly, until `objects/04_client_signals.yml` is loaded on
 top and restores the nine true values.
 
 ```bash
-uv run infrahubctl schema load schemas/ --branch <name>
-uv run infrahubctl object load objects/04_client_signals.yml --branch <name>
+uv run invoke load-schema --branch <name>
+uv run invoke load-objects --branch <name> --file objects/04_client_signals.yml
 ```
 
 A schema load alone is no longer enough on any branch holding client signals.

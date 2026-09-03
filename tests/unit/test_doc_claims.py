@@ -121,13 +121,13 @@ def test_the_object_total_every_page_publishes_is_the_total_that_loads() -> None
 
 
 def test_the_optical_element_count_the_install_page_publishes_is_the_manifest() -> None:
-    """`installation-setup.mdx` prints a GraphQL query and the count it returns.
+    """`installation-setup.mdx` publishes the count `invoke inventory` reports.
 
     The count is every kind inheriting `OtnOpticalElement`, and the ODU switches
     inherit it too. The page said 532 and omitted them; the server answers 535.
     """
     expected = sum(MANIFEST[kind] for kind in OPTICAL_ELEMENT_KINDS)
-    published = int(figure("installation-setup.mdx", r"inherit the same generic\. Returns (\d+)\."))
+    published = int(figure("installation-setup.mdx", r"It counts (\d+) optical elements"))
     assert published == expected, f"the page says {published}, the manifest gives {expected}"
 
 

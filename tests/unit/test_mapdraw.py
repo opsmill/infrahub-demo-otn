@@ -556,7 +556,7 @@ def regeneration_command(case: str) -> str:
     A reader who hits a red golden should not have to open the developer guide to
     find out what the deliberate path is.
     """
-    return f"uv run python -c \"from tests.unit.test_mapdraw import regenerate; regenerate('{case}')\""
+    return f"uv run invoke maps-regenerate --case {case}"
 
 
 @pytest.mark.parametrize("case", sorted(GOLDEN_CASES))
