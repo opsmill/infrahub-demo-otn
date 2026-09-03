@@ -1,0 +1,51 @@
+tests/unit/test_pins.py
+  s_e4801fa481c254::t_ecf7427cfd93a3 175,180-185,188-194
+pyproject.toml
+  s_e4801fa481c254::t_07f9c8a8bfd14c 42,47-60
+  s_e4801fa481c254::t_ee71e61ffb2a6e 10-13
+  s_c21c8d82a3a346::t_197b2151c56650 15,22
+tests/integration/test_infrahub.py
+  s_e4801fa481c254::t_74d05351de12dc 594-605
+tasks.py
+  s_e4801fa481c254::t_0066b2740a3917 911-912,923-930,932-933,936-937
+  s_e4801fa481c254::t_008d16ee8ab97a 940-946,948
+  s_e4801fa481c254::t_44cec9e5722108 1024-1035,1043
+.github/workflows/ci.yml
+  s_e4801fa481c254::t_e28ec98a59b659 145,147-153
+  s_e4801fa481c254::t_4c2804480e5544 10-23
+  s_e4801fa481c254::t_5318535f0d2955 223,274-277
+  s_e4801fa481c254::t_18cbd76a72127f 323-367
+  s_e4801fa481c254::t_735e0354a28ec9 47-48,56-81
+  s_e4801fa481c254::t_ad6b104f3f9cfb 101-103,105,107,109,123,136
+docs/docs/developer-guide.mdx
+  s_e4801fa481c254::t_296bd3660e69b2 376-378,381-386
+  s_e4801fa481c254::t_b46c016736c82e 387
+.github/workflows/update-infrahub.yml
+  s_e4801fa481c254::t_021e46ec7627b6 5-8,12-13,16-19,21-24,27,32-37,40,50-53,58-63,66-67,69-72,75-99,101-114,118-147,149-150,155-156,184-186,189,192,198-201,207-221,226-242,244,247-250,252,256,260-262,264-266,269-286
+uv.lock
+  s_e4801fa481c254::t_b4e2b5d60407cf 604,611
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "59b3f2ee7474922b872f8b86a60d99bff353c779",
+  "prompts": {},
+  "sessions": {
+    "s_c21c8d82a3a346": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aparity-demo-dc-3d4236a0ae8d8991",
+        "model": "unknown"
+      },
+      "human_author": "Benoit Kohler <Kohler.benoit@bearchitek.com>"
+    },
+    "s_e4801fa481c254": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4f95acc3-db59-435f-8e7a-dac36ba5814f",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Benoit Kohler <Kohler.benoit@bearchitek.com>"
+    }
+  }
+}
