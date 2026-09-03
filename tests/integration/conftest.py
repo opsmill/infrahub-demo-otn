@@ -96,6 +96,18 @@ os.environ.setdefault("INFRAHUB_TIMEOUT", "300")
 # Both remain environment variables, so a smaller machine can still throttle
 # the stack without editing this file.
 
+# Eight task workers was measured and is worse. Run 33794568553 took 50m53s
+# against 54m29s, a 6.5% gain for four times the workers, and it failed:
+# `demo-clean` timed out reading `graphql/main` after deleting four of its six
+# branches. The contention is in the numbers, 2179 rate-limited responses and
+# 3399 502s against 17 and 30 on the two-worker run.
+#
+# The bottleneck moves rather than clearing. Task workers driving graph-wide
+# recomputation harder starve the two API servers they call back into, so past
+# two workers the suite buys minutes and loses the reliability it just gained.
+# Raising gunicorn alongside might scale further; a 6.5% return on a doubling
+# says the curve is flat enough not to spend another hour finding out.
+
 
 @pytest.fixture(scope="session", autouse=True)
 def require_testing_image() -> None:
