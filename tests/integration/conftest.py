@@ -60,7 +60,6 @@ still wins:
 from __future__ import annotations
 
 import os
-import re
 import shlex
 import subprocess  # noqa: S404
 from collections.abc import Iterator
@@ -123,23 +122,19 @@ def run_task(
 
 
 def task_output(result: subprocess.CompletedProcess[str], command: str) -> str:
-    """Everything the task printed, flattened, after failing on a non-zero exit.
+    """Everything the task printed, verbatim, after failing on a non-zero exit.
 
-    `infrahubctl` logs through a rich handler that writes the source location in
-    its own column, so a verdict arrives as
-    `monitor_completeness::MonitorCompletenessCheck: check.py:112 FAILED`. The
-    location lands inside the sentence, not beside it, and `COLUMNS` does not
-    move it. Dropping those tokens and collapsing the whitespace they leave is
-    what lets a postcondition assert what a reader sees.
+    Verbatim on purpose. This used to normalise the text here, and it cost two
+    tests: flattening the whitespace left one long line, and `json_payload` in
+    `test_tasks_stack.py` finds a transform's document by looking for the line
+    that is exactly `{`. Normalising belongs in the reader that wants it, so
+    `plain` strips and flattens for a substring assertion and `json_payload`
+    keeps the line structure it parses.
     """
     assert result.returncode == 0, (
         f"`uv run invoke {command}` exited {result.returncode}:\n{result.stdout}\n{result.stderr}"
     )
-    return _FLATTEN_SPACE.sub(" ", _SOURCE_LOCATION.sub("", result.stdout + result.stderr))
-
-
-_SOURCE_LOCATION = re.compile(r"\S+\.py:\d+")
-_FLATTEN_SPACE = re.compile(r"\s+")
+    return result.stdout + result.stderr
 
 
 def _assert_a_task_reports(address: str) -> None:

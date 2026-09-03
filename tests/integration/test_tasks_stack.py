@@ -63,14 +63,26 @@ ANSI = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;]*[a-zA-Z]")
 pytestmark = pytest.mark.integration
 
 
+SOURCE_LOCATION = re.compile(r"\S+\.py:\d+")
+"""The column `rich` writes the caller's file and line into.
+
+It lands inside the sentence rather than beside it, so a verdict arrives as
+`monitor_completeness::MonitorCompletenessCheck: check.py:112 FAILED` and
+`COLUMNS` does not move it. No postcondition in this module expects such a
+token, so dropping it is safe here and only here: it would corrupt a JSON
+string value, which is why `json_payload` below does not do it.
+"""
+
+
 def plain(output: str) -> str:
-    """One line of terminal output with the colour and the wrapping taken out.
+    """One line of terminal output with the colour, the wrapping and rich's
+    source-location column taken out.
 
     `infrahubctl` writes through `rich`, which wraps a check verdict across
     lines and hyperlinks the file it came from, so a substring assertion has to
     read the text rather than the bytes.
     """
-    return " ".join(ANSI.sub("", output).split())
+    return " ".join(SOURCE_LOCATION.sub("", ANSI.sub("", output)).split())
 
 
 def json_payload(output: str) -> Any:
