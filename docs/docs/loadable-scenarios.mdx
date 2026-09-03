@@ -265,6 +265,20 @@ The message names what stops working and not only what is absent. A reader who
 meets "no monitor" has to work out whether that matters; a reader who meets this
 one already knows that the gain drift report is now quietly one stage short.
 
+The drift report is a task of its own, and this branch is the interesting place
+to run it:
+
+```bash
+uv run invoke demo-drift --branch monitor-gap
+```
+
+It compares the gain each amplifier and Raman pump is configured for against the
+gain its monitor last reported, and lists the stages outside tolerance. The
+dataset seeds a droop, so the report always has something to say. What it cannot
+say anything about is `amp-ham-ber-11`: a stage with no monitor is a row the
+report never prints, which is why the check above has to be the thing that
+catches it.
+
 The same run says what it counted:
 
 ```text

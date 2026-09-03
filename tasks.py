@@ -598,7 +598,7 @@ def info(context: Context, branch: str = "main") -> None:  # noqa: ARG001
         "[cyan]Stack[/cyan]          " + ("[green]answering[/green]" if reachable else "[red]not answering[/red]"),
     ]
 
-    if reachable:
+    if summary is not None:
         kinds = len(summary.get("nodes", {}))
         sites = _count("OtnSite", branch)
         carriers = _count("OtnOpticalCarrier", branch)
