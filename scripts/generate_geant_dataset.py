@@ -2198,6 +2198,41 @@ def build_odu_switches(carriers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(records, key=lambda record: str(record["name"]))
 
 
+def build_odu_switch_ports() -> list[dict[str, Any]]:
+    """Two line ports on every regenerator, and none on a cross-connect.
+
+    A regenerator receives a wavelength and transmits a new one, so it has
+    line-side optics; a cross-connect grooms behind a transponder and would put
+    a third terminator on the 37 wavelengths `oxc-mil-01` is patched to. Keyed
+    on `switching_mode` so a new device follows the rule rather than a list.
+
+    Emitted in `19_geant_odu_switches.yml` with the devices, not in
+    `14_geant_ports.yml`: `object load` resolves a human-friendly ID at insert
+    time, so a port cannot name a device five files before it exists.
+
+    Both shipped ports are dark. All 25 of `oeo-fra-01`'s wavelengths already
+    terminate at both ends, so binding either would over-terminate them. A dark
+    port omits `center_frequency_mhz` and `connected_to` rather than writing
+    nulls, as the 38 dark transponder ports do.
+    """
+    records: list[dict[str, Any]] = []
+    for name, _, mode, _ in ODU_SWITCHES:
+        if mode != "regenerator":
+            continue
+        for line in (1, 2):
+            records.append(
+                _port(
+                    f"L{line}",
+                    name,
+                    "line",
+                    tx_power_mdbm=1000,
+                    rx_sensitivity_mdbm=-18000,
+                    connector_type="LC",
+                )
+            )
+    return records
+
+
 def generate(target: Path) -> dict[str, int]:
     """Write every generated file into `target` and return the per-kind counts."""
     target.mkdir(parents=True, exist_ok=True)
@@ -2400,15 +2435,21 @@ def generate(target: Path) -> dict[str, int]:
     counts["OtnContainer"] = len(line_containers)
 
     odu_switches = build_odu_switches(carriers)
+    switch_ports = build_odu_switch_ports()
     _write(
         target / "19_geant_odu_switches.yml",
         [
             "Three O-E-O devices, last in the load order: each names the wavelengths",
-            "it terminates, and a carrier has to exist before a device references it.",
+            "it is patched to, and a carrier has to exist before a device",
+            "references it.",
             "",
             "Which three sites, and why those, is on the kind below.",
+            "",
+            "The regenerator's two line ports are here rather than in",
+            "14_geant_ports.yml for the same load-order reason: a port cannot name",
+            "a device five files before the device exists.",
         ],
-        [_document("OtnOduSwitch", odu_switches)],
+        [_document("OtnOduSwitch", odu_switches), _document("OtnLinePort", switch_ports)],
         {
             "OtnOduSwitch": [
                 "Two cross-connects at the two hub sites, Frankfurt and Milan, which are",
@@ -2427,6 +2468,7 @@ def generate(target: Path) -> dict[str, int]:
         },
     )
     counts["OtnOduSwitch"] = len(odu_switches)
+    counts["OtnLinePort"] += len(switch_ports)
 
     return dict(sorted(counts.items()))
 

@@ -457,6 +457,7 @@ def test_the_pipeline_runs_nine_checks() -> None:
     """
     names = sorted(entry.name for entry in CONFIG.check_definitions)
     assert names == [
+        "carrier_termination",
         "channel_collision",
         "channel_count_consistency",
         "container_capacity",
@@ -628,3 +629,32 @@ def test_the_invoke_check_list_names_every_registered_check() -> None:
             listed = tuple(str(element.value) for element in node.value.elts)  # type: ignore[attr-defined]
     assert listed, "tasks.py no longer declares a CHECKS tuple"
     assert set(listed) == {entry.name for entry in CONFIG.check_definitions}
+
+
+def test_no_graphql_document_in_the_integration_suite_is_degenerate() -> None:
+    """Every inline GraphQL document must be a real query, not a stub.
+
+    A docstring-shortening pass once collapsed four multi-line documents in
+    `tests/integration/test_infrahub.py` to `{.`, which is not valid GraphQL.
+    The unit suite stayed green because it never reads them, and CI failed four
+    times against what looked like a flaky server before the cause was found.
+    """
+    source = (REPO_ROOT / "tests" / "integration" / "test_infrahub.py").read_text()
+
+    documents: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Attribute) or node.func.attr != "query":
+            continue
+        for argument in node.args:
+            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                documents.append(argument.value)
+
+    assert documents, "no inline GraphQL documents found, so this guard asserts nothing"
+
+    for document in documents:
+        text = document.strip()
+        assert len(text) > 10, f"degenerate GraphQL document: {text!r}"
+        assert text.startswith(("{", "query")), f"not a GraphQL document: {text[:40]!r}"
+        assert text.count("{") == text.count("}"), f"unbalanced braces in: {text[:60]!r}"

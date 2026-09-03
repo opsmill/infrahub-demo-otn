@@ -337,3 +337,171 @@ spec:
       refusal_accepted: true
       member_of_groups:
         - optical_services
+---
+# The shelves that terminate the three fill wavelengths. Frankfurt to Milan has
+# one free line port at each end and three new wavelengths need three, so one
+# shelf goes in at each site.
+#
+# Readings copied from `xpdr-fra-13` and `xpdr-mil-19` on the same corridor.
+#
+# `demo/04_odu_ten_in_one.yml` names the same two shelves. The two files are
+# alternatives and are never loaded onto one branch.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnTransponder
+  data:
+    - name: xpdr-fra-14
+      role: edge
+      site: fra
+      insertion_loss_mdb: 0
+      vendor: Generic
+      model: T-400G
+    - name: xpdr-mil-20
+      role: edge
+      site: mil
+      insertion_loss_mdb: 0
+      vendor: Generic
+      model: T-400G
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnRoadmAddDropPort
+  data:
+    - name: AD-27
+      device: roadm-fra-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-28
+      device: roadm-fra-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-39
+      device: roadm-mil-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-40
+      device: roadm-mil-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnReceiverMonitor
+  data:
+    - name: MON
+      device: xpdr-fra-14
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      rx_power_mdbm: -8000
+      measured_osnr_mdb: 24786
+      pre_fec_ber_ppb: 11855
+      q_factor_mdb: 16486
+      cd_fs_per_nm: 26860000
+      dgd_fs: 3900
+    - name: MON
+      device: xpdr-mil-20
+      role: monitor
+      oper_state: up
+      measured_at: '2026-08-26T06:00:00Z'
+      rx_power_mdbm: -8000
+      measured_osnr_mdb: 28025
+      pre_fec_ber_ppb: 1843750
+      q_factor_mdb: 9225
+      cd_fs_per_nm: 13260000
+      dgd_fs: 2700
+---
+# Six line ports, two per fill wavelength. Two are shipped ports restated with
+# the wavelength they now hold and four are on the shelves above.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnLinePort
+  data:
+    - name: L2
+      device: xpdr-fra-13
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-fra-01
+        - AD-26
+      center_frequency_mhz: 196000000
+      carrier: oc-ch094-fra-mil
+    - name: L2
+      device: xpdr-mil-19
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mil-01
+        - AD-38
+      center_frequency_mhz: 196000000
+      carrier: oc-ch094-fra-mil
+    - name: L1
+      device: xpdr-fra-14
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-fra-01
+        - AD-27
+      center_frequency_mhz: 196050000
+      carrier: oc-ch095-fra-mil
+    - name: L1
+      device: xpdr-mil-20
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mil-01
+        - AD-39
+      center_frequency_mhz: 196050000
+      carrier: oc-ch095-fra-mil
+    - name: L2
+      device: xpdr-fra-14
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-fra-01
+        - AD-28
+      center_frequency_mhz: 196100000
+      carrier: oc-ch096-fra-mil
+    - name: L2
+      device: xpdr-mil-20
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mil-01
+        - AD-40
+      center_frequency_mhz: 196100000
+      carrier: oc-ch096-fra-mil

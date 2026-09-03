@@ -76,6 +76,12 @@ queries:
   # booleans.
   - name: monitor_completeness
     file_path: "./queries/monitor_completeness.gql"
+  # Unfiltered, though the check judges active carriers only: it has to report
+  # how many it skipped, and a filtered query leaves that to be inferred from
+  # silence. Fetches each section's ROADMs so the site can be named from a
+  # relationship rather than parsed out of the carrier name.
+  - name: carrier_termination
+    file_path: "./queries/carrier_termination.gql"
 
 # Every `watch.files` list below this line is generated. Run
 # `uv run python scripts/generate_watch_lists.py` after any import changes under
@@ -220,6 +226,14 @@ check_definitions:
   - name: monitor_completeness
     file_path: "./checks/monitor_completeness.py"
     class_name: MonitorCompletenessCheck
+  # Global, because an absence is not an edit. Deleting a transponder cascades
+  # to its line ports, so the wavelength left half-terminated appears nowhere in
+  # the change and a targeted check would report green over it. Judges active
+  # carriers only; a just-provisioned wavelength is planned and binds no port by
+  # design.
+  - name: carrier_termination
+    file_path: "./checks/carrier_termination.py"
+    class_name: CarrierTerminationCheck
 
 python_transforms:
   - name: budget_report

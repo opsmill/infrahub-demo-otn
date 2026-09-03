@@ -5,9 +5,14 @@
 # tests/unit/test_geant_dataset.py regenerates and diffs on every run.
 #
 # Three O-E-O devices, last in the load order: each names the wavelengths
-# it terminates, and a carrier has to exist before a device references it.
+# it is patched to, and a carrier has to exist before a device
+# references it.
 #
 # Which three sites, and why those, is on the kind below.
+#
+# The regenerator's two line ports are here rather than in
+# 14_geant_ports.yml for the same load-order reason: a port cannot name
+# a device five files before the device exists.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:
@@ -139,3 +144,24 @@ spec:
         - oc-ch085-fra-mil
         - oc-ch087-fra-mil
         - oc-ch089-fra-mil
+
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnLinePort
+  data:
+    - name: L1
+      device: oeo-fra-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+    - name: L2
+      device: oeo-fra-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC

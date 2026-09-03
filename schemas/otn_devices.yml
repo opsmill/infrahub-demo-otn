@@ -665,9 +665,14 @@ nodes:
       # terminate the light and re-originate it. Choosing the cover is a search
       # over the carriers this relationship names, not a traversal this
       # relationship makes possible.
+      #
+      # Attachment, not termination: `oxc-mil-01` is patched to 37 wavelengths
+      # that terminate on Milan transponders. `OtnLinePort.carrier` is the
+      # termination answer. The identifier stays put; Infrahub freezes it at
+      # first load and rejects a change with `not_supported`.
       - name: carriers
         peer: OtnOpticalCarrier
-        label: Carriers terminated here
+        label: Carriers patched to this shelf
         kind: Attribute
         cardinality: many
         optional: true

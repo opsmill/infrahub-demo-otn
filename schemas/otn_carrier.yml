@@ -123,12 +123,12 @@ nodes:
       # frozen the moment a load succeeds. Changing it afterwards is rejected
       # with `not_supported` and costs a remove-and-re-add on both sides.
       #
-      # Many, because a wavelength is terminated at each of its ends: the
-      # junction before this carrier and the junction after it are two different
-      # devices.
+      # Attachment, not termination. A regenerator terminates the two
+      # wavelengths it joins; a cross-connect grooms behind a transponder and
+      # terminates nothing. `line_ports` is the termination answer.
       - name: odu_switches
         peer: OtnOduSwitch
-        label: ODU switches terminating this carrier
+        label: ODU switches this carrier is patched to
         kind: Attribute
         cardinality: many
         optional: true

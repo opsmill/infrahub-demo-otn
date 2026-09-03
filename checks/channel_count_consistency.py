@@ -29,11 +29,13 @@ rather than a lag.
 
 **Do not swap this for a status filter.** `OtnOpticalCarrier.status`
 distinguishes `planned` from `active`, and counting only the `active` ones looks
-like the tidier fix. It is not available: `generators/optical_service.py` writes
-`status: "active"` on a new carrier and nothing anywhere moves a carrier from
-`planned` to `active` when a change merges, so the filter would need that
-transition built first. A carrier stuck at `planned` forever would make this
-check under-count against a genuinely lit wavelength, which is a worse failure
+like the tidier fix. It is not available, and the reason has got stronger rather
+than weaker. `generators/optical_service.py` used to write `status: "active"` on
+a new carrier and now writes `planned`, because it allocates spectrum and places
+no hardware, but nothing anywhere moves a carrier from `planned` to `active` when
+a change merges. So a filter on `active` would now miss every wavelength the
+generator has ever lit, not just the ones it lit on this branch, and this check
+would under-count against a genuinely lit wavelength. That is a worse failure
 than the one being fixed. The full reasoning is in "Which direction is a defect"
 in `specs/024-monitor-consistency-checks/spec.md`.
 

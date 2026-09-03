@@ -98,10 +98,18 @@ repository sync is what applies that file. A test that created the group would
 pass whether or not the repository can.
 """
 
-EXPECTED_CHECKS = ("channel_collision", "osnr_margin")
-"""The two data checks a proposed change must run. `units_import` is the third
+EXPECTED_CHECKS = ("channel_collision", "osnr_margin", "carrier_termination")
+"""The three data checks a proposed change must run. `units_import` is another
 registered check; it is not asserted here because it passes or fails on the
-worker image rather than on the change."""
+worker image rather than on the change.
+
+`carrier_termination` is named because a registration is not evidence. It was
+withdrawn in `e70c245` and brought back with the regenerator line ports that make
+it readable, and the way that comes undone is quietly: an entry that never syncs,
+a class name that does not match, a query the server rejects. All three fail as a
+validator that never appears, and none of them fails as a red pipeline. So the
+check is asserted here by name, on a real proposed change, against a live
+server."""
 
 POLL_INTERVAL = 10
 """Seconds between polls for anything the task worker does asynchronously."""
@@ -155,9 +163,14 @@ class TestInfrahub(TestInfrahubDockerClient):
     # Fixtures
     # ----------------------------------------------------------------- #
 
+    # `@classmethod` on every class-scoped fixture below. pytest 10 removes the
+    # instance-method form: the fixture runs once per class while each test gets
+    # a fresh instance, so anything set on `self` would be invisible. None of
+    # these set attributes, so this is the same behaviour without the warning.
     @pytest.fixture(scope="class")
+    @classmethod
     def infrahub_compose(
-        self,
+        cls,
         tmp_directory: Path,
         remote_repos_dir: Path,  # noqa: ARG002 - ordering: the bind mount must exist before compose runs
         remote_backups_dir: Path,  # noqa: ARG002 - same
@@ -182,11 +195,13 @@ class TestInfrahub(TestInfrahubDockerClient):
         return compose
 
     @pytest.fixture(scope="class")
-    def address(self, infrahub_port: int) -> str:
+    @classmethod
+    def address(cls, infrahub_port: int) -> str:
         return f"http://localhost:{infrahub_port}"
 
     @pytest.fixture(scope="class")
-    def clean_source(self, tmp_directory: Path) -> Path:
+    @classmethod
+    def clean_source(cls, tmp_directory: Path) -> Path:
         """A copy of the committed tree, and nothing else.
 
         `GitRepo.init()` runs `shutil.copytree(..., ignore=ignore_patterns(".git"))`
@@ -215,17 +230,36 @@ class TestInfrahub(TestInfrahubDockerClient):
 
     @staticmethod
     def query(address: str, document: str, branch: str = BRANCH) -> dict[str, Any]:
-        """Run a GraphQL document and fail on `errors`, whatever the status code."""
-        response = httpx.post(
-            f"{address}/graphql/{branch}",
-            json={"query": document},
-            headers={"X-INFRAHUB-KEY": TOKEN},
-            timeout=180.0,
-        )
-        payload = response.json()
-        assert "errors" not in payload, f"GraphQL errors (HTTP {response.status_code}): {payload['errors']}"
-        data: dict[str, Any] = payload["data"]
-        return data
+        """Run a GraphQL document and fail on `errors`, whatever the status code.
+
+        Retries a 5xx. The load balancer answers 502 and HTML 503 while the
+        pipeline renders artifacts, and an HTML page is not a GraphQL answer:
+        `.json()` raises before the `errors` check this helper exists to make.
+        A 200 is judged on its `errors` array on the first try, so no data
+        fault is retried away.
+        """
+        last = ""
+        for attempt in range(6):
+            response = httpx.post(
+                f"{address}/graphql/{branch}",
+                json={"query": document},
+                headers={"X-INFRAHUB-KEY": TOKEN},
+                timeout=180.0,
+            )
+            if response.status_code >= 500:
+                last = f"HTTP {response.status_code}"
+                time.sleep(2 * (attempt + 1))
+                continue
+            try:
+                payload = response.json()
+            except ValueError:
+                last = f"HTTP {response.status_code} with a non-JSON body"
+                time.sleep(2 * (attempt + 1))
+                continue
+            assert "errors" not in payload, f"GraphQL errors (HTTP {response.status_code}): {payload['errors']}"
+            data: dict[str, Any] = payload["data"]
+            return data
+        raise AssertionError(f"no JSON answer after 6 attempts, last was {last}")
 
     # ----------------------------------------------------------------- #
     # Load

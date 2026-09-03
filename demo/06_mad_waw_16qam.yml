@@ -255,3 +255,149 @@ spec:
       carriers:
         - oc-ch072-mad-prg
         - oc-ch072-prg-waw
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnLinePort
+  data:
+    # Twelve ports, two per wavelength. Six are shipped transponder ports
+    # restated with the wavelength they now carry; the loader applies that as an
+    # update. The other six are the point of the file: a regenerator has
+    # line-side optics, so the inner end of each split terminates on the shelf
+    # and needs no transponder port at Paris, Frankfurt or Prague.
+    #
+    # Written from the port side here because the carriers are declared above.
+    # No `connected_to`: every add/drop port at those sites is already patched.
+
+    # Channel 70, cut at Paris.
+    - name: L1
+      device: xpdr-mad-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mad-01
+        - AD-01
+      center_frequency_mhz: 194800000
+      carrier: oc-ch070-mad-par
+    - name: L1
+      device: oeo-par-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      center_frequency_mhz: 194800000
+      carrier: oc-ch070-mad-par
+    - name: L2
+      device: oeo-par-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      center_frequency_mhz: 194800000
+      carrier: oc-ch070-par-waw
+    - name: L1
+      device: xpdr-waw-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-waw-01
+        - AD-01
+      center_frequency_mhz: 194800000
+      carrier: oc-ch070-par-waw
+
+    # Channel 71, cut at Frankfurt.
+    - name: L2
+      device: xpdr-mad-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mad-01
+        - AD-02
+      center_frequency_mhz: 194850000
+      carrier: oc-ch071-mad-fra
+    - name: L1
+      device: oeo-fra-02
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      center_frequency_mhz: 194850000
+      carrier: oc-ch071-mad-fra
+    - name: L2
+      device: oeo-fra-02
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      center_frequency_mhz: 194850000
+      carrier: oc-ch071-fra-waw
+    - name: L2
+      device: xpdr-waw-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-waw-01
+        - AD-02
+      center_frequency_mhz: 194850000
+      carrier: oc-ch071-fra-waw
+
+    # Channel 72, cut at Prague.
+    - name: L1
+      device: xpdr-mad-02
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-mad-01
+        - AD-03
+      center_frequency_mhz: 194900000
+      carrier: oc-ch072-mad-prg
+    - name: L1
+      device: oeo-prg-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      center_frequency_mhz: 194900000
+      carrier: oc-ch072-mad-prg
+    - name: L2
+      device: oeo-prg-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      center_frequency_mhz: 194900000
+      carrier: oc-ch072-prg-waw
+    - name: L1
+      device: xpdr-waw-02
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-waw-01
+        - AD-03
+      center_frequency_mhz: 194900000
+      carrier: oc-ch072-prg-waw

@@ -179,18 +179,19 @@ def _facility_name(site: Mapping[str, Any]) -> str | None:
     return str(unwrap(node)["name"])
 
 
-def _coordinate(site: Mapping[str, Any], attribute: str) -> int:
-    """One stored coordinate, or a `ValueError` naming the site that lacks it.
+def _position(site: Mapping[str, Any]) -> tuple[int, int] | None:
+    """A site's longitude and latitude, or `None` when either is unset.
 
-    Both coordinates are optional in the schema, so the query can return null
-    for either. The map draws the whole network onto every site, so one PoP
-    without a position fails all fourteen artifacts rather than its own, and a
-    bare `TypeError: int() argument must be...` does not say which PoP.
+    Both are optional in the schema and `site_type` defaults to `pop`, so any
+    OtnSite created without coordinates joins this query and cannot be drawn.
+    Skipped rather than raised: the map draws the whole network onto every
+    site, so failing here fails all fourteen artifacts over one unplaceable
+    site. The caller logs what it left out.
     """
-    value = site.get(attribute)
-    if value is None:
-        raise ValueError(f"site {site.get('name')} has no {attribute}, so it cannot be placed on the map")
-    return int(value)
+    longitude, latitude = site.get("longitude_microdeg"), site.get("latitude_microdeg")
+    if longitude is None or latitude is None:
+        return None
+    return int(longitude), int(latitude)
 
 
 class NetworkMapTransform(InfrahubTransform):
@@ -226,20 +227,32 @@ class NetworkMapTransform(InfrahubTransform):
                 )
             )
 
-        # Every site the query returned is drawn, including one that no section
-        # touches. It lands as an isolated node of degree zero, which is the
-        # honest picture of a PoP whose plant is not modelled yet.
-        sites = [
-            MapSite(
-                name=str(record["name"]),
-                shortname=str(record["shortname"]),
-                longitude_microdeg=_coordinate(record, "longitude_microdeg"),
-                latitude_microdeg=_coordinate(record, "latitude_microdeg"),
-                optical_degree=degree.get(str(record["shortname"]), 0),
-                eurohpc_name=_facility_name(record),
+        # Every placeable site the query returned is drawn, including one that no
+        # section touches. It lands as an isolated node of degree zero, which is
+        # the honest picture of a PoP whose plant is not modelled yet.
+        sites = []
+        skipped = []
+        for record in nodes_of(data, "OtnSite"):
+            position = _position(record)
+            if position is None:
+                skipped.append(str(record["name"]))
+                continue
+            longitude, latitude = position
+            sites.append(
+                MapSite(
+                    name=str(record["name"]),
+                    shortname=str(record["shortname"]),
+                    longitude_microdeg=longitude,
+                    latitude_microdeg=latitude,
+                    optical_degree=degree.get(str(record["shortname"]), 0),
+                    eurohpc_name=_facility_name(record),
+                )
             )
-            for record in nodes_of(data, "OtnSite")
-        ]
+        if skipped:
+            # Named, not silent. A site missing from the map with no explanation
+            # is worse than one that was never drawn.
+            print(f"network_map: {len(skipped)} site(s) without coordinates, not drawn: {', '.join(sorted(skipped))}")
+
         # The branch goes on the map for the same reason the other eight reports
         # carry it in a `branch` key: a margin and an occupied width are true of
         # the branch they were read from and of nothing else.

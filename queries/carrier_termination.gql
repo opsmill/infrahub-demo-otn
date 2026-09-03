@@ -1,0 +1,87 @@
+# Every wavelength, the ports that terminate it and the route it runs over.
+#
+# Unfiltered although the check judges active carriers only: a query that drops
+# rows cannot report how many it skipped.
+#
+# `line_ports` names each port's device and site, so a finding can say which
+# site stopped terminating the wavelength. `sections` with both ROADMs is what
+# makes that end nameable at all, since a carrier holds no endpoints of its own
+# and the ends are derived from relationships rather than parsed from its name.
+
+query CarrierTermination {
+  OtnOpticalCarrier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        status {
+          value
+        }
+        channel {
+          node {
+            channel_number {
+              value
+            }
+          }
+        }
+        line_ports {
+          edges {
+            node {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                  site {
+                    node {
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        sections {
+          edges {
+            node {
+              name {
+                value
+              }
+              roadm_a {
+                node {
+                  site {
+                    node {
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+              roadm_b {
+                node {
+                  site {
+                    node {
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

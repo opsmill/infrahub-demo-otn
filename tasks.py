@@ -83,6 +83,7 @@ CHECKS = (
     "provisionable",
     "channel_count_consistency",
     "monitor_completeness",
+    "carrier_termination",
 )
 
 DEMO_BRANCH = "demo"
@@ -819,7 +820,7 @@ def load(context: Context, branch: str = "main") -> None:
     load_schema(context, branch)
     console.print("[cyan]2/3[/cyan] menu")
     load_menu(context, branch)
-    console.print("[cyan]3/3[/cyan] objects, about a minute for 2342 of them")
+    console.print("[cyan]3/3[/cyan] objects, about a minute for 2344 of them")
     load_objects(context, branch)
     console.print(f"[green]ok[/green] loaded onto {branch}")
 

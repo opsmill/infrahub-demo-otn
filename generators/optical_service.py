@@ -920,7 +920,10 @@ class OpticalServiceGenerator(InfrahubGenerator):
             data={
                 "name": self._carrier_name(service_name),
                 "description": f"{service_name} on channel {selection.channel} via {selection.route.key}",
-                "status": "active",
+                # Planned, not active: this allocates spectrum and places no
+                # hardware. `carrier_termination` judges active carriers, so
+                # `active` here would fail every provisioning branch.
+                "status": "planned",
                 "channel": channel.id,
                 "optical_mode": {"hfid": [selection.mode.name]},
                 "sections": [{"hfid": [section]} for section in selection.route.section_names],
