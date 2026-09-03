@@ -264,6 +264,15 @@ jobs:
           else
             echo "::notice::Runner '${RUNNER_LABEL}' carries no ghrunner<N> token; leaving pytest's default temp root."
           fi
+      # tests/integration/conftest.py sizes the task worker and gunicorn counts
+      # from os.cpu_count(). Print what the machine reports so a run that
+      # starves says what it had, rather than leaving the next reader to infer
+      # the runner from its name.
+      - name: Report what this runner has
+        run: |
+          echo "runner:  ${{ runner.name }}"
+          echo "cores:   $(nproc)"
+          free -g || true
       # infrahub-testcontainers is pinned to 1.11.0, the same version
       # docker-compose runs, so this exercises the version the demo ships
       # against rather than whatever is newest.
