@@ -37,10 +37,23 @@ def test_every_record_names_a_task_that_exists() -> None:
     assert not orphaned, f"coverage records naming tasks that tasks.py does not define: {orphaned}"
 
 
-def test_the_two_exclusions_carry_reasons() -> None:
-    """Invariant 3. A long exclusion list is where an untested task hides."""
+def test_the_exclusions_are_the_named_seven_and_each_carries_a_reason() -> None:
+    """Invariant 3. An exclusion nobody named is where an untested task hides.
+
+    Two of the seven are this suite. The other five manage the compose stack,
+    and the stack the suite runs against is a testcontainers one, so each of
+    them would reach past the suite and into a stack it does not own.
+    """
     excluded = _records("excluded")
-    assert sorted(record.task for record in excluded) == ["test", "test-integration"]
+    assert sorted(record.task for record in excluded) == [
+        "destroy",
+        "init",
+        "restart",
+        "start",
+        "stop",
+        "test",
+        "test-integration",
+    ]
     unexplained = sorted(record.task for record in excluded if not record.reason)
     assert not unexplained, f"excluded without a reason: {unexplained}"
 

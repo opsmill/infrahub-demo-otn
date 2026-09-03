@@ -16,9 +16,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-Tier = Literal["offline", "stack", "lifecycle", "covered_by", "ci", "excluded"]
+Tier = Literal["stack", "covered_by", "ci", "excluded"]
 
-RUNNABLE_TIERS: tuple[Tier, ...] = ("offline", "stack", "lifecycle")
+RUNNABLE_TIERS: tuple[Tier, ...] = ("stack",)
 """Tiers whose records the suite invokes itself, so each needs an invocation."""
 
 
@@ -27,7 +27,8 @@ class CoverageRecord:
     """How one task is covered, and what proves it ran.
 
     `invocations` holds argument strings, empty string meaning no arguments.
-    `reason`, `job` and `covered_by` are each required by exactly one tier.
+    `job` is required of a `ci` record and `covered_by` of a `covered_by` one.
+    `reason` is required of an exclusion and welcome anywhere it helps.
     """
 
     task: str
@@ -41,52 +42,51 @@ class CoverageRecord:
 
 COVERAGE: tuple[CoverageRecord, ...] = (
     # ------------------------------------------------------------------ #
-    # Stack lifecycle: a throwaway compose project on non-default ports.
+    # The stack managers. Each one acts on the compose project, and the
+    # stack this suite runs against is a testcontainers one, so running any
+    # of them here would reach past the suite and into whatever stack the
+    # machine already has up. `build` is the exception: it only writes an
+    # image, and the integration job runs it.
     # ------------------------------------------------------------------ #
     CoverageRecord(
         task="build",
-        tier="lifecycle",
-        invocations=("",),
-        postcondition="`docker image inspect` finds the tagged image afterwards",
+        tier="ci",
+        job="integration-test",
+        reason="the job builds the image with this task before it starts the stack",
     ),
     CoverageRecord(
         task="start",
-        tier="lifecycle",
-        invocations=("",),
-        postcondition="`/api/schema/summary` answers on the overridden port",
+        tier="excluded",
+        reason="brings the compose stack up, which would sit beside the testcontainers one and compete with it",
     ),
     CoverageRecord(
         task="stop",
-        tier="lifecycle",
-        invocations=("",),
-        postcondition="no container of the scratch project runs, and its named volumes still exist",
+        tier="excluded",
+        reason="takes the compose stack down, and the only one on the machine is a developer's",
     ),
     CoverageRecord(
         task="restart",
-        tier="lifecycle",
-        invocations=("--component infrahub-server", ""),
-        postcondition="`/api/schema/summary` answers again on the overridden port after each form",
+        tier="excluded",
+        reason="restarts the compose stack, which is not the stack the suite runs against",
     ),
     CoverageRecord(
         task="destroy",
-        tier="lifecycle",
-        invocations=("",),
-        postcondition="no container and no named volume of the scratch project remains",
+        tier="excluded",
+        reason="deletes the compose stack and its volumes, which is every object a developer has loaded",
     ),
     CoverageRecord(
         task="init",
-        tier="lifecycle",
-        invocations=("",),
-        postcondition="the stack answers and `main` holds the manifest's `OtnSite` count",
+        tier="excluded",
+        reason="destroys the compose stack before rebuilding it, so it takes the running stack and its data with it",
     ),
     # ------------------------------------------------------------------ #
     # Discovery
     # ------------------------------------------------------------------ #
     CoverageRecord(
         task="list",
-        tier="offline",
-        invocations=("", "--all"),
-        postcondition="`--all` names every task in the collection; the default names 27, so the listings differ by 21",
+        tier="ci",
+        job="budget-unit-tests",
+        reason="the unit suite calls it in process and reads both listings back against the task collection",
     ),
     CoverageRecord(
         task="info",
@@ -162,9 +162,9 @@ COVERAGE: tuple[CoverageRecord, ...] = (
     # ------------------------------------------------------------------ #
     CoverageRecord(
         task="test-unit",
-        tier="offline",
-        invocations=("",),
-        postcondition="exits zero and the output reports no failures",
+        tier="ci",
+        job="budget-unit-tests",
+        reason="the job runs the same pytest command over the same directory",
     ),
     CoverageRecord(
         task="test",
@@ -181,27 +181,29 @@ COVERAGE: tuple[CoverageRecord, ...] = (
     # ------------------------------------------------------------------ #
     CoverageRecord(
         task="format",
-        tier="offline",
-        invocations=("",),
-        postcondition="run against a copied tree; `git status --porcelain` in the repository stays empty",
+        tier="ci",
+        job="python-lint",
+        reason="the job runs the same formatter in check mode, so a tree this task would rewrite fails there",
     ),
+    # No single job runs this one. It chains six linters and CI runs each of
+    # them, spread over four jobs, so a linter that would fail here fails there.
     CoverageRecord(
         task="lint",
-        tier="offline",
-        invocations=("",),
-        postcondition="exits zero, and where `vale` is absent the output names the prose step it skipped",
+        tier="ci",
+        job="python-lint, yaml-lint, markdown-lint, prose-lint",
+        reason="the four jobs between them run every linter this task chains",
     ),
     CoverageRecord(
         task="schema-check",
-        tier="offline",
-        invocations=("",),
-        postcondition="exits zero against the committed `schemas/`, which stays unmodified",
+        tier="ci",
+        job="schema-validate",
+        reason="the job runs the same infrahubctl formatting check over the same directory",
     ),
     CoverageRecord(
         task="docs",
         tier="ci",
         job="documentation",
-        reason="needs pnpm, which the integration job does not install",
+        reason="the job builds the same site with pnpm, which the integration job does not install",
     ),
     # ------------------------------------------------------------------ #
     # Data
@@ -214,24 +216,21 @@ COVERAGE: tuple[CoverageRecord, ...] = (
     ),
     CoverageRecord(
         task="dataset-generate",
-        tier="offline",
-        invocations=("--output <tmpdir>",),
-        postcondition="the temporary directory holds the file names `objects/1*.yml` has, and `objects/` is unchanged",
+        tier="ci",
+        job="budget-unit-tests",
+        reason="the unit suite calls it with a temporary destination and finds `objects/` unchanged afterwards",
     ),
     CoverageRecord(
         task="dataset-check",
-        tier="offline",
-        invocations=("",),
-        postcondition="exits zero: regenerating the seed reproduces the committed `objects/1*.yml`",
+        tier="ci",
+        job="budget-unit-tests",
+        reason="the unit suite regenerates the seed and diffs it against the committed `objects/1*.yml`",
     ),
     CoverageRecord(
         task="maps-regenerate",
-        tier="offline",
-        invocations=(
-            "--case network_map_golden --output <tmpdir>",
-            "--case odu_map_golden --output <tmpdir>",
-        ),
-        postcondition="the SVG in the temporary directory matches the committed fixture, which is untouched",
+        tier="ci",
+        job="budget-unit-tests",
+        reason="the unit suite calls it with a temporary destination and compares the render against the fixture",
     ),
     # ------------------------------------------------------------------ #
     # The walkthrough. `demo` runs the ten in WALKTHROUGH, so running them

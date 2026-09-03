@@ -465,7 +465,7 @@ class TestTasksAgainstAStack(TestInfrahubDockerClient):
     def test_demo_runs_the_ten_walkthrough_steps_in_order(self, task_environment: str) -> None:
         """`demo`: the ten steps run in `WALKTHROUGH` order and every service is decided.
 
-        About twenty minutes, and the long pole of this module. Decided rather
+        The long pole of this module. Decided rather
         than active: `demo-refusal` refuses one of the five on purpose, and a
         refusal is an answer.
         """

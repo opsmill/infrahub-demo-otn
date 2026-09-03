@@ -946,7 +946,7 @@ def _report_what_the_sync_created(branch: str) -> None:
         _fail(
             "The import reached in-sync and did not create everything .infrahub.yml registers: "
             + "; ".join(short)
-            + ". `docker logs infrahub-demo-otn-task-worker-1` says which entry it rejected."
+            + f". `docker logs {PROJECT}-task-worker-1` says which entry it rejected."
         )
 
 
@@ -1030,7 +1030,7 @@ def load_repository(context: Context, branch: str = "main", timeout: int = 300) 
             break
         if state is not None and state[1] == "error-import":
             _fail(
-                "The repository import failed. `docker logs infrahub-demo-otn-task-worker-1` says why. "
+                f"The repository import failed. `docker logs {PROJECT}-task-worker-1` says why. "
                 "A syntax error in .infrahub.yml fails the whole file."
             )
         time.sleep(5)
@@ -1770,8 +1770,8 @@ def demo_monitor_gap(context: Context, branch: str = MONITOR_GAP_BRANCH) -> None
 def demo_all(context: Context, branch: str = DEMO_BRANCH) -> None:
     """The whole walkthrough, in the order the guide runs it.
 
-    Nine numbered scenarios in ten steps, back to back, about twenty minutes of
-    output. The tenth step is `demo-provision-all`, which carries no scenario
+    Nine numbered scenarios in ten steps, back to back, and the longest-running
+    task in this file. The tenth step is `demo-provision-all`, which carries no scenario
     number: it provisions the four services the later scenarios read, so it is
     setup inside the walkthrough rather than something a presenter narrates.
     `demo-guide.mdx` counts the nine and this runs the ten.

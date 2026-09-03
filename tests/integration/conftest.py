@@ -103,8 +103,6 @@ def run_task(
     task: str,
     arguments: str = "",
     *,
-    cwd: Path | None = None,
-    env: dict[str, str] | None = None,
     timeout: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run one task the way a reader runs it, and hand back the finished process.
@@ -114,11 +112,11 @@ def run_task(
     """
     return subprocess.run(  # noqa: S603
         ["uv", "run", "invoke", task, *shlex.split(arguments)],  # noqa: S607
-        cwd=cwd or REPO_ROOT,
+        cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=False,
-        env={**os.environ, "COLUMNS": "200", **(env or {})},
+        env={**os.environ, "COLUMNS": "200"},
         timeout=timeout,
     )
 
