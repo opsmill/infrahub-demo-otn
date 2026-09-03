@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import os
 import subprocess  # noqa: S404
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -94,6 +95,56 @@ def require_testing_image() -> None:
     )
     if inspect.returncode != 0:
         pytest.fail(f"Docker image {image!r} is missing; run `uv run invoke build` before the integration tests")
+
+
+def _assert_a_task_reports(address: str) -> None:
+    """Fail unless `invoke info` names the address just exported.
+
+    A developer's `.env` points at a different stack on port 8000, so an
+    override that failed to take would not error. It would run every task
+    against the wrong server and quite possibly pass.
+    """
+    reported = subprocess.run(  # noqa: S603
+        ["uv", "run", "invoke", "info"],  # noqa: S607
+        cwd=CURRENT_DIRECTORY.parent.parent,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if address not in reported.stdout:
+        pytest.fail(
+            f"`invoke info` did not report {address}, so task subprocesses are pointed "
+            f"somewhere else:\n{reported.stdout}\n{reported.stderr}"
+        )
+
+
+@pytest.fixture(scope="class")
+def task_environment(infrahub_port: int) -> Iterator[str]:
+    """Export the testcontainers address and token, so task subprocesses inherit them.
+
+    `tasks.py::_env()` puts `os.environ` ahead of `.env`, which is what lets this
+    redirect a task. `infrahub_testcontainers.container` is imported inside the
+    fixture rather than at module level because the settings above have to land
+    before that module loads.
+    """
+    from infrahub_testcontainers.container import PROJECT_ENV_VARIABLES  # noqa: PLC0415
+
+    address = f"http://localhost:{infrahub_port}"
+    overrides = {
+        "INFRAHUB_ADDRESS": address,
+        "INFRAHUB_API_TOKEN": PROJECT_ENV_VARIABLES["INFRAHUB_TESTING_INITIAL_ADMIN_TOKEN"],
+    }
+    previous = {name: os.environ.get(name) for name in overrides}
+    os.environ.update(overrides)
+    try:
+        _assert_a_task_reports(address)
+        yield address
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                del os.environ[name]
+            else:
+                os.environ[name] = value
 
 
 @pytest.fixture
