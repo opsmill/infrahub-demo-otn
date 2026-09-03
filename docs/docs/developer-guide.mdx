@@ -418,12 +418,15 @@ the token, so a read succeeds and the first write fails with an authentication
 error. Every task passes both, through the subprocess environment rather than
 on the command line, so a token never reaches `ps` or your shell history.
 
-`uv run invoke list` prints all of them. The demo scenarios are tasks too:
-`demo-setup`, `demo-capacity`, `demo-reach`, `demo-provision`,
-`demo-provision-all`, `demo-trace`, `demo-impact`, `demo-srlg`, `demo-latency`,
-`demo-infiniband`, `demo-refusal` and `demo-clean`. `demo-raman` is a task as
-well, but it runs on its own branch as a comparison rather than as one of the
-nine numbered scenarios.
+`uv run invoke list` prints the tasks a reader needs, grouped, and `--all` adds
+the rest. The demo scenarios are tasks too: `demo-setup` prepares the branch,
+`demo` runs the whole walkthrough, and `demo-capacity`, `demo-reach`,
+`demo-provision`, `demo-provision-all`, `demo-trace`, `demo-impact`,
+`demo-srlg`, `demo-latency`, `demo-infiniband`, `demo-refusal`, `demo-budget`
+and `demo-drift` run one step each. Five more load a scenario file onto a branch
+of their own rather than one of the nine numbered scenarios: `demo-raman`,
+`demo-odu`, `demo-regenerator`, `demo-diversity` and `demo-monitor-gap`.
+`demo-clean` deletes the branches they leave behind.
 
 ### A fail-closed default costs a second load
 

@@ -40,8 +40,9 @@ only when it is missing; pass `--rebuild` to force it.
 Infrahub is then available at
 [http://localhost:8000](http://localhost:8000).
 
-`uv run invoke list` prints every task. `uv run invoke info` reports the
-address, the image, whether the stack answers and what is loaded on a branch.
+`uv run invoke list` prints the tasks you need, and `--all` adds the rest.
+`uv run invoke info` reports the address, the image, whether the stack answers
+and what is loaded on a branch.
 
 ## Verify the shared package reached the worker
 

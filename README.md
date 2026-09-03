@@ -126,9 +126,10 @@ uv run invoke demo-setup
 uv run invoke demo-capacity
 ```
 
-`uv run invoke list` prints every task. Every step of the demo guide is one of
-them, so nothing in this repository asks you to remember a command-line tool's
-subcommands or to export an API token.
+`uv run invoke list` prints the tasks you need, grouped, and `--all` adds the
+rest. Every step of the demo guide is one of them, so nothing in this repository
+asks you to remember a command-line tool's subcommands or to export an API
+token.
 
 ---
 
@@ -234,8 +235,9 @@ which spends the one wide block, and all ten fit nowhere.
 - **Reports.** Service trace, impact, capacity, reach, AI latency, SRLG
   exposure, link budget and monitor drift, each with its own GraphQL query, plus
   the two rendered maps.
-- **Tasks.** One invoke task per lifecycle step, per loading step and per demo
-  scenario.
+- **Tasks.** One invoke task per lifecycle step, per demo scenario and per
+  loadable scenario. `invoke load` does the loading in one step, and
+  `invoke demo` runs the whole walkthrough.
 
 ---
 
