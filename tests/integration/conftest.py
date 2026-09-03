@@ -60,6 +60,7 @@ still wins:
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess  # noqa: S404
 from collections.abc import Iterator
 from pathlib import Path
@@ -69,6 +70,7 @@ import pytest
 from infrahub_sdk.yaml import SchemaFile
 
 CURRENT_DIRECTORY = Path(__file__).parent.resolve()
+REPO_ROOT = CURRENT_DIRECTORY.parent.parent
 
 TESTING_IMAGE = "opsmill/infrahub-demo-otn"
 # Mirrors the tag docker-compose.override.yml builds and the Dockerfile default.
@@ -97,6 +99,38 @@ def require_testing_image() -> None:
         pytest.fail(f"Docker image {image!r} is missing; run `uv run invoke build` before the integration tests")
 
 
+def run_task(
+    task: str,
+    arguments: str = "",
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run one task the way a reader runs it, and hand back the finished process.
+
+    `COLUMNS` is set so `rich` never wraps a task name or a figure off the line
+    a postcondition reads it from.
+    """
+    return subprocess.run(  # noqa: S603
+        ["uv", "run", "invoke", task, *shlex.split(arguments)],  # noqa: S607
+        cwd=cwd or REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "COLUMNS": "200", **(env or {})},
+        timeout=timeout,
+    )
+
+
+def task_output(result: subprocess.CompletedProcess[str], command: str) -> str:
+    """Everything the task printed, after failing on a non-zero exit."""
+    assert result.returncode == 0, (
+        f"`uv run invoke {command}` exited {result.returncode}:\n{result.stdout}\n{result.stderr}"
+    )
+    return result.stdout + result.stderr
+
+
 def _assert_a_task_reports(address: str) -> None:
     """Fail unless `invoke info` names the address just exported.
 
@@ -104,13 +138,7 @@ def _assert_a_task_reports(address: str) -> None:
     override that failed to take would not error. It would run every task
     against the wrong server and quite possibly pass.
     """
-    reported = subprocess.run(  # noqa: S603
-        ["uv", "run", "invoke", "info"],  # noqa: S607
-        cwd=CURRENT_DIRECTORY.parent.parent,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    reported = run_task("info")
     if address not in reported.stdout:
         pytest.fail(
             f"`invoke info` did not report {address}, so task subprocesses are pointed "
@@ -150,7 +178,7 @@ def task_environment(infrahub_port: int) -> Iterator[str]:
 @pytest.fixture
 def root_directory() -> Path:
     """The root directory of the repository."""
-    return CURRENT_DIRECTORY.parent.parent
+    return REPO_ROOT
 
 
 @pytest.fixture

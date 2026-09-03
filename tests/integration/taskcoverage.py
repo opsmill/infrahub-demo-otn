@@ -1,8 +1,9 @@
 """One coverage record per task, and what each record's test must assert.
 
-Transcribed from `specs/028-command-surface/contracts/task-surface.md`. The
-records are data only; `tests/unit/test_task_coverage.py` checks them against
-the live task list and the three task modules here consume them.
+One record per `invoke` task: the tier it belongs to, the arguments the suite
+runs and the postcondition the test asserts afterwards. The records are data
+only; `tests/unit/test_task_coverage.py` checks them against the live task list
+and the task modules here consume them.
 
 `postcondition` is the field that keeps this honest. An invocation that exits
 zero proves nothing: `demo-clean --branch does-not-exist` would otherwise cover
@@ -133,7 +134,7 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         task="branch-create",
         tier="stack",
         invocations=("--name <scratch>",),
-        postcondition="the branch exists in the graph and a git branch of that name exists too",
+        postcondition="the branch exists in the graph with `sync_with_git` set, which is what the task adds",
     ),
     CoverageRecord(
         task="branch-list",
@@ -230,7 +231,7 @@ COVERAGE: tuple[CoverageRecord, ...] = (
             "--case network_map_golden --output <tmpdir>",
             "--case odu_map_golden --output <tmpdir>",
         ),
-        postcondition="an SVG appears in the temporary directory and the committed golden fixture is byte-identical",
+        postcondition="the SVG in the temporary directory matches the committed fixture, which is untouched",
     ),
     # ------------------------------------------------------------------ #
     # The walkthrough. `demo` runs the ten in WALKTHROUGH, so running them
@@ -240,7 +241,7 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         task="demo",
         tier="stack",
         invocations=("",),
-        postcondition="all ten walkthrough steps ran in order and the branch holds the five provisioned services",
+        postcondition="the ten steps ran in order and each of the five demo services is decided, not still planned",
     ),
     CoverageRecord(task="demo-capacity", tier="covered_by", covered_by="demo"),
     CoverageRecord(task="demo-reach", tier="covered_by", covered_by="demo"),
@@ -248,7 +249,7 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         task="demo-provision",
         tier="covered_by",
         covered_by="demo",
-        invocations=("--service svc-fra-mil-ai-400g",),
+        invocations=("--branch <scratch> --service svc-fra-mil-ai-400g",),
         postcondition="`demo` covers the default path; the `--service` form provisions that one service and no other",
     ),
     CoverageRecord(task="demo-provision-all", tier="covered_by", covered_by="demo"),
@@ -290,7 +291,7 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         task="demo-odu",
         tier="stack",
         invocations=("",),
-        postcondition="`odu-demo` holds both ODU files and `check container_capacity` reports a finding",
+        postcondition="`odu-demo` holds both ODU files, ten circuits groom, the eleventh is refused for slots",
     ),
     CoverageRecord(
         task="demo-regenerator",
@@ -302,7 +303,7 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         task="demo-diversity",
         tier="stack",
         invocations=("",),
-        postcondition="`diversity-demo` provisions both feeds and `check diversity` reports the shared resource",
+        postcondition="`diversity-demo` provisions all four feeds and `check diversity` names the shared duct",
     ),
     CoverageRecord(
         task="demo-monitor-gap",
