@@ -699,20 +699,23 @@ def _count_tag(root: ElementTree.Element, tag: str) -> int:
     return sum(1 for element in root.iter() if element.tag.endswith(tag))
 
 
-def test_a_site_without_coordinates_is_skipped_rather_than_failing_the_map() -> None:
+@pytest.mark.parametrize("transform", ["network_map.py", "odu_map.py"])
+def test_a_site_without_coordinates_is_skipped_rather_than_failing_the_map(transform: str) -> None:
     """`site_type` defaults to `pop`, so any OtnSite created without coordinates
-    joins the map query. Raising there failed all fourteen artifacts over one
-    unplaceable site, which CI caught on a probe site an integration test
-    creates with only a name.
+    joins both map queries. Raising there failed all fourteen artifacts over one
+    unplaceable site, which CI caught on a probe site an integration test creates
+    with only a name. Parametrized because the first fix landed on one of the two
+    transforms and the other kept failing the same way.
     """
     import importlib.util
 
-    spec = importlib.util.spec_from_file_location(
-        "network_map_under_test", Path(__file__).resolve().parents[2] / "transforms" / "network_map.py"
-    )
+    path = Path(__file__).resolve().parents[2] / "transforms" / transform
+    spec = importlib.util.spec_from_file_location(f"under_test_{transform.replace('.', '_')}", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+
+    assert not hasattr(module, "_coordinate"), f"{transform} still raises on a missing coordinate"
 
     placed = {"name": "Frankfurt", "longitude_microdeg": 8_682_127, "latitude_microdeg": 50_110_924}
     assert module._position(placed) == (8_682_127, 50_110_924)
@@ -720,4 +723,4 @@ def test_a_site_without_coordinates_is_skipped_rather_than_failing_the_map() -> 
     for missing in ("longitude_microdeg", "latitude_microdeg"):
         probe = dict(placed, name="Pipeline probe")
         probe[missing] = None
-        assert module._position(probe) is None, f"a site with no {missing} must be skipped, not raise"
+        assert module._position(probe) is None, f"{transform}: a site with no {missing} must be skipped"
