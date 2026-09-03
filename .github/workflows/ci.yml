@@ -134,8 +134,15 @@ jobs:
       - uses: actions/checkout@v7
       # The shared package reaching the worker is the assumption every check,
       # generator and transform rests on. Prove it on every change.
+      #
+      # No --build-arg. The Dockerfile's own `ARG INFRAHUB_BASE_VERSION=` default
+      # is the version, and passing the same literal here was a seventh
+      # declaration that `update-infrahub.yml` did not rewrite and
+      # `tests/unit/test_pins.py` did not guard: a bump moved the other six and
+      # left this job building the release it had just moved off, silently and
+      # green. `test_pins.py` now fails if a version literal returns here.
       - name: Build the custom Infrahub image
-        run: docker build --build-arg INFRAHUB_BASE_VERSION=1.11.0 -t infrahub-demo-otn:ci .
+        run: docker build -t infrahub-demo-otn:ci .
       - name: Verify the worker can import the shared package
         run: |
           docker run --rm --entrypoint /.venv/bin/python infrahub-demo-otn:ci -c "
@@ -262,9 +269,10 @@ jobs:
           else
             echo "::notice::Runner '${RUNNER_LABEL}' carries no ghrunner<N> token; leaving pytest's default temp root."
           fi
-      # infrahub-testcontainers is pinned to 1.11.0, the same version
-      # docker-compose runs, so this exercises the version the demo ships
-      # against rather than whatever is newest.
+      # infrahub-testcontainers is pinned to the same version docker-compose
+      # runs, so this exercises the version the demo ships against rather than
+      # whatever is newest. Named without the number on purpose: a version
+      # literal in this file is what test_pins.py now refuses.
       - name: Load the dataset, register the repository, run the pipeline
         run: uv run pytest tests/integration -v --color=yes
 

@@ -33,6 +33,13 @@ TASKS = REPO_ROOT / "tasks.py"
 INTEGRATION_CONFTEST = REPO_ROOT / "tests" / "integration" / "conftest.py"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 
+# Files that must state the version NOWHERE. The six declarations above are the
+# ones a bump moves; these two were a seventh and an eighth that nothing moved
+# and nothing checked, so the rule for them is not "agree with the Dockerfile"
+# but "carry no version at all".
+ENV_EXAMPLE = REPO_ROOT / ".env.example"
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+
 
 def _base_version() -> str:
     """The version the image is built from, read from the Dockerfile.
@@ -89,6 +96,42 @@ def test_every_fallback_matches_the_dockerfile(path: Path, pattern: str, what: s
     assert match.group(1) == _base_version(), (
         f"{path.relative_to(REPO_ROOT)} sets {what} to {match.group(1)}, "
         f"but the Dockerfile builds {_base_version()}. A bump moved one and not the other."
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "why"),
+    [
+        (
+            ENV_EXAMPLE,
+            "`cp .env.example .env` would hand a fresh clone a version no bump moves, and "
+            "tasks.py::_load_env reads .env, so that stale value wins over every fallback",
+        ),
+        (
+            CI_WORKFLOW,
+            "the docker-build job would keep building the previous release after a bump, "
+            "proving the worker imports the shared package against the wrong version",
+        ),
+    ],
+)
+def test_no_version_literal_leaks_into_a_file_no_bump_rewrites(path: Path, why: str) -> None:
+    """Neither file may state an Infrahub version, in code or in prose.
+
+    Prose counts. The sweep at the end of `update-infrahub.yml` is a fixed-string
+    search, so a version left in a comment fails the bump run just as a live one
+    does, and the fix would be to edit the comment under time pressure.
+
+    Args:
+        path: File that must carry no version.
+        why: What goes wrong when it does, for the failure message.
+    """
+    found = re.findall(r"\b\d+\.\d+\.\d+[0-9a-z.]*\b", path.read_text())
+    # The uv and Node pins in ci.yml are versions of other things entirely, and
+    # they are not what a bump moves. Only the Infrahub line is in scope.
+    leaked = [version for version in found if version == _base_version()]
+    assert not leaked, (
+        f"{path.relative_to(REPO_ROOT)} states the Infrahub version {_base_version()}, which it must not: {why}. "
+        f"Take the number out; the value comes from the Dockerfile's ARG default at build time."
     )
 
 
