@@ -561,9 +561,9 @@ def load_menu(context: Context, branch: str = "main") -> None:
 
 
 @task
-def load_objects(context: Context, branch: str = "main") -> None:
-    """Load objects/, the GEANT dataset, onto a branch."""
-    _ctl(context, f"object load objects/ --branch {branch}")
+def load_objects(context: Context, branch: str = "main", file: str = "") -> None:
+    """Load one object file onto a branch with --file, or all of objects/ without it."""
+    _ctl(context, f"object load {file or 'objects/'} --branch {branch}")
 
 
 def _export_committed_tree() -> str:
@@ -941,9 +941,14 @@ def _wait_for_stack(attempts: int = 60, interval: float = 5.0) -> bool:
 
 
 @task
-def branch_create(context: Context, name: str) -> None:
-    """Create a branch."""
-    _ctl(context, f"branch create {name}")
+def branch_create(context: Context, name: str, sync_with_git: bool = True) -> None:
+    """Create a branch, in Git as well as in the graph.
+
+    `infrahubctl` defaults the other way, and a branch that does not exist in
+    Git runs the two built-in validators instead of this repository's checks.
+    """
+    flag = "--sync-with-git" if sync_with_git else "--no-sync-with-git"
+    _ctl(context, f"branch create {name} {flag}")
 
 
 @task
@@ -1403,6 +1408,17 @@ def demo_all(context: Context, branch: str = DEMO_BRANCH) -> None:
 
 
 @task
-def demo_clean(context: Context, branch: str = DEMO_BRANCH) -> None:
-    """Delete the demo branch. The default branch was never touched."""
-    branch_delete(context, branch)
+def demo_clean(context: Context, branch: str = "") -> None:
+    """Delete every branch a scenario creates, or one of them with --branch.
+
+    The default branch was never touched. Each branch is named before it goes,
+    because a task that deletes several without saying which is one nobody can
+    check afterwards.
+    """
+    _require_stack()
+    wanted = (branch,) if branch else tuple(dict.fromkeys(row.branch for row in SCENARIO_BRANCHES))
+    present = [name for name in wanted if _branch_exists(name)]
+    for name in present:
+        console.print(f"[yellow]-[/yellow] deleting branch {name}")
+        branch_delete(context, name)
+    console.print(f"[green]-[/green] removed {len(present)} of the {len(wanted)} scenario branches")
