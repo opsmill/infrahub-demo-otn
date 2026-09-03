@@ -26,6 +26,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from infrahub_demo_otn.units import CBAND_EXTENT_MHZ, occupied_width_mhz
+
 console = Console()
 
 REPO_ROOT = pathlib.Path(__file__).parent.resolve()
@@ -516,28 +518,28 @@ def _banner(title: str, body: str = "", style: str = "cyan") -> None:
 # --------------------------------------------------------------------------- #
 
 
-TASK_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Get a stack running", ("init", "info", "start", "stop", "restart", "destroy", "build")),
-    ("Load the model and the data", ("load", "load-schema", "load-menu", "load-objects", "load-repository")),
+TASK_GROUPS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("Get a stack running", ("init", "info", "start", "stop", "destroy"), ("build", "restart")),
+    ("Load the model and the data", ("load",), ("load-schema", "load-menu", "load-objects", "load-repository")),
+    ("The walkthrough", ("demo-setup", "demo", *WALKTHROUGH, "demo-budget", "demo-drift"), ()),
     (
-        "The walkthrough",
-        (
-            "demo-setup",
-            "demo",
-            *WALKTHROUGH,
-            "demo-budget",
-            "demo-drift",
-            "demo-raman",
-            "demo-odu",
-            "demo-regenerator",
-            "demo-diversity",
-            "demo-monitor-gap",
-            "demo-clean",
-        ),
+        "The loadable scenarios",
+        ("demo-raman", "demo-odu", "demo-regenerator", "demo-diversity", "demo-monitor-gap", "demo-clean"),
+        (),
     ),
-    ("Developer tools", ("branch-create", "branch-list", "branch-delete", "check", "docs", "schema-vendor-diff")),
+    ("Read the data", ("inventory",), ("dataset-generate", "dataset-check", "maps-regenerate")),
+    (
+        "Quality gates",
+        (),
+        ("format", "lint", "schema-check", "schema-vendor-diff", "test-unit", "test", "test-integration", "docs"),
+    ),
+    ("Developer tools", (), ("list", "branch-create", "branch-list", "branch-delete", "check")),
 )
-"""The order `invoke list` prints, and what belongs beside what.
+"""The order `invoke list` prints, as title, what a reader sees, what `--all` adds.
+
+The split is the point. A reader following the guide needs 27 of these and is
+slowed down by the other 22, which are the composed forms, the linters and the
+branch plumbing every task already does for itself.
 
 The branch commands are developer tools and are grouped as such. Printed beside
 the scenarios they read as something the walkthrough needs, and it does not:
@@ -546,18 +548,23 @@ every task in the walkthrough group defaults its branch.
 
 
 @task(name="list")
-def list_tasks(context: Context) -> None:  # noqa: ARG001
-    """Print every task with its description, grouped by what it is for."""
+def list_tasks(context: Context, all: bool = False) -> None:  # noqa: A002, ARG001
+    """Print the tasks a reader needs, grouped. Add --all for every one of them."""
     collection = Collection.from_module(sys.modules[__name__])
 
     def summary(name: str) -> str:
         return (collection[name].__doc__ or "No description.").strip().splitlines()[0]
 
-    grouped = {name for _, names in TASK_GROUPS for name in names}
-    remainder = ("Tests and linters", tuple(sorted(set(collection.task_names) - grouped - {"list"})))
+    groups = [(title, listed + hidden if all else listed) for title, listed, hidden in TASK_GROUPS]
+    named = {name for _, listed, hidden in TASK_GROUPS for name in (*listed, *hidden)}
+    stray = tuple(sorted(set(collection.task_names) - named))
+    if stray and all:
+        groups.append(("Not yet grouped", stray))
 
     console.print()
-    for title, names in (*TASK_GROUPS, remainder):
+    for title, names in groups:
+        if not names:
+            continue
         table = Table(title=title, box=box.SIMPLE, header_style="bold cyan", title_justify="left")
         table.add_column("Task", style="green", no_wrap=True)
         table.add_column("What it does", style="white")
@@ -567,8 +574,13 @@ def list_tasks(context: Context) -> None:  # noqa: ARG001
 
     console.print("  Every task takes [cyan]--help[/cyan]. Start with [bold cyan]uv run invoke init[/bold cyan],")
     console.print(
-        "  then [bold cyan]uv run invoke demo-setup[/bold cyan] and [bold cyan]uv run invoke demo[/bold cyan].\n"
+        "  then [bold cyan]uv run invoke demo-setup[/bold cyan] and [bold cyan]uv run invoke demo[/bold cyan]."
     )
+    if not all:
+        hidden_count = sum(len(hidden) for _, _, hidden in TASK_GROUPS) + len(stray)
+        console.print(f"  [dim]{hidden_count} more behind[/dim] [cyan]uv run invoke list --all[/cyan][dim].[/dim]\n")
+    else:
+        console.print()
 
 
 @task
@@ -1140,32 +1152,27 @@ def format_code(context: Context) -> None:
         context.run("uv run ruff check . --fix", pty=True)
 
 
-@task
-def lint_format(context: Context) -> None:
+def _lint_format(context: Context) -> None:
     """Check Python formatting with ruff."""
     context.run("uv run ruff format --check --diff", pty=True)
 
 
-@task
-def lint_ruff(context: Context) -> None:
+def _lint_ruff(context: Context) -> None:
     """Lint Python with ruff."""
     context.run("uv run ruff check", pty=True)
 
 
-@task
-def lint_mypy(context: Context) -> None:
+def _lint_mypy(context: Context) -> None:
     """Type-check src, tests and scripts with mypy."""
     context.run("uv run mypy src tests scripts", pty=True)
 
 
-@task
-def lint_yaml(context: Context) -> None:
+def _lint_yaml(context: Context) -> None:
     """Lint YAML with yamllint."""
     context.run("uv run yamllint -s .", pty=True)
 
 
-@task
-def lint_markdown(context: Context) -> None:
+def _lint_markdown(context: Context) -> None:
     """Lint Markdown with rumdl."""
     context.run("uv run rumdl check .", pty=True)
 
@@ -1195,24 +1202,39 @@ excluded-vocabulary rule apply to code comments and docstrings too, and
 """
 
 
-@task
-def lint_prose(context: Context) -> None:
-    """Lint prose across the tree with vale. Needs vale on your PATH."""
+def _lint_prose(context: Context) -> bool:
+    """Lint prose across the tree with vale. False when vale is not installed.
+
+    Missing vale skips this one linter and never fails `lint`, because vale is
+    not a Python dependency and `uv sync` cannot install it. CI gates prose
+    through `errata-ai/vale-action@reviewdog`, not through this task, so a
+    contributor without vale is not a contributor who can push bad prose.
+    """
     if shutil.which("vale") is None:
-        _fail("vale is not on your PATH. See https://vale.sh for how to install it.")
+        return False
     context.run(f"vale --glob='!*.pyc' {' '.join(VALE_PATHS)}", pty=True)
+    return True
 
 
 @task
 def lint(context: Context) -> None:
-    """Run every linter CI runs."""
-    _banner("Linting", "[dim]ruff format, ruff, mypy, yamllint, rumdl[/dim]", "yellow")
-    lint_format(context)
-    lint_ruff(context)
-    lint_mypy(context)
-    lint_yaml(context)
-    lint_markdown(context)
-    console.print("[green]ok[/green] every linter passed")
+    """Run every linter, including vale over the prose."""
+    _banner("Linting", "[dim]ruff format, ruff, mypy, yamllint, rumdl, vale[/dim]", "yellow")
+    _lint_format(context)
+    _lint_ruff(context)
+    _lint_mypy(context)
+    _lint_yaml(context)
+    _lint_markdown(context)
+    if _lint_prose(context):
+        console.print("[green]ok[/green] every linter passed")
+        return
+    console.print("[green]ok[/green] every linter passed except vale, which was skipped")
+    _banner(
+        "Prose was not linted",
+        "vale is not on your PATH, so the em dash rule and the excluded vocabulary went unchecked.\n"
+        "Install it from https://vale.sh and run this again before you push.",
+        "yellow",
+    )
 
 
 @task
@@ -1263,6 +1285,159 @@ def docs(context: Context) -> None:
     """Build the documentation site."""
     with context.cd(DOCS_DIRECTORY):
         context.run("pnpm build", pty=True)
+
+
+# --------------------------------------------------------------------------- #
+# Data
+#
+# What the installation guide used to make a reader paste into a GraphQL window
+# or a python -c one-liner. Each figure below is queried, never copied: a page
+# that publishes a number a reader can check has to have a command that produces
+# it.
+# --------------------------------------------------------------------------- #
+
+
+INVENTORY_QUERY = """
+{
+  OtnOpticalElement { count }
+  OtnOpticalCarrier {
+    count
+    edges {
+      node {
+        optical_mode { node { baud_mbaud { value } } }
+        sections { edges { node { name { value } } } }
+      }
+    }
+  }
+  OtnConduit {
+    edges {
+      node {
+        name { value }
+        spans { edges { node { name { value } oms { node { name { value } } } } } }
+      }
+    }
+  }
+}
+"""
+
+
+@task
+def inventory(context: Context, branch: str = "main") -> None:  # noqa: ARG001
+    """Count the plant, then name the busiest corridor and the shared conduits."""
+    _require_stack()
+    data = _graphql(INVENTORY_QUERY, branch)
+
+    elements = data["OtnOpticalElement"]["count"]
+    carriers = data["OtnOpticalCarrier"]["count"]
+    _banner(
+        f"Inventory on {branch}",
+        f"[dim]{elements} optical elements, {carriers} carriers[/dim]",
+    )
+    console.print(
+        "  Every element the link budget has to sum, plus the three ODU switches, which inherit the "
+        "same generic. Routers are absent on purpose: light terminates at a router, so a router adds "
+        "no insertion loss and does not inherit the optical element generic."
+    )
+
+    occupied: dict[str, int] = {}
+    counted: dict[str, int] = {}
+    for edge in data["OtnOpticalCarrier"]["edges"]:
+        node = edge["node"]
+        width = occupied_width_mhz(int(node["optical_mode"]["node"]["baud_mbaud"]["value"]))
+        for section in node["sections"]["edges"]:
+            name = section["node"]["name"]["value"]
+            occupied[name] = occupied.get(name, 0) + width
+            counted[name] = counted.get(name, 0) + 1
+
+    if occupied:
+        table = Table(title="Spectrum in use", box=box.SIMPLE, header_style="bold cyan", title_justify="left")
+        table.add_column("Section", style="green", no_wrap=True)
+        table.add_column("Carriers", justify="right")
+        table.add_column("Occupied", justify="right")
+        table.add_column("Of the C-band", justify="right")
+        for name, mhz in sorted(occupied.items(), key=lambda item: (-item[1], item[0])):
+            share = f"{mhz / CBAND_EXTENT_MHZ:.1%}"
+            table.add_row(name, str(counted[name]), f"{mhz:,} MHz", f"{share} of {CBAND_EXTENT_MHZ:,} MHz")
+        console.print()
+        console.print(table)
+
+    shared = Table(title="Spans sharing a conduit", box=box.SIMPLE, header_style="bold cyan", title_justify="left")
+    shared.add_column("Conduit", style="green", no_wrap=True)
+    shared.add_column("Span")
+    shared.add_column("Section")
+    rows = 0
+    for edge in data["OtnConduit"]["edges"]:
+        node = edge["node"]
+        spans = node["spans"]["edges"]
+        if len(spans) < 2:
+            continue
+        for position, span in enumerate(spans):
+            section = span["node"]["oms"]["node"]
+            shared.add_row(
+                node["name"]["value"] if position == 0 else "",
+                span["node"]["name"]["value"],
+                section["name"]["value"] if section else "unassigned",
+            )
+            rows += 1
+    console.print()
+    if rows:
+        console.print(shared)
+        console.print(
+            "  Two sections in one conduit are one backhoe, however diverse they look on the map. "
+            "[cyan]uv run invoke demo-srlg[/cyan] turns that into a per-service verdict."
+        )
+    else:
+        console.print("  [yellow]-[/yellow] no conduit carries more than one span on this branch")
+
+
+@task(name="dataset-generate")
+def dataset_generate(context: Context, output: str = "") -> None:
+    """Regenerate objects/1*.yml from the seed, or into --output instead."""
+    destination = f" --output {output}" if output else ""
+    context.run(f"uv run python scripts/generate_geant_dataset.py{destination}", pty=True)
+    if output:
+        console.print(f"[green]ok[/green] written to {output}, objects/ untouched")
+    else:
+        _next_step("dataset-check")
+
+
+@task(name="dataset-check")
+def dataset_check(context: Context) -> None:
+    """Check the committed objects/1*.yml still match the seed. Writes nothing."""
+    context.run("uv run python scripts/generate_geant_dataset.py --check", pty=True)
+
+
+def _map_renderers() -> dict[str, Any]:
+    """Every golden case name, mapped to the function that re-renders it.
+
+    Imported here rather than at module scope so that `invoke list` does not pay
+    for pytest and the whole render stack on every run.
+    """
+    from tests.unit import test_mapdraw, test_odudraw  # noqa: PLC0415
+
+    return {name: module.regenerate for module in (test_mapdraw, test_odudraw) for name in module.GOLDEN_CASES}
+
+
+@task(name="maps-regenerate")
+def maps_regenerate(context: Context, case: str = "", output: str = "") -> None:  # noqa: ARG001
+    """Re-render the committed map fixtures, or one --case, or into --output."""
+    renderers = _map_renderers()
+    if case and case not in renderers:
+        _fail(f"No such case {case}. Known cases: {', '.join(sorted(renderers))}")
+
+    destination = pathlib.Path(output) if output else None
+    if destination:
+        destination.mkdir(parents=True, exist_ok=True)
+
+    _banner("Regenerating maps", f"[dim]{case or 'every case'}[/dim]")
+    for name in [case] if case else sorted(renderers):
+        written = renderers[name](name, destination / f"{name}.svg" if destination else None)
+        console.print(f"  [green]ok[/green] {name} -> {written}")
+
+    if destination:
+        console.print(f"\n[green]ok[/green] written to {destination}, the committed fixtures are untouched")
+    else:
+        console.print("\n[yellow]-[/yellow] the committed fixtures were overwritten. Review the diff.")
 
 
 # --------------------------------------------------------------------------- #

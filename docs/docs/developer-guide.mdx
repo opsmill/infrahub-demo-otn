@@ -353,18 +353,17 @@ rehearsal of the pipeline and should not be quoted as one.
 ### The gates
 
 ```bash
-uv run invoke lint          # ruff format, ruff check, mypy, yamllint, rumdl
+uv run invoke lint          # ruff format, ruff check, mypy, yamllint, rumdl, vale
 uv run invoke test-unit     # 855 tests, no Docker
-uv run invoke lint-prose    # vale over the documentation pages
 uv run invoke schema-check  # schema formatting, offline
 uv run invoke docs          # the documentation site
 ```
 
-Each linter also has its own task: `lint-format`, `lint-ruff`, `lint-mypy`,
-`lint-yaml`, `lint-markdown`, `lint-prose`. All of them run in CI on every
-change, and none needs a running Infrahub.
+`lint` runs all six linters. All of them run in CI on every change, and none
+needs a running Infrahub.
 
-`lint-prose` needs `vale` on your PATH; every other task needs only `uv sync`.
+The prose linter needs `vale` on your PATH. Everything else needs only `uv sync`,
+so `lint` skips vale when it is absent and says loudly that it did.
 
 There is no schema-validate subcommand. `invoke schema-check` is the offline
 schema gate, and it checks formatting rather than semantics; the semantic guard
