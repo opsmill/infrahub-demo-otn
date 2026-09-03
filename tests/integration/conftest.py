@@ -36,11 +36,12 @@ still wins:
    a runner agree.
 6. The stack ships sized for a workstation: two API servers of four gunicorn
    workers each and two task workers, which is ten Infrahub processes beside
-   Neo4j, Postgres, RabbitMQ, Redis, HAProxy, cAdvisor and VictoriaMetrics. Four
-   cores cannot run that well, so the gunicorn count per server and the task
-   worker count come down.
+   Neo4j, Postgres, RabbitMQ, Redis, HAProxy, cAdvisor and VictoriaMetrics. It
+   now runs at that size, on the `huge-runners` group and matching
+   infrahub-demo-dc, and the note beside the settings below says why the
+   previous throttle was wrong.
 
-   The API server count deliberately does not. It was cut to one for a while,
+   The API server count deliberately does not move either. It was cut to one for a while,
    to get the server healthy inside the roughly 110 seconds the packaged
    compose file allowed, and it cost more than it bought: one server saturates
    under pipeline load and answers HTTP 429, the SDK backs off ten seconds per
@@ -60,7 +61,9 @@ still wins:
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess  # noqa: S404
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +71,7 @@ import pytest
 from infrahub_sdk.yaml import SchemaFile
 
 CURRENT_DIRECTORY = Path(__file__).parent.resolve()
+REPO_ROOT = CURRENT_DIRECTORY.parent.parent
 
 TESTING_IMAGE = "opsmill/infrahub-demo-otn"
 # Mirrors the tag docker-compose.override.yml builds and the Dockerfile default.
@@ -79,8 +83,18 @@ os.environ.setdefault("INFRAHUB_TESTING_DOCKER_PULL", "false")
 os.environ.setdefault("INFRAHUB_TESTING_TASKMGR_BACKGROUND_SVC_REPLICAS", "1")
 os.environ.setdefault("INFRAHUB_TESTING_TIMEOUT", "300")
 os.environ.setdefault("INFRAHUB_TIMEOUT", "300")
-os.environ.setdefault("INFRAHUB_TESTING_TASK_WORKER_COUNT", "1")
-os.environ.setdefault("INFRAHUB_TESTING_WEB_CONCURRENCY", "2")
+# The task worker and gunicorn counts are deliberately not set here.
+#
+# They were pinned at 1 and 2 for a four-core hosted runner, and `ci.yml` has
+# since moved this job to the `huge-runners` group, so the pins throttled
+# Infrahub to a fraction of the machine it runs on. infrahub-demo-dc runs the
+# same stack on the same runner group and sets neither, taking the packaged two
+# task workers and four gunicorn workers per server. That configuration is
+# proven on this hardware, so it is the one to match rather than an arithmetic
+# of our own.
+#
+# Both remain environment variables, so a smaller machine can still throttle
+# the stack without editing this file.
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -96,10 +110,92 @@ def require_testing_image() -> None:
         pytest.fail(f"Docker image {image!r} is missing; run `uv run invoke build` before the integration tests")
 
 
+def run_task(
+    task: str,
+    arguments: str = "",
+    *,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run one task the way a reader runs it, and hand back the finished process.
+
+    `COLUMNS` is set so `rich` never wraps a task name or a figure off the line
+    a postcondition reads it from.
+    """
+    return subprocess.run(  # noqa: S603
+        ["uv", "run", "invoke", task, *shlex.split(arguments)],  # noqa: S607
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "COLUMNS": "200"},
+        timeout=timeout,
+    )
+
+
+def task_output(result: subprocess.CompletedProcess[str], command: str) -> str:
+    """Everything the task printed, verbatim, after failing on a non-zero exit.
+
+    Verbatim on purpose. This used to normalise the text here, and it cost two
+    tests: flattening the whitespace left one long line, and `json_payload` in
+    `test_tasks_stack.py` finds a transform's document by looking for the line
+    that is exactly `{`. Normalising belongs in the reader that wants it, so
+    `plain` strips and flattens for a substring assertion and `json_payload`
+    keeps the line structure it parses.
+    """
+    assert result.returncode == 0, (
+        f"`uv run invoke {command}` exited {result.returncode}:\n{result.stdout}\n{result.stderr}"
+    )
+    return result.stdout + result.stderr
+
+
+def _assert_a_task_reports(address: str) -> None:
+    """Fail unless `invoke info` names the address just exported.
+
+    A developer's `.env` points at a different stack on port 8000, so an
+    override that failed to take would not error. It would run every task
+    against the wrong server and quite possibly pass.
+    """
+    reported = run_task("info")
+    if address not in reported.stdout:
+        pytest.fail(
+            f"`invoke info` did not report {address}, so task subprocesses are pointed "
+            f"somewhere else:\n{reported.stdout}\n{reported.stderr}"
+        )
+
+
+@pytest.fixture(scope="class")
+def task_environment(infrahub_port: int) -> Iterator[str]:
+    """Export the testcontainers address and token, so task subprocesses inherit them.
+
+    `tasks.py::_env()` puts `os.environ` ahead of `.env`, which is what lets this
+    redirect a task. `infrahub_testcontainers.container` is imported inside the
+    fixture rather than at module level because the settings above have to land
+    before that module loads.
+    """
+    from infrahub_testcontainers.container import PROJECT_ENV_VARIABLES  # noqa: PLC0415
+
+    address = f"http://localhost:{infrahub_port}"
+    overrides = {
+        "INFRAHUB_ADDRESS": address,
+        "INFRAHUB_API_TOKEN": PROJECT_ENV_VARIABLES["INFRAHUB_TESTING_INITIAL_ADMIN_TOKEN"],
+    }
+    previous = {name: os.environ.get(name) for name in overrides}
+    os.environ.update(overrides)
+    try:
+        _assert_a_task_reports(address)
+        yield address
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                del os.environ[name]
+            else:
+                os.environ[name] = value
+
+
 @pytest.fixture
 def root_directory() -> Path:
     """The root directory of the repository."""
-    return CURRENT_DIRECTORY.parent.parent
+    return REPO_ROOT
 
 
 @pytest.fixture

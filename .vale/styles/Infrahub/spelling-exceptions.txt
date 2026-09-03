@@ -114,4 +114,5 @@ validator
 validators
 vendored
 virtualenv
+walkthrough
 yamllint

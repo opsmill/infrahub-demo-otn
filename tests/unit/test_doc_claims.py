@@ -27,8 +27,13 @@ elsewhere, or both.
 
 import json
 import re
+from dataclasses import dataclass
+from functools import cache
+from pathlib import Path
 
+import tasks
 import yaml
+from invoke import Collection
 
 from infrahub_demo_otn.budget import SYSTEM_MARGIN_MDB
 from infrahub_demo_otn.containers import SLOT_TABLE
@@ -121,13 +126,13 @@ def test_the_object_total_every_page_publishes_is_the_total_that_loads() -> None
 
 
 def test_the_optical_element_count_the_install_page_publishes_is_the_manifest() -> None:
-    """`installation-setup.mdx` prints a GraphQL query and the count it returns.
+    """`installation-setup.mdx` publishes the count `invoke inventory` reports.
 
     The count is every kind inheriting `OtnOpticalElement`, and the ODU switches
     inherit it too. The page said 532 and omitted them; the server answers 535.
     """
     expected = sum(MANIFEST[kind] for kind in OPTICAL_ELEMENT_KINDS)
-    published = int(figure("installation-setup.mdx", r"inherit the same generic\. Returns (\d+)\."))
+    published = int(figure("installation-setup.mdx", r"It counts (\d+) optical elements"))
     assert published == expected, f"the page says {published}, the manifest gives {expected}"
 
 
@@ -298,26 +303,291 @@ def test_the_scenario_count_the_demo_guide_publishes_is_what_the_tasks_number() 
     assert [int(row) for row in rows] == sorted(numbered), "the guide's table is missing a numbered scenario"
 
 
-def test_every_invoke_command_the_pages_run_is_a_task_that_exists() -> None:
-    """Every page that tells a reader to run something is quoting `tasks.py`.
+# ---------------------------------------------------------------------------
+# What the pages tell a reader to run
+# ---------------------------------------------------------------------------
 
-    Invoke turns an underscore in a function name into a hyphen on the command
-    line, so the comparison is made on the hyphenated form.
+GUARDED_PAGES: tuple[Path, ...] = (*sorted(DOC_DIR.glob("*.mdx")), REPO_ROOT / "README.md")
+
+ILLUSTRATION_LANGUAGES = ("jinja", "mermaid", "yaml", "python", "json", "text")
+"""Fence tags that show a reader what something looks like rather than what to type.
+
+Everything else is read as commands: `bash`, `sh`, `shell` and `console`, but
+also an untagged block and a tag nobody has classified yet. The riskier reading
+is the right default for a guard, and it is what stops a raw command being hidden
+behind a fence tag instead of being moved into a task.
+"""
+
+ALLOWED_PREFIXES = {
+    "uv run invoke": "The task surface. Everything a reader types should be one of these.",
+    "git clone": "Fetches the repository, so it necessarily runs before any task exists.",
+    "cd ": "Changes into the clone, in the same block as the `git clone`.",
+    "cp .env.example": "Writes the file the API token lives in. No task can read a token before it.",
+    "uv sync": "Installs invoke itself, so it too runs before any task exists.",
+    "node scripts/extract_basemap.mjs": (
+        "Regenerating `basemap.py`. Needs Node and a Natural Earth release you downloaded, "
+        "runs by hand when the window or the source changes, and has no task behind it. "
+        "`developer-guide.mdx` says so in the prose beside it."
+    ),
+}
+"""Every command prefix a page may hold, each with the reason it is excused.
+
+The four setup prefixes are all one shape: a reader cannot run a task until they
+have the repository, the dependencies and the token. The basemap line is the one
+genuine exception, and it is named rather than disguised. Retagging its fence as
+`text` would hide it from this test and is what makes a guard rot.
+
+`data-model.md` also allowed the shell keywords, for a `for` loop on
+`loadable-scenarios.mdx` that the rewrite removed. Nothing on any page needs them
+now, and an allowance nothing uses is a hole rather than a convenience.
+"""
+
+
+@dataclass(frozen=True)
+class CommandBlock:
+    """One fenced block, with the absolute line of each command it holds."""
+
+    page: str
+    line: int
+    language: str
+    commands: tuple[str, ...]
+    numbers: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class DocumentedCommand:
+    """One `uv run invoke ...` a page tells a reader to run."""
+
+    page: str
+    line: int
+    task: str
+    options: tuple[str, ...]
+    values: dict[str, str]
+
+
+def _command(line: str) -> str:
+    """One block line as a command, or empty for a blank, a comment or a prompt."""
+    text = line.strip().removeprefix("$ ").strip()
+    return "" if text.startswith("#") else text
+
+
+@cache
+def _parse(path: Path) -> tuple[tuple[CommandBlock, ...], str]:
+    """Every fenced block on one page, and the page with those blocks blanked out.
+
+    Blanking rather than deleting keeps the line numbers, and it stops the inline
+    scan below pairing one block's closing fence with the next block's opening one.
     """
-    tasks = (REPO_ROOT / "tasks.py").read_text()
-    defined = {name.replace("_", "-") for name in re.findall(r"^def ([a-z_]+)\(context", tasks, re.MULTILINE)}
-    # `@task(name="list")` renames the command without renaming the function, so
-    # the decorator is the authority wherever it appears.
-    defined |= set(re.findall(r"@task\(name=\"([a-z-]+)\"\)", tasks))
+    blocks: list[CommandBlock] = []
+    prose: list[str] = []
+    opening: tuple[int, str] | None = None
+    body: list[tuple[int, str]] = []
 
+    for number, line in enumerate(path.read_text().splitlines(), 1):
+        fence = re.match(r"^```(\S*)\s*$", line)
+        if opening is None and fence:
+            opening, body = (number, fence.group(1)), []
+        elif opening is not None and line.startswith("```"):
+            kept = [(at, _command(text)) for at, text in body]
+            blocks.append(
+                CommandBlock(
+                    page=path.name,
+                    line=opening[0],
+                    language=opening[1],
+                    commands=tuple(text for _, text in kept if text),
+                    numbers=tuple(at for at, text in kept if text),
+                )
+            )
+            opening = None
+        elif opening is not None:
+            body.append((number, line))
+        else:
+            prose.append(line)
+            continue
+        prose.append("")
+
+    return tuple(blocks), "\n".join(prose)
+
+
+def _fenced_blocks() -> tuple[CommandBlock, ...]:
+    return tuple(block for path in GUARDED_PAGES for block in _parse(path)[0])
+
+
+def _is_command_block(block: CommandBlock) -> bool:
+    return block.language not in ILLUSTRATION_LANGUAGES
+
+
+LONG_OPTION = "--"
+"""Written as a constant so the option parsing below is not read as name parsing.
+
+`test_repository_config.py` forbids taking a hyphenated string apart, because a
+device name is an identifier and nothing may recover meaning from it. A command
+line is the one place where splitting on a hyphen is the whole job, and spelling
+the marker out keeps the two apart without an exemption.
+"""
+
+
+def _invocation(page: str, line: int, command: str) -> DocumentedCommand | None:
+    """One command line as a `DocumentedCommand`, or None when it runs no task."""
+    if not command.startswith("uv run invoke "):
+        return None
+    words = command.removeprefix("uv run invoke ").split("#", 1)[0].split()
+    if not words:
+        return None
+
+    task, rest = words[0], words[1:]
+    options: list[str] = []
+    values: dict[str, str] = {}
+    index = 0
+    while index < len(rest):
+        word = rest[index]
+        index += 1
+        if not word.startswith(LONG_OPTION):
+            continue
+        name = word[len(LONG_OPTION) :].replace("-", "_")
+        options.append(name)
+        if index < len(rest) and not rest[index].startswith(LONG_OPTION):
+            values[name] = rest[index]
+            index += 1
+    return DocumentedCommand(page=page, line=line, task=task, options=tuple(options), values=values)
+
+
+def _documented_commands() -> tuple[DocumentedCommand, ...]:
+    """Every documented invocation, from the command blocks and from the prose.
+
+    The prose half is not decoration. `developer-guide.mdx` names `invoke build`
+    and `invoke start --rebuild` only inside a sentence, and a rename would leave
+    those two wrong with every block still passing.
+    """
+    found: list[DocumentedCommand | None] = []
+    for block in _fenced_blocks():
+        if _is_command_block(block):
+            found += [_invocation(block.page, at, text) for at, text in zip(block.numbers, block.commands, strict=True)]
+    for path in GUARDED_PAGES:
+        prose = _parse(path)[1]
+        for match in re.finditer(r"`([^`]+)`", prose, re.DOTALL):
+            spanned = " ".join(match.group(1).split())
+            found.append(_invocation(path.name, prose[: match.start()].count("\n") + 1, spanned))
+    return tuple(command for command in found if command is not None)
+
+
+def test_every_command_a_page_runs_is_on_the_allow_list() -> None:
+    """A reader following a page types the task surface and almost nothing else.
+
+    The allow list above names every exception and why it is one. A new command
+    on a page is either a task or a new named entry; it is never a quiet addition.
+    """
     offenders = []
-    for page in sorted((REPO_ROOT / "docs" / "docs").glob("*.mdx")):
-        # `uv run invoke` and not a bare `invoke`: the pages also say "an invoke
-        # task" in prose, and a reader never types that.
-        for command in set(re.findall(r"uv run invoke ([a-z][a-z-]*)", page.read_text())):
-            if command not in defined:
-                offenders.append(f"{page.name}: invoke {command}")
-    assert not offenders, "documented tasks that do not exist: " + "; ".join(sorted(offenders))
+    for block in _fenced_blocks():
+        if not _is_command_block(block):
+            continue
+        for at, command in zip(block.numbers, block.commands, strict=True):
+            if not any(command.startswith(prefix) for prefix in ALLOWED_PREFIXES):
+                offenders.append(f"{block.page}:{at} runs `{command}`")
+
+    assert not offenders, (
+        "commands the pages run that ALLOWED_PREFIXES in this module does not permit: "
+        + "; ".join(offenders)
+        + ". Move the work into an invoke task, or add a prefix with the reason it is excused: allowed today are "
+        + ", ".join(f"`{prefix.strip()}`" for prefix in ALLOWED_PREFIXES)
+    )
+
+
+def test_no_page_carries_a_fenced_graphql_block() -> None:
+    """A reader is never asked to paste GraphQL. Every query the demo runs is stored.
+
+    `queries/` holds them and a task or a check names the one it wants, so a query
+    on a page is a copy that nothing keeps in step.
+    """
+    pages = {path.name for path in DOC_DIR.glob("*.mdx")}
+    offenders = [
+        f"{block.page}:{block.line}"
+        for block in _fenced_blocks()
+        if block.language == "graphql" and block.page in pages
+    ]
+    assert not offenders, (
+        "fenced graphql blocks under docs/docs/: "
+        + "; ".join(offenders)
+        + ". Store the query in queries/ and point a task or a check at it."
+    )
+
+
+def test_every_documented_command_matches_the_task_it_runs() -> None:
+    """Every documented invocation is checked against the task's real signature.
+
+    Invoke derives its options from the function parameters, so the collection is
+    the authority and no second list is kept here. It replaces the older test that
+    compared the task name alone and passed on an option no task accepts.
+    """
+    collection = Collection.from_module(tasks)
+    known = set(collection.task_names)
+    offenders = []
+
+    for command in _documented_commands():
+        where = f"{command.page}:{command.line} `uv run invoke {command.task}`"
+        if command.task not in known:
+            offenders.append(f"{where} is not a task in tasks.py")
+            continue
+        accepted = {argument.name: argument.kind for argument in collection[command.task].get_arguments()}
+        for option in command.options:
+            if option not in accepted:
+                offenders.append(f"{where} passes --{option.replace('_', '-')}, which the task does not accept")
+            elif accepted[option] is bool and option in command.values:
+                offenders.append(f"{where} gives --{option.replace('_', '-')} a value, and it is a flag")
+            elif accepted[option] is not bool and option not in command.values:
+                offenders.append(f"{where} passes --{option.replace('_', '-')} with no value")
+
+    assert not offenders, "documented commands that do not match tasks.py: " + "; ".join(sorted(offenders))
+
+
+def test_every_task_in_the_default_listing_is_documented() -> None:
+    """The other direction: a reader-facing task cannot ship undocumented.
+
+    `invoke list` prints one set and `--all` prints the rest. Everything in the
+    first set is something a reader is meant to run, so a page has to say so.
+    """
+    listed = {name for _, names, _ in tasks.TASK_GROUPS for name in names}
+    documented = {command.task for command in _documented_commands()}
+    missing = sorted(listed - documented)
+
+    assert not missing, (
+        "tasks `uv run invoke list` shows that no page tells a reader to run: "
+        + ", ".join(missing)
+        + ". Document each on a page, or move it into the hidden half of TASK_GROUPS in tasks.py."
+    )
+
+
+STATED_DEFAULTS = (
+    ("loadable-scenarios.mdx", r"It makes `(\S+)` if it is not there, loads both files", "demo-odu", "branch"),
+    ("loadable-scenarios.mdx", r"It makes `(\S+)`, loads both files, provisions all four", "demo-diversity", "branch"),
+    ("loadable-scenarios.mdx", r"Every step below runs on the `(\S+)` branch", "demo", "branch"),
+    ("quickstart.mdx", r"It makes the `(\S+)` branch if it is not there", "demo-provision", "branch"),
+)
+"""Every sentence on a page that names a value a task supplies for itself.
+
+All four say which branch a task lands on when the reader passes none, which is
+the only kind of default the pages state today. There is no wider
+convention to generalise over, and a pattern matched against nothing would pass
+while proving nothing, so the sentences are pinned one at a time. `figure` fails
+if one of them is reworded, which is the point: a reworded sentence is exactly
+where a stated default goes stale.
+"""
+
+
+def test_a_default_a_page_states_is_the_default_the_task_carries() -> None:
+    """Where a page saves the reader an argument, it names the value the task uses."""
+    collection = Collection.from_module(tasks)
+    assert STATED_DEFAULTS, "a stated-defaults table with no rows would pass while proving nothing"
+
+    for page, pattern, task, option in STATED_DEFAULTS:
+        stated = figure(page, pattern)
+        text = doc_text(page)
+        at = text[: re.search(pattern, text).start()].count("\n") + 1  # type: ignore[union-attr]
+        defaults = {argument.name: argument.default for argument in collection[task].get_arguments()}
+        assert stated == defaults[option], (
+            f"{page}:{at} says `uv run invoke {task}` uses {stated!r}, "
+            f"tasks.py defaults {option} to {defaults[option]!r}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -355,14 +625,21 @@ def test_the_check_count_every_page_publishes_is_what_infrahub_yml_registers() -
         ("provisioning-scenarios.mdx", r"of the (\w+) checks say something"),
         ("what-this-shows.mdx", r"whole pipeline: (\w+) checks"),
         ("what-this-shows.mdx", r"registers (\w+) check definitions"),
+        ("README.md", r"\*\*Block a bad merge\.\*\* (\w+) checks run"),
     ):
+        # Lowered because README.md's count opens a sentence and the others do not.
         said = figure(page, pattern)
-        assert COUNTS.get(said) == len(registered), (
+        assert COUNTS.get(said.lower()) == len(registered), (
             f"{page} says {said} checks against {pattern!r}, .infrahub.yml registers {len(registered)}"
         )
 
     listed = set(re.findall(r"`(\w+)`", figure("client-mapping.mdx", r"repository ships \w+ checks: ([^.]+)\.")))
     assert listed == set(registered), f"client-mapping.mdx lists {sorted(listed)}, .infrahub.yml registers {registered}"
+
+    named = figure("README.md", r"- \*\*Checks\.\*\* ([^.]+)\.")
+    assert len(re.findall(r",| and ", named)) + 1 == len(registered), (
+        f"README.md's checks bullet names {named!r} against {len(registered)} registered checks"
+    )
 
 
 def test_the_provisioning_page_accounts_for_every_check_that_ran() -> None:
