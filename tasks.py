@@ -102,6 +102,12 @@ RAMAN_BRANCH = "raman-par-mad"
 Its own branch rather than `demo`, because the scenario is a before and after:
 the default branch has to keep the failing check for the comparison to mean
 anything."""
+ODU_BRANCH = "odu-demo"
+OEO_REFUSED_BRANCH = "oeo-refused"
+OEO_CLOSED_BRANCH = "oeo-closed"
+DIVERSITY_BRANCH = "diversity-demo"
+MONITOR_GAP_BRANCH = "monitor-gap"
+
 DEMO_SERVICES = (
     "svc-ber-ams-400g",
     "svc-fra-mil-ai-400g",
@@ -109,6 +115,25 @@ DEMO_SERVICES = (
     "svc-fra-gva-hpc-400g",
     "svc-vie-mil-hpc-400g",
 )
+
+ODU_SERVICES = tuple(f"svc-lon-mil-sdh-{number:02d}" for number in range(1, 12))
+"""The eleven London to Milan STM-64 requests, in order.
+
+Order is the scenario: the ten before it fill the line container, and the
+eleventh is refused for slots because they did."""
+
+REGENERATOR_SERVICE = "svc-mad-waw-400g"
+
+DIVERSITY_SERVICES = (
+    "svc-mil-feed-vie-100g",
+    "svc-mil-feed-gva-100g",
+    "svc-fra-feed-ams-100g",
+    "svc-fra-feed-par-100g",
+)
+"""All four members of the two diversity groups.
+
+A member with no route is undetermined rather than a pass, so provisioning three
+of the four would leave the check with nothing to say about the pair."""
 
 WALKTHROUGH = (
     "demo-capacity",
@@ -142,6 +167,10 @@ class ScenarioBranch(NamedTuple):
 # The ten walkthrough steps share DEMO_BRANCH and appear once, under the task
 # that loads their files. A loadable scenario owns a branch of its own, because
 # it is a before and after and the default branch has to keep the "before".
+#
+# `demo-regenerator` owns two rows rather than one, because its before and its
+# after are two branches a reviewer holds against each other. A row is one
+# branch, so a two-branch scenario is two rows and `_scenarios` returns both.
 SCENARIO_BRANCHES: tuple[ScenarioBranch, ...] = (
     ScenarioBranch(
         task="demo-setup",
@@ -154,12 +183,47 @@ SCENARIO_BRANCHES: tuple[ScenarioBranch, ...] = (
         files=("demo/02_par_mad_raman.yml",),
         check="osnr_margin",
     ),
+    ScenarioBranch(
+        task="demo-odu",
+        branch=ODU_BRANCH,
+        files=("demo/04_odu_ten_in_one.yml", "demo/05_odu_mixed_fill.yml"),
+        check="container_capacity",
+    ),
+    ScenarioBranch(
+        task="demo-regenerator",
+        branch=OEO_REFUSED_BRANCH,
+        files=("demo/06_mad_waw_16qam.yml",),
+        check="provisionable",
+    ),
+    ScenarioBranch(
+        task="demo-regenerator",
+        branch=OEO_CLOSED_BRANCH,
+        files=("demo/06_mad_waw_16qam.yml", "demo/07_mad_waw_qpsk.yml"),
+        check="provisionable",
+    ),
+    ScenarioBranch(
+        task="demo-diversity",
+        branch=DIVERSITY_BRANCH,
+        files=("demo/08_diversity_mil_feeds.yml", "demo/09_diversity_fra_feeds.yml"),
+        check="diversity",
+    ),
+    ScenarioBranch(
+        task="demo-monitor-gap",
+        branch=MONITOR_GAP_BRANCH,
+        files=("demo/10_amplifier_without_monitor.yml",),
+        check="monitor_completeness",
+    ),
 )
 
 
+def _scenarios(task_name: str) -> tuple[ScenarioBranch, ...]:
+    """Every `SCENARIO_BRANCHES` row a scenario task owns, in order."""
+    return tuple(row for row in SCENARIO_BRANCHES if row.task == task_name)
+
+
 def _scenario(task_name: str) -> ScenarioBranch:
-    """The `SCENARIO_BRANCHES` row one scenario task owns."""
-    return next(row for row in SCENARIO_BRANCHES if row.task == task_name)
+    """The first `SCENARIO_BRANCHES` row one scenario task owns."""
+    return _scenarios(task_name)[0]
 
 
 # --------------------------------------------------------------------------- #
@@ -370,8 +434,34 @@ def _ensure_branch(context: Context, name: str) -> None:
     branch_create(context, name)
 
 
+_SCENARIO_FILES_LOADED: set[str] = set()
+"""The branches this process has already put scenario input on.
+
+Several tasks reach `_ensure_scenario_files` for one branch in a single run, and
+the request count below cannot tell them apart on a branch whose files carry no
+service."""
+
+
+def _ensure_scenario_files(context: Context, branch: str, files: tuple[str, ...]) -> None:
+    """Load the `demo/` files a scenario needs onto its branch.
+
+    Guarded on the requests being absent rather than on the branch being new: a
+    branch forked from a loaded `main` inherits them and a branch forked before
+    they were loaded does not. `infrahubctl object load` is idempotent either
+    way.
+    """
+    if not files or branch in _SCENARIO_FILES_LOADED:
+        return
+    _SCENARIO_FILES_LOADED.add(branch)
+    if _count("OtnService", branch):
+        return
+    console.print(f"[yellow]-[/yellow] loading the {len(files)} scenario file(s) branch {branch} needs")
+    for path in files:
+        _ctl(context, f"object load {path} --branch {branch}")
+
+
 def _ensure_dataset(context: Context, branch: str) -> None:
-    """Put the branch and the dataset in place before a scenario reads them.
+    """Put the branch, the dataset and the branch's scenario input in place.
 
     The stack check stays a refusal because a stack that is not answering is the
     one precondition a task cannot satisfy for itself. Everything after it is
@@ -385,9 +475,26 @@ def _ensure_dataset(context: Context, branch: str) -> None:
     # nothing.
     if _count("OtnSite", branch):
         console.print(f"[green]-[/green] the dataset is already there, branch {branch} is ready")
-        return
-    console.print(f"[yellow]-[/yellow] no dataset on {branch} yet, loading it")
-    load(context, branch)
+    else:
+        console.print(f"[yellow]-[/yellow] no dataset on {branch} yet, loading it")
+        load(context, branch)
+    _ensure_scenario_files(
+        context,
+        branch,
+        tuple(path for row in SCENARIO_BRANCHES if row.branch == branch for path in row.files),
+    )
+
+
+def _scenario_branch(context: Context, scenario: ScenarioBranch, branch: str = "") -> None:
+    """Fork a scenario's own branch off a loaded `main`, with its files on it.
+
+    The dataset has to be on the branch this forks from, not on the branch it is
+    about to create.
+    """
+    target = branch or scenario.branch
+    _ensure_dataset(context, target if _branch_exists(target) else "main")
+    _ensure_branch(context, target)
+    _ensure_scenario_files(context, target, scenario.files)
 
 
 def _next_step(command: str) -> None:
@@ -412,7 +519,22 @@ def _banner(title: str, body: str = "", style: str = "cyan") -> None:
 TASK_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Get a stack running", ("init", "info", "start", "stop", "restart", "destroy", "build")),
     ("Load the model and the data", ("load", "load-schema", "load-menu", "load-objects", "load-repository")),
-    ("The walkthrough", ("demo-setup", "demo", *WALKTHROUGH, "demo-budget", "demo-drift", "demo-raman", "demo-clean")),
+    (
+        "The walkthrough",
+        (
+            "demo-setup",
+            "demo",
+            *WALKTHROUGH,
+            "demo-budget",
+            "demo-drift",
+            "demo-raman",
+            "demo-odu",
+            "demo-regenerator",
+            "demo-diversity",
+            "demo-monitor-gap",
+            "demo-clean",
+        ),
+    ),
     ("Developer tools", ("branch-create", "branch-list", "branch-delete", "check", "docs", "schema-vendor-diff")),
 )
 """The order `invoke list` prints, and what belongs beside what.
@@ -1168,10 +1290,9 @@ def demo_setup(context: Context, branch: str = DEMO_BRANCH) -> None:
     _ctl(context, f"object load objects/00_groups.yml --branch {branch}")
 
     # Only the memberships are scenario data; the group itself came from the
-    # dataset load above.
-    console.print("[cyan]->[/cyan] the services that join the generator target group")
-    for path in _scenario("demo-setup").files:
-        _ctl(context, f"object load {path} --branch {branch}")
+    # dataset load above. `_ensure_dataset` has already put them on the default
+    # branch, and this is what puts them on one named with --branch.
+    _ensure_scenario_files(context, branch, _scenario("demo-setup").files)
 
     _banner("Ready", "[cyan]Next[/cyan]  uv run invoke demo-capacity", "green")
 
@@ -1350,15 +1471,8 @@ def demo_raman(context: Context, branch: str = RAMAN_BRANCH) -> None:
     its own and the two runs can be compared.
     """
     _banner("Raman on Paris to Madrid", f"[dim]branch {branch}[/dim]", "magenta")
-
-    # The dataset has to be on the branch this forks from, not on the branch it
-    # is about to create.
-    _ensure_dataset(context, branch if _branch_exists(branch) else "main")
-    _ensure_branch(context, branch)
-
     scenario = _scenario("demo-raman")
-    for path in scenario.files:
-        _ctl(context, f"object load {path} --branch {branch}")
+    _scenario_branch(context, scenario, branch)
 
     console.print("\n[cyan]->[/cyan] the same check that fails on the default branch")
     _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
@@ -1369,6 +1483,128 @@ def demo_raman(context: Context, branch: str = RAMAN_BRANCH) -> None:
     # The one place the walkthrough prints a branch name, because this scenario
     # is the comparison between two branches and hiding the second hides it.
     _next_step(f"demo-clean --branch {branch}")
+
+
+@task
+def demo_odu(context: Context, branch: str = ODU_BRANCH) -> None:
+    """The ODU layer: ten circuits in one wavelength, then every band at once.
+
+    The two files share a branch because they touch no common wavelength.
+    """
+    _banner("The ODU layer", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-odu")
+    _scenario_branch(context, scenario, branch)
+
+    # The file carries the requests and the empty line container. The ten
+    # circuits that fill it, and the refusal of the eleventh, are the
+    # generator's answer rather than a record loaded from disk.
+    for service in ODU_SERVICES:
+        console.print(f"\n[cyan]->[/cyan] {service}")
+        _ctl(context, f"generator optical_service --branch {branch} service={service}", warn=True)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  Ten ODU2 of 8 slots groom into one ODU4 of 80, so the tenth takes that\n"
+        "  container to 80 of 80 and svc-lon-mil-sdh-11 is refused for no-slots.\n"
+        "  Grooming is tried first and lighting second, so the file closes both\n"
+        "  escapes: the widest free block left on oms-fra-mil is 38,000 MHz and the\n"
+        "  narrowest mode in the catalog occupies 44,400. The refusal is signed for,\n"
+        "  so this branch still merges. The second file puts at least one section in\n"
+        "  each of the five bands, which is what makes the legend readable against\n"
+        f"  the picture. Open odu-map on any PoP on {branch}."
+    )
+    _next_step("demo-regenerator")
+
+
+@task
+def demo_regenerator(context: Context) -> None:
+    """Madrid to Warsaw: three regenerators refused, then a mode change that closes it.
+
+    Two branches, because the point is the comparison. `oeo-refused` keeps the
+    refusal a reviewer meets, and `oeo-closed` is the proposal held against it.
+    """
+    refused, closed = _scenarios("demo-regenerator")
+
+    _banner("Three regenerators, three refusals", f"[dim]branch {refused.branch}[/dim]", "magenta")
+    _scenario_branch(context, refused)
+    _ctl(context, f"generator optical_service --branch {refused.branch} service={REGENERATOR_SERVICE}", warn=True)
+
+    console.print(f"\n[cyan]->[/cyan] {refused.check} on {refused.branch}")
+    _ctl(context, f"check {refused.check} --branch {refused.branch}", warn=True)
+    console.print(
+        "\n  All three splits are refused for budget: Paris returns -0.535 and -2.439\n"
+        "  dB, Frankfurt -2.755, Prague -4.004. A route's verdict is a conjunction\n"
+        "  over its segments, so one half short of OSNR refuses the whole circuit.\n"
+        "  Nothing in the file sets refusal_accepted, so this branch does not merge,\n"
+        "  and it is the only scenario in the demo that blocks one."
+    )
+
+    _banner("The mode change that closes it", f"[dim]branch {closed.branch}[/dim]", "magenta")
+    _scenario_branch(context, closed)
+    _ctl(context, f"generator optical_service --branch {closed.branch} service={REGENERATOR_SERVICE}", warn=True)
+
+    console.print(f"\n[cyan]->[/cyan] {closed.check} on {closed.branch}")
+    _ctl(context, f"check {closed.check} --branch {closed.branch}", warn=True)
+    console.print(
+        "\n  One more wavelength pair at DP-QPSK 128GBd 400G on oeo-fra-03, and the\n"
+        "  service takes the chain in two segments at +2.745 and +5.740 dB. No new\n"
+        "  site, no new section, no edited margin. The same run still refuses the\n"
+        "  three 16QAM splits, because 06 is loaded underneath: the fix for this\n"
+        "  route is a regenerator and a mode change, and three attempts at the\n"
+        "  regenerator alone were not enough. The service ends active and refuses\n"
+        "  nothing, so provisionable passes and this branch merges."
+    )
+    _next_step("demo-diversity")
+
+
+@task
+def demo_diversity(context: Context, branch: str = DIVERSITY_BRANCH) -> None:
+    """Two declared diversity groups on one branch: one promise holds, one does not."""
+    _banner("Declared diversity", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-diversity")
+    _scenario_branch(context, scenario, branch)
+
+    for service in DIVERSITY_SERVICES:
+        console.print(f"\n[cyan]->[/cyan] {service}")
+        _ctl(context, f"generator optical_service --branch {branch} service={service}", warn=True)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  Milan's two northern feeds arrive through different trenches, so that\n"
+        "  group passes, and it passes because the routes are disjoint rather than\n"
+        "  because nobody asked. Frankfurt's two feeds both enter through\n"
+        "  cd-fra-north, so that group fails, and that failure is the expected\n"
+        "  result. Both are judged in the same run. All four members were\n"
+        "  provisioned first, because a member with no route is undetermined and\n"
+        "  undetermined is not a pass."
+    )
+    _next_step("demo-monitor-gap")
+
+
+@task
+def demo_monitor_gap(context: Context, branch: str = MONITOR_GAP_BRANCH) -> None:
+    """An amplifier nobody can measure, and the check that finds it.
+
+    The load succeeds, and the success is the scenario: a schema constrains what
+    is written, so it cannot refuse a record for what is missing beside it.
+    """
+    _banner("The amplifier with no monitor", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-monitor-gap")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  One finding: amp-ham-ber-11 carries no OtnAmplifierMonitor, so nothing\n"
+        "  can compare its configured gain against what it delivers and the drift\n"
+        "  report is quietly one stage short. Coverage is reported per kind rather\n"
+        "  than as one total, because 306 covered amplifiers would hide nine\n"
+        "  uncovered Raman pumps inside a single percentage. No other check moves on\n"
+        "  this branch: an amplifier lights no wavelength and carries no service."
+    )
+    _next_step("demo-clean")
 
 
 @task(name="demo")
