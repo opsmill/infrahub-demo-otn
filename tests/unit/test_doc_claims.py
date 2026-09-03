@@ -625,14 +625,21 @@ def test_the_check_count_every_page_publishes_is_what_infrahub_yml_registers() -
         ("provisioning-scenarios.mdx", r"of the (\w+) checks say something"),
         ("what-this-shows.mdx", r"whole pipeline: (\w+) checks"),
         ("what-this-shows.mdx", r"registers (\w+) check definitions"),
+        ("README.md", r"\*\*Block a bad merge\.\*\* (\w+) checks run"),
     ):
+        # Lowered because README.md's count opens a sentence and the others do not.
         said = figure(page, pattern)
-        assert COUNTS.get(said) == len(registered), (
+        assert COUNTS.get(said.lower()) == len(registered), (
             f"{page} says {said} checks against {pattern!r}, .infrahub.yml registers {len(registered)}"
         )
 
     listed = set(re.findall(r"`(\w+)`", figure("client-mapping.mdx", r"repository ships \w+ checks: ([^.]+)\.")))
     assert listed == set(registered), f"client-mapping.mdx lists {sorted(listed)}, .infrahub.yml registers {registered}"
+
+    named = figure("README.md", r"- \*\*Checks\.\*\* ([^.]+)\.")
+    assert len(re.findall(r",| and ", named)) + 1 == len(registered), (
+        f"README.md's checks bullet names {named!r} against {len(registered)} registered checks"
+    )
 
 
 def test_the_provisioning_page_accounts_for_every_check_that_ran() -> None:
