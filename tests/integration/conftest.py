@@ -60,6 +60,7 @@ still wins:
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import subprocess  # noqa: S404
 from collections.abc import Iterator
@@ -122,11 +123,23 @@ def run_task(
 
 
 def task_output(result: subprocess.CompletedProcess[str], command: str) -> str:
-    """Everything the task printed, after failing on a non-zero exit."""
+    """Everything the task printed, flattened, after failing on a non-zero exit.
+
+    `infrahubctl` logs through a rich handler that writes the source location in
+    its own column, so a verdict arrives as
+    `monitor_completeness::MonitorCompletenessCheck: check.py:112 FAILED`. The
+    location lands inside the sentence, not beside it, and `COLUMNS` does not
+    move it. Dropping those tokens and collapsing the whitespace they leave is
+    what lets a postcondition assert what a reader sees.
+    """
     assert result.returncode == 0, (
         f"`uv run invoke {command}` exited {result.returncode}:\n{result.stdout}\n{result.stderr}"
     )
-    return result.stdout + result.stderr
+    return _FLATTEN_SPACE.sub(" ", _SOURCE_LOCATION.sub("", result.stdout + result.stderr))
+
+
+_SOURCE_LOCATION = re.compile(r"\S+\.py:\d+")
+_FLATTEN_SPACE = re.compile(r"\s+")
 
 
 def _assert_a_task_reports(address: str) -> None:
