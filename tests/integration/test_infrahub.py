@@ -141,17 +141,37 @@ class TestInfrahub(TestInfrahubDockerClient):
 
     @staticmethod
     def query(address: str, document: str, branch: str = BRANCH) -> dict[str, Any]:
-        """Run a GraphQL document and fail on `errors`, whatever the status code."""
-        response = httpx.post(
-            f"{address}/graphql/{branch}",
-            json={"query": document},
-            headers={"X-INFRAHUB-KEY": TOKEN},
-            timeout=180.0,
-        )
-        payload = response.json()
-        assert "errors" not in payload, f"GraphQL errors (HTTP {response.status_code}): {payload['errors']}"
-        data: dict[str, Any] = payload["data"]
-        return data
+        """Run a GraphQL document and fail on `errors`, whatever the status code.
+
+        Retries a 5xx. The load balancer answers 502 and HTML 503 while the
+        pipeline is rendering artifacts, and an HTML error page is not a
+        GraphQL answer: `.json()` raises `JSONDecodeError` before the `errors`
+        check this helper exists to make, so the suite reports a decode error
+        where the fault is a proxy under load. A 200 is judged on its `errors`
+        array on the first try, as before, so no data fault is retried away.
+        """
+        last = ""
+        for attempt in range(6):
+            response = httpx.post(
+                f"{address}/graphql/{branch}",
+                json={"query": document},
+                headers={"X-INFRAHUB-KEY": TOKEN},
+                timeout=180.0,
+            )
+            if response.status_code >= 500:
+                last = f"HTTP {response.status_code}"
+                time.sleep(2 * (attempt + 1))
+                continue
+            try:
+                payload = response.json()
+            except ValueError:
+                last = f"HTTP {response.status_code} with a non-JSON body"
+                time.sleep(2 * (attempt + 1))
+                continue
+            assert "errors" not in payload, f"GraphQL errors (HTTP {response.status_code}): {payload['errors']}"
+            data: dict[str, Any] = payload["data"]
+            return data
+        raise AssertionError(f"no JSON answer after 6 attempts, last was {last}")
 
     # ----------------------------------------------------------------- #
     # Load
