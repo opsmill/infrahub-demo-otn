@@ -17,7 +17,7 @@ import shutil
 import subprocess  # noqa: S404
 import sys
 import time
-from typing import Any
+from typing import Any, NamedTuple
 
 import httpx
 from invoke import Collection, Context, task
@@ -124,6 +124,42 @@ WALKTHROUGH = (
 )
 """The runbook order in `docs/docs/loadable-scenarios.mdx`, and what the
 `demo` task runs. `demo-setup` comes before it and `demo-clean` after it."""
+
+
+class ScenarioBranch(NamedTuple):
+    """A scenario's branch, the `demo/` files it loads and the check it runs."""
+
+    task: str
+    branch: str
+    files: tuple[str, ...]
+    check: str | None = None
+
+
+# The single source for what a scenario owns. Each scenario reads its own row
+# and `demo-clean` iterates the whole tuple, so a branch cannot be created by
+# one list and cleaned up by another that fell behind it.
+#
+# The ten walkthrough steps share DEMO_BRANCH and appear once, under the task
+# that loads their files. A loadable scenario owns a branch of its own, because
+# it is a before and after and the default branch has to keep the "before".
+SCENARIO_BRANCHES: tuple[ScenarioBranch, ...] = (
+    ScenarioBranch(
+        task="demo-setup",
+        branch=DEMO_BRANCH,
+        files=("demo/00_services.yml", "demo/01_impact_services.yml"),
+    ),
+    ScenarioBranch(
+        task="demo-raman",
+        branch=RAMAN_BRANCH,
+        files=("demo/02_par_mad_raman.yml",),
+        check="osnr_margin",
+    ),
+)
+
+
+def _scenario(task_name: str) -> ScenarioBranch:
+    """The `SCENARIO_BRANCHES` row one scenario task owns."""
+    return next(row for row in SCENARIO_BRANCHES if row.task == task_name)
 
 
 # --------------------------------------------------------------------------- #
@@ -325,18 +361,33 @@ def _require_stack() -> None:
         _fail(f"The stack at {_address()} is not answering.", "start")
 
 
-def _require_dataset(branch: str, setup_task: str = "demo-setup") -> None:
-    """Stop with one sentence when a scenario is run before its setup.
+def _ensure_branch(context: Context, name: str) -> None:
+    """Create a branch, or continue onto the one that is already there."""
+    if _branch_exists(name):
+        console.print(f"[yellow]-[/yellow] branch {name} already exists, continuing onto it")
+        return
+    console.print(f"[yellow]-[/yellow] branch {name} does not exist yet, creating it in Git and in the graph")
+    branch_create(context, name)
 
-    Three ways to arrive here early: the stack is down, the branch was never
-    created, or the branch exists and holds no objects. Each one names the task
-    that fixes it.
+
+def _ensure_dataset(context: Context, branch: str) -> None:
+    """Put the branch and the dataset in place before a scenario reads them.
+
+    The stack check stays a refusal because a stack that is not answering is the
+    one precondition a task cannot satisfy for itself. Everything after it is
+    narrated: a task that silently spends a minute loading 2344 objects looks
+    hung.
     """
     _require_stack()
-    if not _branch_exists(branch):
-        _fail(f"Branch {branch} does not exist yet.", setup_task)
-    if not _count("OtnSite", branch):
-        _fail(f"Branch {branch} holds no dataset yet.", setup_task)
+    _ensure_branch(context, branch)
+    # Counted after the branch exists, not before: a branch forked from a loaded
+    # `main` inherits the dataset, and loading it again would cost a minute for
+    # nothing.
+    if _count("OtnSite", branch):
+        console.print(f"[green]-[/green] the dataset is already there, branch {branch} is ready")
+        return
+    console.print(f"[yellow]-[/yellow] no dataset on {branch} yet, loading it")
+    load(context, branch)
 
 
 def _next_step(command: str) -> None:
@@ -1105,26 +1156,17 @@ def docs(context: Context) -> None:
 def demo_setup(context: Context, branch: str = DEMO_BRANCH) -> None:
     """Set the demo up on a branch: dataset and the five services."""
     _banner("Demo setup", f"[dim]branch {branch}[/dim]")
-    _require_stack()
+    _ensure_dataset(context, branch)
 
-    if _branch_exists(branch):
-        console.print(f"[yellow]-[/yellow] branch {branch} already exists, continuing onto it")
-    else:
-        branch_create(context, branch)
+    # A branch can hold the dataset and not the generator target group, so this
+    # one file is loaded on both paths. It is idempotent.
+    _ctl(context, f"object load objects/00_groups.yml --branch {branch}")
 
-    if _count("OtnSite", branch):
-        console.print("[yellow]-[/yellow] the dataset is already on this branch, skipping the load")
-        # A branch may hold the dataset and not the generator target group.
-        # Loading the one file is idempotent.
-        _ctl(context, f"object load objects/00_groups.yml --branch {branch}")
-    else:
-        load(context, branch)
-
-    # The generator target group comes from `objects/00_groups.yml`, which the
-    # dataset load above already applied. Only the memberships are scenario data.
+    # Only the memberships are scenario data; the group itself came from the
+    # dataset load above.
     console.print("[cyan]->[/cyan] the services that join the generator target group")
-    _ctl(context, f"object load demo/00_services.yml --branch {branch}")
-    _ctl(context, f"object load demo/01_impact_services.yml --branch {branch}")
+    for path in _scenario("demo-setup").files:
+        _ctl(context, f"object load {path} --branch {branch}")
 
     _banner("Ready", "[cyan]Next[/cyan]  uv run invoke demo-capacity", "green")
 
@@ -1132,7 +1174,7 @@ def demo_setup(context: Context, branch: str = DEMO_BRANCH) -> None:
 @task
 def demo_capacity(context: Context, branch: str = DEMO_BRANCH) -> None:
     """Scenario 3: what spectrum is left, and what can use it."""
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"transform capacity_view --branch {branch}")
     _next_step("demo-reach")
 
@@ -1140,7 +1182,7 @@ def demo_capacity(context: Context, branch: str = DEMO_BRANCH) -> None:
 @task
 def demo_reach(context: Context, branch: str = DEMO_BRANCH) -> None:
     """Scenario 6: where the cheap pluggables reach. Nowhere, and why."""
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"transform reach_report --branch {branch}")
     _next_step("demo-provision")
 
@@ -1148,7 +1190,7 @@ def demo_reach(context: Context, branch: str = DEMO_BRANCH) -> None:
 @task
 def demo_provision(context: Context, branch: str = DEMO_BRANCH, service: str = "svc-ber-ams-400g") -> None:
     """Scenario 1: provision Berlin to Amsterdam at 400G."""
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"generator optical_service --branch {branch} service={service}")
     _next_step("demo-provision-all")
 
@@ -1156,7 +1198,7 @@ def demo_provision(context: Context, branch: str = DEMO_BRANCH, service: str = "
 @task
 def demo_provision_all(context: Context, branch: str = DEMO_BRANCH) -> None:
     """Provision the four remaining demo services."""
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     for service in DEMO_SERVICES[1:]:
         console.print(f"\n[cyan]->[/cyan] {service}")
         _ctl(context, f"generator optical_service --branch {branch} service={service}", warn=True)
@@ -1166,7 +1208,7 @@ def demo_provision_all(context: Context, branch: str = DEMO_BRANCH) -> None:
 @task
 def demo_trace(context: Context, branch: str = DEMO_BRANCH, service: str = "svc-ams-mil-ai-400g") -> None:
     """Scenario 5: trace a service end to end, router to glass to router."""
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"transform service_trace --branch {branch} service={service}")
     _next_step("demo-impact")
 
@@ -1174,7 +1216,7 @@ def demo_trace(context: Context, branch: str = DEMO_BRANCH, service: str = "svc-
 @task
 def demo_impact(context: Context, branch: str = DEMO_BRANCH, section: str = "oms-ams-fra") -> None:
     """Scenario 4: cut the Frankfurt to Amsterdam fiber. What goes down?"""
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"transform impact_report --branch {branch} section={section}")
     _next_step("demo-srlg")
 
@@ -1182,7 +1224,7 @@ def demo_impact(context: Context, branch: str = DEMO_BRANCH, section: str = "oms
 @task
 def demo_budget(context: Context, branch: str = DEMO_BRANCH) -> None:
     """The link budget for every wavelength on a branch, worst margin first."""
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"transform budget_report --branch {branch}")
     _next_step("demo-latency")
 
@@ -1190,7 +1232,7 @@ def demo_budget(context: Context, branch: str = DEMO_BRANCH) -> None:
 @task
 def demo_srlg(context: Context, branch: str = DEMO_BRANCH) -> None:
     """Scenario 7: which services share a duct and are not diverse."""
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"transform srlg_exposure --branch {branch}")
     _next_step("demo-latency")
 
@@ -1198,7 +1240,7 @@ def demo_srlg(context: Context, branch: str = DEMO_BRANCH) -> None:
 @task
 def demo_latency(context: Context, branch: str = DEMO_BRANCH) -> None:
     """Scenario 8: the AI and HPC services against their latency budgets."""
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"transform ai_latency --branch {branch}")
     _next_step("demo-infiniband")
 
@@ -1231,7 +1273,7 @@ def demo_refusal(context: Context, branch: str = DEMO_BRANCH) -> None:
     walkthrough. It signs for nothing, so the gate is seen firing there.
     """
     _banner("Congestion in two layers", "[dim]Fill Frankfurt to Milan, then ask twice[/dim]", "magenta")
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"object load demo/90_fra_mil_saturated.yml --branch {branch}")
     _ctl(context, f"generator optical_service --branch {branch} service=svc-fra-mil-ai-400g", warn=True)
     _ctl(context, f"generator optical_service --branch {branch} service=svc-fra-mil-transit-100g")
@@ -1269,7 +1311,7 @@ def demo_infiniband(context: Context, branch: str = DEMO_BRANCH) -> None:
     400G mode, whose `ODUC4` offers 320.
     """
     _banner("InfiniBand handover", f"[dim]branch {branch}[/dim]", "magenta")
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"object load demo/03_infiniband_service.yml --branch {branch}")
     _ctl(context, f"generator optical_service --branch {branch} service=svc-fra-prg-ib-212g")
     console.print(
@@ -1290,7 +1332,7 @@ def demo_drift(context: Context, branch: str = DEMO_BRANCH) -> None:
     the ones outside tolerance. The dataset seeds a droop, so the report has
     something to find.
     """
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
     _ctl(context, f"transform monitor_drift --branch {branch}")
     _next_step("demo-clean")
 
@@ -1304,19 +1346,17 @@ def demo_raman(context: Context, branch: str = RAMAN_BRANCH) -> None:
     """
     _banner("Raman on Paris to Madrid", f"[dim]branch {branch}[/dim]", "magenta")
 
-    # The branch this scenario needs is the one it is about to create, so the
-    # precondition is on the branch it forks from.
-    _require_dataset(branch if _branch_exists(branch) else "main", "init")
+    # The dataset has to be on the branch this forks from, not on the branch it
+    # is about to create.
+    _ensure_dataset(context, branch if _branch_exists(branch) else "main")
+    _ensure_branch(context, branch)
 
-    if _branch_exists(branch):
-        console.print(f"[yellow]-[/yellow] branch {branch} already exists, continuing onto it")
-    else:
-        branch_create(context, branch)
-
-    _ctl(context, f"object load demo/02_par_mad_raman.yml --branch {branch}")
+    scenario = _scenario("demo-raman")
+    for path in scenario.files:
+        _ctl(context, f"object load {path} --branch {branch}")
 
     console.print("\n[cyan]->[/cyan] the same check that fails on the default branch")
-    _ctl(context, f"check osnr_margin --branch {branch}", warn=True)
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
     console.print(
         "\n  Six pump objects and no edited margin. Open a proposed change from\n"
         f"  {branch} and the diff says the same thing."
@@ -1352,7 +1392,7 @@ def demo_all(context: Context, branch: str = DEMO_BRANCH) -> None:
     rather than a task failing.
     """
     _banner("The walkthrough", f"[dim]{len(WALKTHROUGH)} steps on branch {branch}[/dim]", "magenta")
-    _require_dataset(branch)
+    _ensure_dataset(context, branch)
 
     collection = Collection.from_module(sys.modules[__name__])
     for position, name in enumerate(WALKTHROUGH, start=1):
