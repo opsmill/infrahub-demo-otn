@@ -178,12 +178,26 @@ A monitor is a port on the modelled device and is counted as one on the page, so
 it is counted as one here.
 """
 
+SWEPT_PAGES: tuple[Path, ...] = (*sorted(DOC_DIR.glob("*.mdx")), REPO_ROOT / "README.md", REPO_ROOT / "CLAUDE.md")
+"""Pages the two shape sweeps read, markers or no markers.
+
+`CLAUDE.md` is `.gitignore`d, so it is here and is skipped when absent rather
+than failed on. It is present on a developer's machine, which is where a figure
+in it is about to be copied into a page.
+"""
+
 FACT_MARKER = re.compile(r'<span data-fact="([a-z-]+)">([^<]+)</span>')
 """How a page marks a figure this module owns.
 
 A plain `span` rather than an MDX component, so it needs no import on the page,
-no theme swizzle and no build step. Docusaurus renders it as its text and GitHub
-renders `README.md` the same way, so a reader sees the number and nothing else.
+no theme swizzle and no build step. Docusaurus renders it as its text, so a
+reader sees the number and nothing else.
+
+`README.md` and `CLAUDE.md` carry no markers. They are the two pages a person
+reads before they have cloned anything, and markup in them buys a guard at the
+cost of the thing they exist to do. The figures they publish are held by the two
+sweeps at the end of this module instead, which read the shape of a phrase
+rather than a sentence and need nothing in the file.
 """
 
 
@@ -241,8 +255,6 @@ def facts() -> dict[str, int]:
     figure inside a `data-fact` span and this is what the span is checked
     against, so a page may be reworded freely and a figure may not be wrong.
     """
-    collection = Collection.from_module(tasks)
-    listed = {name for _, names, _ in tasks.TASK_GROUPS for name in names}
     devices = yaml.safe_load((SCHEMA_DIR / "otn_devices.yml").read_text())
     routing = (REPO_ROOT / "src" / "infrahub_demo_otn" / "routing.py").read_text()
     readings = _monitor_reading_counts()
@@ -295,10 +307,6 @@ def facts() -> dict[str, int]:
         # sentences quoting them are prose, and this is what holds them together.
         "checks-speaking": len(_bulleted_speaking_checks()),
         "checks-silent": len(REPOSITORY_CONFIG["check_definitions"]) - len(_bulleted_speaking_checks()),
-        # What a reader types.
-        "tasks-defined": len(collection.task_names),
-        "tasks-listed": len(listed),
-        "tasks-hidden": len(set(collection.task_names) - listed),
     }
 
 
@@ -824,17 +832,85 @@ def test_no_page_anywhere_states_a_check_count_that_is_not_the_register() -> Non
     whitespace, on any page, has to be the number of definitions `.infrahub.yml`
     registers. A page that grows an eighth sentence is covered the day it is
     written rather than the day someone remembers to add it here.
+
+    `README.md` is swept too, and it is the reason the sweep still exists after
+    the fact markers arrived. Every `.mdx` marks its count now; the README does
+    not, because it is read before anyone has cloned the repository and markup
+    in it costs more than the guard is worth. Shape rather than sentence is what
+    lets that page keep plain prose and still be held to the register.
+
+    The word is matched in either case and lowered before the lookup. It read
+    `[a-z]+` until the README came into the sweep, and that page opens the
+    sentence with the number, so `Nine checks run` was invisible to it: the count
+    could be edited to `Eight` and every test stayed green. Nothing else on any
+    page changed to expose that, which is the point of sweeping rather than
+    naming sentences.
     """
     registered = len(REPOSITORY_CONFIG["check_definitions"])
     offenders = []
 
-    for path in sorted(DOC_DIR.glob("*.mdx")):
+    for path in SWEPT_PAGES:
+        if not path.exists():
+            continue
         text = path.read_text()
-        for match in re.finditer(r"\b([a-z]+)\s+checks?\b", text):
-            spelled = COUNTS.get(match.group(1))
+        for match in re.finditer(r"\b([A-Za-z]+)\s+checks?\b", text):
+            spelled = COUNTS.get(match.group(1).lower())
             if spelled is None or spelled == registered:
                 continue
             line = text[: match.start()].count("\n") + 1
             offenders.append(f"{path.name}:{line} says {match.group(1)} where the register holds {registered}")
 
     assert not offenders, "check counts that disagree with .infrahub.yml: " + "; ".join(offenders)
+
+
+TASK_COUNT_SHAPES = (
+    (r"(\d+) invoke tasks\b", "defined"),
+    (r"\b(?:prints|shows) the (\d+) tasks? a reader needs", "listed"),
+    (r"`--all` adds the other (\d+)", "hidden"),
+    (r"adds the other \d+, (\d+) in total", "defined"),
+)
+"""Noun phrases that carry the size of the task surface, wherever they appear.
+
+The same trade the check sweep makes, for the same reason: `README.md` states
+these and carries no marker, because it is read before the repository is cloned.
+
+Each pattern is a phrase rather than a sentence, so the prose around it moves
+freely. `48 invoke tasks` survives a rewritten bullet; it fails when a task is
+added and nobody updated the number, which is the case that has already happened
+once, when `schema-vendor-diff` was deleted and 49 stayed on the page.
+"""
+
+
+def test_no_page_states_a_task_count_that_is_not_the_collection() -> None:
+    """The size of the task surface, held without marking up a page a reader lands on.
+
+    `invoke list` prints the grouped half and `--all` adds the rest, so the three
+    figures partition one set. A task moved between the halves has to move two of
+    them, and a task added has to move two as well.
+    """
+    collection = Collection.from_module(tasks)
+    listed = {name for _, names, _ in tasks.TASK_GROUPS for name in names}
+    actual = {
+        "defined": len(collection.task_names),
+        "listed": len(listed),
+        "hidden": len(set(collection.task_names) - listed),
+    }
+
+    offenders = []
+    matched = 0
+    for path in SWEPT_PAGES:
+        if not path.exists():
+            continue
+        text = path.read_text()
+        for pattern, figure_name in TASK_COUNT_SHAPES:
+            for match in re.finditer(pattern, text):
+                matched += 1
+                said = int(match.group(1))
+                if said != actual[figure_name]:
+                    line = text[: match.start()].count("\n") + 1
+                    offenders.append(
+                        f"{path.name}:{line} says {said} tasks {figure_name}, the collection has {actual[figure_name]}"
+                    )
+
+    assert matched, "no page states a task count, so this test asserted nothing"
+    assert not offenders, "task counts that disagree with tasks.py: " + "; ".join(offenders)

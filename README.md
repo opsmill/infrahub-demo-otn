@@ -56,7 +56,7 @@ occupying a width of spectrum around it.
   regenerator and budget each half on its own. The demo tries three regenerator
   sites on Madrid to Warsaw, all three are refused at DP-16QAM, and the fix turns
   out to be a regenerator and a different modulation.
-- **Block a bad merge.** <span data-fact="checks">Nine</span> checks run against a proposed change: the
+- **Block a bad merge.** Nine checks run against a proposed change: the
   shared package imports in the worker, no two carriers claim the same channel
   on the same section, every wavelength still closes its OSNR margin, no
   container commits more tributary slots than its parent offers, no two
@@ -238,9 +238,9 @@ which spends the one wide block, and all ten fit nowhere.
 - **Reports.** Service trace, impact, capacity, reach, AI latency, SRLG
   exposure, link budget and monitor drift, each with its own GraphQL query, plus
   the two rendered maps.
-- **Tasks.** <span data-fact="tasks-defined">48</span> invoke tasks, one per lifecycle step, per demo scenario and
-  per loadable scenario. `invoke list` prints the <span data-fact="tasks-listed">27</span> a reader needs and `--all`
-  adds the other <span data-fact="tasks-hidden">21</span>. `invoke load` does the loading in one step, and
+- **Tasks.** 48 invoke tasks, one per lifecycle step, per demo scenario and
+  per loadable scenario. `invoke list` prints the 27 a reader needs and `--all`
+  adds the other 21. `invoke load` does the loading in one step, and
   `invoke demo` runs the whole walkthrough in ten steps.
 
 ---
