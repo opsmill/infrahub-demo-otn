@@ -387,27 +387,44 @@ def _purge_menu(branch: str) -> int:
     return len(ids)
 
 
+BRANCH_CREATE_ATTEMPTS = 3
+"""How many times to ask for a branch before calling it a real failure."""
+
+BRANCH_CREATE_BACKOFF_SECONDS = 10
+"""Multiplied by the attempt, so 10 then 20 seconds between asks."""
+
+
 def _branch_exists(name: str) -> bool:
     """Whether a branch is on the server.
 
     Asked over GraphQL rather than over `/api/branch`, which is not a route on
     1.11 and answers 404. A REST reader turns that 404 into "no branches", so
     every caller silently believed every branch was missing.
+
+    Asked more than once, because a busy server is not an answer. This used to
+    read a timeout or a 429 as "not there", and `branch_create` now judges
+    itself on this, so one shed response would have it create a branch that
+    already exists. A stack that is genuinely down still reads False.
     """
-    try:
-        response = httpx.post(
-            f"{_address()}/graphql/main",
-            headers={"X-INFRAHUB-KEY": _token()},
-            json={"query": "{ Branch { name } }"},
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        payload = response.json()
-    except (httpx.HTTPError, json.JSONDecodeError):
-        return False
-    if payload.get("errors"):
-        return False
-    return any(item.get("name") == name for item in payload["data"]["Branch"])
+    for attempt in range(1, BRANCH_CREATE_ATTEMPTS + 1):
+        try:
+            response = httpx.post(
+                f"{_address()}/graphql/main",
+                headers={"X-INFRAHUB-KEY": _token()},
+                json={"query": "{ Branch { name } }"},
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except (httpx.HTTPError, json.JSONDecodeError):
+            if attempt == BRANCH_CREATE_ATTEMPTS:
+                return False
+            time.sleep(BRANCH_CREATE_BACKOFF_SECONDS)
+            continue
+        if payload.get("errors"):
+            return False
+        return any(item.get("name") == name for item in payload["data"]["Branch"])
+    return False
 
 
 def _require_stack() -> None:
@@ -1106,9 +1123,22 @@ def branch_create(context: Context, name: str, sync_with_git: bool = True) -> No
 
     `infrahubctl` defaults the other way, and a branch that does not exist in
     Git runs the two built-in validators instead of this repository's checks.
+
+    Judged by whether the branch is there afterwards, not by the exit code. A
+    create that times out is an unknown outcome: the mutation reaches a busy
+    server, lands, and the client gives up waiting for the answer. Run
+    33863228168 lost `demo-raman` exactly that way, on a read that gave up after
+    300 seconds.
     """
     flag = "--sync-with-git" if sync_with_git else "--no-sync-with-git"
-    _ctl(context, f"branch create {name} {flag}")
+    for attempt in range(1, BRANCH_CREATE_ATTEMPTS + 1):
+        result = _ctl(context, f"branch create {name} {flag}", warn=True)
+        if result.ok or _branch_exists(name):
+            return
+        if attempt == BRANCH_CREATE_ATTEMPTS:
+            _fail(f"branch {name} is still not there after {attempt} attempts at creating it")
+        console.print(f"[yellow]-[/yellow] branch {name} did not take, the server is busy; asking again")
+        time.sleep(BRANCH_CREATE_BACKOFF_SECONDS * attempt)
 
 
 @task
