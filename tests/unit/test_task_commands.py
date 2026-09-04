@@ -223,3 +223,75 @@ def test_the_sync_with_git_flag_survives_the_retry(monkeypatch: pytest.MonkeyPat
     undecorated("branch-create")(context, "demo")
 
     assert all("--sync-with-git" in command for command in context.commands), context.commands
+
+
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+INTEGRATION_DIR = REPO_ROOT / "tests" / "integration"
+
+FULL_ONLY_MODULES = {"test_tasks_stack.py"}
+"""Integration modules the core tier deliberately leaves out.
+
+`test_tasks_stack.py` drives all 48 tasks and every scenario against the stack.
+It is forty of the suite's fifty minutes and only a change to the demo's own
+logic can break it, which is the whole reason the tiers exist.
+"""
+
+
+def test_every_tier_ci_asks_for_is_a_tier_the_task_knows() -> None:
+    """`ci.yml` picks a tier and `tasks.py` maps it to a pytest selection.
+
+    Two files, one vocabulary. A tier renamed in the table and not in the
+    workflow reaches `test-integration` as an unknown word, and the job fails on
+    a green tree.
+    """
+    workflow = CI_WORKFLOW.read_text()
+    assigned = set(re.findall(r'TIER="(\w+)"', workflow))
+    offered = set(re.findall(r'options: \["core", "full"\]', workflow) and ["core", "full"])
+
+    assert assigned, "ci.yml assigns no tier, so this test reads nothing"
+    unknown = sorted((assigned | offered) - set(tasks.TIERS))
+    assert not unknown, f"tiers ci.yml uses that tasks.py does not define: {unknown}"
+    assert offered == set(tasks.TIERS), "the dispatch offers a different set of tiers from the table"
+
+
+def test_the_core_tier_selects_something() -> None:
+    """A `-m` expression that matches nothing exits 5, which reads as broken.
+
+    Asserted by reading the source rather than by collecting, because
+    `tests/unit` must not import the testcontainers plugin.
+    """
+    marked = [path.name for path in INTEGRATION_DIR.glob("test_*.py") if "@pytest.mark.core" in path.read_text()]
+    assert marked, "no integration module carries the core marker, so `--tier=core` would collect nothing"
+
+
+def test_every_integration_module_is_in_a_tier_on_purpose() -> None:
+    """A new module is in the full tier by default, and has to say so.
+
+    The safe default: a module nobody placed runs in `full` and is missed by the
+    pull requests that run `core`. Naming it here is what turns that from an
+    oversight into a decision.
+    """
+    modules = {path.name for path in INTEGRATION_DIR.glob("test_*.py")}
+    core = {path.name for path in INTEGRATION_DIR.glob("test_*.py") if "@pytest.mark.core" in path.read_text()}
+
+    unplaced = sorted(modules - core - FULL_ONLY_MODULES)
+    assert not unplaced, (
+        f"integration modules in no tier: {unplaced}. Mark the class `@pytest.mark.core` "
+        "or add the module to FULL_ONLY_MODULES with the reason."
+    )
+    stale = sorted(FULL_ONLY_MODULES - modules)
+    assert not stale, f"FULL_ONLY_MODULES names modules that are gone: {stale}"
+    assert not (core & FULL_ONLY_MODULES), "a module cannot be both core and full-only"
+
+
+def test_an_unknown_tier_stops_before_the_stack_is_started() -> None:
+    """A typo must fail on the word, not after booting Infrahub."""
+    with pytest.raises(SystemExit):
+        undecorated("test-integration")(RecordingContext(True), tier="coer")
+
+
+def test_the_marker_is_registered_so_a_typo_fails_collection() -> None:
+    """`--strict-markers` is what turns a misspelled marker into an error."""
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text()
+    assert '"core: ' in pyproject, "the core marker is not registered, so it warns instead of selecting"
+    assert "--strict-markers" in pyproject, "without this an unregistered marker is a warning, not a failure"

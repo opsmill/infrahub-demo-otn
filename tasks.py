@@ -1175,9 +1175,31 @@ def test_unit(context: Context) -> None:
     context.run("uv run pytest tests/unit -v", pty=True)
 
 
+TIERS = {
+    "core": " -m core",
+    "full": "",
+}
+"""The tiers, and the pytest selection each one is.
+
+`core` is `test_infrahub.py`: the schema loads, the objects load, the repository
+syncs, the definitions resolve and a proposed change runs the pipeline. It is
+what proves this repository still works against Infrahub, and nothing in it
+depends on the demo's own decision layer.
+
+`full` adds `test_tasks_stack.py`, which drives all 48 tasks and every scenario
+against the stack. That is the half worth forty minutes, and it can only be
+broken by a change to the demo's own logic.
+
+Which one CI runs is decided by what a change touches, not by the calendar:
+`.github/file-filters.yml` names the paths that make a change able to break a
+scenario, and everything else runs `core`. Nineteen of this repository's
+twenty-four commits touched none of them.
+"""
+
+
 @task
-def test_integration(context: Context) -> None:
-    """Run the integration tests.
+def test_integration(context: Context, tier: str = "full") -> None:
+    """Run the integration tests. `--tier=core` runs the cheap half.
 
     This starts its own throwaway Infrahub through testcontainers, on its own
     ports and its own database.
@@ -1187,17 +1209,23 @@ def test_integration(context: Context) -> None:
     the container runtime and the test database was killed, failing twelve of
     thirteen tests for a reason that had nothing to do with the code. `invoke
     stop` keeps the volumes, so `invoke start` brings the demo back as it was.
+
+    `core` is 13 tests in about six minutes and `full` is 37 in about fifty, so
+    the tier is the difference between a pull request waiting six minutes and
+    fifty. What each buys is in `TIERS` below.
     """
+    if tier not in TIERS:
+        _fail(f"unknown tier {tier!r}; the tiers are {', '.join(sorted(TIERS))}")
     if not _image_exists():
         _fail(f"The image {IMAGE} is missing.", "build")
-    context.run("uv run pytest tests/integration -v", pty=True)
+    context.run(f"uv run pytest tests/integration -v{TIERS[tier]}", pty=True)
 
 
 @task
-def test(context: Context) -> None:
+def test(context: Context, tier: str = "full") -> None:
     """Run the unit tests, then the integration tests."""
     test_unit(context)
-    test_integration(context)
+    test_integration(context, tier=tier)
 
 
 @task(name="format")

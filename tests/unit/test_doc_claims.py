@@ -509,9 +509,16 @@ def _invocation(page: str, line: int, command: str) -> DocumentedCommand | None:
         index += 1
         if not word.startswith(LONG_OPTION):
             continue
-        name = word[len(LONG_OPTION) :].replace("-", "_")
+        # Both forms an option may be written in. `--tier=core` used to arrive
+        # here as one word and be read as an option literally named `tier=core`,
+        # which no task accepts, so a page using it failed with a message about
+        # an option that does not exist rather than about the one it passed.
+        name, separator, attached = word[len(LONG_OPTION) :].partition("=")
+        name = name.replace("-", "_")
         options.append(name)
-        if index < len(rest) and not rest[index].startswith(LONG_OPTION):
+        if separator:
+            values[name] = attached
+        elif index < len(rest) and not rest[index].startswith(LONG_OPTION):
             values[name] = rest[index]
             index += 1
     return DocumentedCommand(page=page, line=line, task=task, options=tuple(options), values=values)
