@@ -53,6 +53,7 @@ from infrahub_sdk.testing.docker import TestInfrahubDockerClient
 from infrahub_sdk.testing.repository import GitRepo
 from infrahub_testcontainers.container import PROJECT_ENV_VARIABLES, InfrahubDockerCompose
 
+from . import transport
 from .stack import relax_healthcheck_budgets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -232,34 +233,12 @@ class TestInfrahub(TestInfrahubDockerClient):
     def query(address: str, document: str, branch: str = BRANCH) -> dict[str, Any]:
         """Run a GraphQL document and fail on `errors`, whatever the status code.
 
-        Retries a 5xx. The load balancer answers 502 and HTML 503 while the
-        pipeline renders artifacts, and an HTML page is not a GraphQL answer:
-        `.json()` raises before the `errors` check this helper exists to make.
-        A 200 is judged on its `errors` array on the first try, so no data
-        fault is retried away.
+        Retries a 429 and a 5xx. The load balancer answers 502 and HTML 503 while
+        the pipeline renders artifacts, and the 429 is the API shedding load. A
+        200 is judged on its `errors` array on the first try, so no data fault is
+        retried away.
         """
-        last = ""
-        for attempt in range(6):
-            response = httpx.post(
-                f"{address}/graphql/{branch}",
-                json={"query": document},
-                headers={"X-INFRAHUB-KEY": TOKEN},
-                timeout=180.0,
-            )
-            if response.status_code >= 500:
-                last = f"HTTP {response.status_code}"
-                time.sleep(2 * (attempt + 1))
-                continue
-            try:
-                payload = response.json()
-            except ValueError:
-                last = f"HTTP {response.status_code} with a non-JSON body"
-                time.sleep(2 * (attempt + 1))
-                continue
-            assert "errors" not in payload, f"GraphQL errors (HTTP {response.status_code}): {payload['errors']}"
-            data: dict[str, Any] = payload["data"]
-            return data
-        raise AssertionError(f"no JSON answer after 6 attempts, last was {last}")
+        return transport.graphql(address, document, branch, token=TOKEN)
 
     # ----------------------------------------------------------------- #
     # Load
