@@ -47,6 +47,12 @@ class Recorder:
     def clock(self) -> float:
         return self.now
 
+    @staticmethod
+    def jitter(low: float, high: float) -> float:
+        """The top of the slot, so a test can assert on the schedule itself."""
+        assert 0 <= low <= high, f"the jitter window is inverted: {low} to {high}"
+        return high
+
 
 def response(
     status: int, *, json: dict[str, Any] | None = None, text: str = "", headers: dict | None = None
@@ -65,6 +71,7 @@ def drive(recorder: Recorder, **kwargs: Any) -> httpx.Response:
         sleep=recorder.sleep,
         send=recorder.send,
         clock=recorder.clock,
+        jitter=recorder.jitter,
         **kwargs,
     )
 
@@ -159,13 +166,48 @@ def test_the_last_wait_is_trimmed_to_what_is_left_of_the_budget() -> None:
 
 
 def test_the_schedule_doubles_and_then_holds_at_the_ceiling() -> None:
-    assert [_delay_for(n) for n in range(1, 8)] == [1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 30.0]
+    assert [_delay_for(n) for n in range(1, 6)] == [1.0, 2.0, 4.0, 8.0, 8.0]
     assert max(_delay_for(n) for n in range(1, 40)) == MAXIMUM_DELAY_SECONDS
 
 
-def test_the_budget_outlasts_a_branch_recomputation() -> None:
-    """The figure is sized against the backlog, so it is asserted against it."""
-    assert RETRY_BUDGET_SECONDS >= 165.0, "the budget no longer outlasts the backlog it was picked for"
+def test_the_budget_is_short_enough_to_surface_a_saturated_stack() -> None:
+    """It was 180 and that hid the problem while adding to it, in run 33863228168."""
+    assert RETRY_BUDGET_SECONDS <= 30.0, "a budget this long waits out saturation instead of reporting it"
+    assert RETRY_BUDGET_SECONDS >= 4 * MAXIMUM_DELAY_SECONDS / 2, "the budget is too short for the schedule to run"
+
+
+def test_every_wait_is_jittered_into_the_top_half_of_its_slot() -> None:
+    """Two readers that met the same shed must not come back together."""
+    windows: list[tuple[float, float]] = []
+
+    def record(low: float, high: float) -> float:
+        windows.append((low, high))
+        return low
+
+    recorder = Recorder(response(429, json={}))
+    with pytest.raises(AssertionError):
+        request_with_backoff(
+            "POST",
+            "http://stack/graphql/main",
+            token=TOKEN,
+            budget=20.0,
+            sleep=recorder.sleep,
+            send=recorder.send,
+            clock=recorder.clock,
+            jitter=record,
+        )
+
+    assert windows[:3] == [(0.5, 1.0), (1.0, 2.0), (2.0, 4.0)], windows
+    assert all(low == high / 2 for low, high in windows), "a wait could be jittered to nearly nothing"
+
+
+def test_a_retry_after_is_taken_whole_and_never_jittered() -> None:
+    """The server named a time. Shortening it is ignoring it."""
+    recorder = Recorder(response(429, json={}, headers={"Retry-After": "3"}), response(200, json={}))
+
+    drive(recorder)
+
+    assert recorder.waits == [3.0]
 
 
 def test_the_retryable_set_is_the_busy_ones_and_not_the_wrong_ones() -> None:

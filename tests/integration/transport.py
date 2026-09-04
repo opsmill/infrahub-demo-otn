@@ -10,6 +10,7 @@ It asserts on the status line, so it has to see the transport.
 
 from __future__ import annotations
 
+import random
 import time
 from collections.abc import Callable
 from typing import Any
@@ -20,15 +21,26 @@ RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 """Statuses that mean ask again. A 4xx that is not 429 is left out: a malformed
 query does not become well formed on the second try."""
 
-RETRY_BUDGET_SECONDS = 180.0
-"""Sized to outlast a branch recomputation, which drains in about 165 seconds."""
+RETRY_BUDGET_SECONDS = 30.0
+"""How long a read may spend waiting, and deliberately short.
 
-MAXIMUM_DELAY_SECONDS = 30.0
-"""Ceiling on one wait, so the budget is spent over several tries."""
+It was 180, sized to outlast the recomputation backlog. Run 33863228168 showed
+that waiting that long does not help: no test asserted through a 429 any more,
+but the suite went from 33:31 to 43:50 and still failed, and the 502 and 503
+count rose from 1163 to 1331 because a retry is another request against a server
+that is already shedding load.
+
+So this absorbs a transient shed and nothing more. A stack that is saturated for
+half a minute is a stack problem, and waiting it out here hides it while making
+it slightly worse.
+"""
+
+MAXIMUM_DELAY_SECONDS = 8.0
+"""Ceiling on one wait, so a 30 second budget is still several tries."""
 
 
 def _delay_for(attempt: int) -> float:
-    """1, 2, 4, 8, 16, then 30."""
+    """1, 2, 4, then 8."""
     return min(2.0 ** (attempt - 1), MAXIMUM_DELAY_SECONDS)
 
 
@@ -62,12 +74,17 @@ def request_with_backoff(
     sleep: Callable[[float], None] = time.sleep,
     send: Callable[..., httpx.Response] | None = None,
     clock: Callable[[], float] = time.monotonic,
+    jitter: Callable[[float, float], float] = random.uniform,
 ) -> httpx.Response:
     """One request, asked again while the server says it is busy.
 
     Hands back the first response outside `RETRYABLE_STATUS`, whatever it is.
-    Judging the body is the caller's job. `sleep`, `send` and `clock` are
-    injected so `tests/unit/test_transport.py` can drive the schedule.
+    Judging the body is the caller's job.
+
+    Each wait is jittered into the top half of its slot, so two readers that met
+    the same shed do not come back together and cause the next one. `sleep`,
+    `send`, `clock` and `jitter` are injected so `tests/unit/test_transport.py`
+    can drive the schedule.
     """
     dispatch = send if send is not None else httpx.request
     deadline = clock() + budget
@@ -98,7 +115,9 @@ def request_with_backoff(
             raise AssertionError(
                 f"{method} {url} did not answer within {budget:g}s: {attempt} attempts, last was {reason}"
             )
-        sleep(min(_retry_after(response) or _delay_for(attempt), remaining))
+        told = _retry_after(response)
+        wait = told if told is not None else jitter(_delay_for(attempt) / 2, _delay_for(attempt))
+        sleep(min(wait, remaining))
 
 
 def graphql(

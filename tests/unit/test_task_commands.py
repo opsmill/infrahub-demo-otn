@@ -21,6 +21,7 @@ import inspect
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 import tasks
@@ -131,3 +132,94 @@ def test_demo_clean_targets_every_branch_a_scenario_task_opens() -> None:
     assert opened, "no demo task defaults to a branch of its own, so this test reads nothing"
     orphans = sorted(f"{name} opens {default!r}" for name, default in opened.items() if default not in targets)
     assert not orphans, f"branches `demo-clean` would not delete: {orphans}"
+
+
+class FakeResult:
+    """What `context.run(..., warn=True)` hands back, reduced to what is read."""
+
+    def __init__(self, *, ok: bool) -> None:
+        self.ok = ok
+
+
+class RecordingContext:
+    """Stands in for a `Context`, answering `run` from a script."""
+
+    def __init__(self, *outcomes: bool) -> None:
+        self.outcomes = list(outcomes)
+        self.commands: list[str] = []
+
+    def run(self, command: str, **_: object) -> FakeResult:
+        self.commands.append(command)
+        return FakeResult(ok=self.outcomes[min(len(self.commands) - 1, len(self.outcomes) - 1)])
+
+
+def undecorated(name: str) -> Any:
+    """One task's plain function.
+
+    Reached through the collection rather than off the module, because the
+    `@task` wrapper type-checks its first argument and `RecordingContext` is not
+    a `Context`. This is also how the signature reader above gets at a task.
+    """
+    return Collection.from_module(tasks)[name].body
+
+
+@pytest.fixture
+def no_waiting(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Collect the backoff instead of serving it."""
+    waits: list[float] = []
+    monkeypatch.setattr(tasks.time, "sleep", waits.append)
+    monkeypatch.setattr(tasks, "_env", lambda: {"INFRAHUB_ADDRESS": "http://x", "INFRAHUB_API_TOKEN": "t"})
+    return waits
+
+
+def test_a_branch_create_that_times_out_is_checked_against_the_server(
+    monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]
+) -> None:
+    """The failure in run 33863228168: the mutation landed, the read gave up.
+
+    `infrahubctl` exited 1 after a 300 second read timeout while the branch it
+    was asked for had been made. Judged on the exit code that is a dead task;
+    judged on the server it is done.
+    """
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: True)
+    context = RecordingContext(False)
+
+    undecorated("branch-create")(context, "raman-par-mad")
+
+    assert len(context.commands) == 1, "the create was repeated against a branch that was already there"
+    assert no_waiting == [], "it waited before looking"
+
+
+def test_a_branch_create_that_really_failed_is_asked_again(
+    monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]
+) -> None:
+    """Not there and not created is the case a retry is for."""
+    seen: list[bool] = [False, True]
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: seen.pop(0))
+    context = RecordingContext(False, False)
+
+    undecorated("branch-create")(context, "raman-par-mad")
+
+    assert len(context.commands) == 2
+    assert no_waiting == [tasks.BRANCH_CREATE_BACKOFF_SECONDS], f"backed off {no_waiting}"
+
+
+def test_a_branch_that_never_appears_stops_the_task(monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]) -> None:
+    """A retry that cannot fail is a task that hangs instead of reporting."""
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: False)
+    context = RecordingContext(False)
+
+    with pytest.raises(SystemExit):
+        undecorated("branch-create")(context, "raman-par-mad")
+
+    assert len(context.commands) == tasks.BRANCH_CREATE_ATTEMPTS
+
+
+def test_the_sync_with_git_flag_survives_the_retry(monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]) -> None:
+    """A branch made without Git runs the built-in validators, not this repository's."""
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: False)
+    context = RecordingContext(False, False, True)
+
+    undecorated("branch-create")(context, "demo")
+
+    assert all("--sync-with-git" in command for command in context.commands), context.commands
