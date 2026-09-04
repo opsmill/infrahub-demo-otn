@@ -8,6 +8,13 @@ name: Update Infrahub version
 # tasks.py, the integration conftest and the infrahub-testcontainers pin.
 # Six literals across five files, so it takes a workflow.
 #
+# Six, and only six. `.env.example` and `ci.yml` each carried a seventh and an
+# eighth that this workflow never rewrote and `test_pins.py` never checked, so a
+# bump left `cp .env.example .env` handing out the old release and the
+# docker-build job building it. Both now carry no version at all and
+# `test_pins.py` fails if one returns; the sweep at the end of the rewrite step
+# names them too, so a reintroduction fails the bump rather than shipping in it.
+#
 # Driven by dispatch rather than a schedule, the way infrahub-demo-dc does it: a
 # release is an event Infrahub already knows about, and polling for it just adds
 # up to a week of latency. Until Infrahub's release pipeline is pointed at this
@@ -112,8 +119,18 @@ jobs:
 
           # Compose declares it twice and the loop above rewrites both, so prove
           # neither copy of the old version survived anywhere.
+          #
+          # .env.example and ci.yml are swept but never rewritten: they are
+          # required to hold no version, so a match there is a declaration that
+          # has crept back rather than one the loop missed. The message says so,
+          # because the fix is to delete the number rather than to add a rewrite.
           if grep -rn --fixed-strings "${CURRENT}" Dockerfile docker-compose.override.yml tasks.py tests/integration/conftest.py pyproject.toml; then
             echo "::error::A declaration of ${CURRENT} survived the rewrite; see the matches above."
+            exit 1
+          fi
+
+          if grep -rn --fixed-strings "${CURRENT}" .env.example .github/workflows/ci.yml; then
+            echo "::error::.env.example or ci.yml states ${CURRENT}. Neither may carry a version: nothing rewrites them, so the value goes stale on the next bump. Delete the number; the Dockerfile's ARG default supplies it."
             exit 1
           fi
 
@@ -139,6 +156,13 @@ jobs:
         if: steps.resolve.outputs.version != steps.resolve.outputs.current
         uses: peter-evans/create-pull-request@v8
         with:
+          # GH_UPDATE_PACKAGE_OTTO, never the default GITHUB_TOKEN. A pull
+          # request opened with GITHUB_TOKEN triggers no workflow runs, so every
+          # bump this workflow has ever opened arrived with zero checks -- and
+          # the CI run is the only thing that answers whether the new release
+          # still behaves the way this demo assumes. The body below promises
+          # exactly that run; with GITHUB_TOKEN the promise was empty.
+          token: ${{ secrets.GH_UPDATE_PACKAGE_OTTO }}
           branch: "chore/infrahub-${{ steps.resolve.outputs.version }}"
           title: "Bump Infrahub to ${{ steps.resolve.outputs.version }}"
           commit-message: "Bump Infrahub to ${{ steps.resolve.outputs.version }}"
