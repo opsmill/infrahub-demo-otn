@@ -1,15 +1,23 @@
-"""The three tasks that need no stack, called in process.
+"""The three tasks that need no stack, called in process, and what `demo-clean` targets.
 
 The code underneath two of them is covered elsewhere: the seed in
 `test_geant_dataset.py`, the golden renderers in `test_mapdraw.py` and
 `test_odudraw.py`. What is covered here is the wrapper around each, and in
 particular the `--output` plumbing. Without it a demo command that a reader
 runs to look at a render rewrites the committed tree instead.
+
+The last test is here rather than on a stack for a reason worth stating.
+`demo-clean` with no argument deletes seven branches, and the integration suite
+used to run it: 1003 seconds, a third of that suite's wall clock, almost all of
+it the recomputation backlog draining rather than any deletion. The mechanism is
+still proven there, on one branch. What is left is the list, and a list built
+from a module constant is answerable here in a millisecond.
 """
 
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import re
 from pathlib import Path
@@ -95,3 +103,31 @@ def test_maps_regenerate_writes_into_the_directory_it_is_given(case: str, tmp_pa
     assert written.is_file()
     assert written.read_bytes() == committed
     assert fixture.read_bytes() == committed
+
+
+def test_demo_clean_targets_every_branch_a_scenario_task_opens() -> None:
+    """`demo-clean` with no argument names every scenario branch, and only those.
+
+    A scenario task opens its branch one of two ways: through the
+    `SCENARIO_BRANCHES` row it looks up, which cannot escape this set, or
+    through a `branch` parameter whose default is a module constant, which can.
+    A new scenario that defaults to a branch nobody added a row for would be
+    created by `invoke demo` and left behind by `invoke demo-clean`, and the
+    reader who followed the walkthrough would be the one to find it.
+    """
+    targets = {row.branch for row in tasks.SCENARIO_BRANCHES}
+    collection = Collection.from_module(tasks)
+
+    defaults = {
+        name: signature.parameters["branch"].default
+        for name in collection.task_names
+        for signature in [inspect.signature(collection[name].body)]
+        if "branch" in signature.parameters
+    }
+    opened = {
+        name: default for name, default in defaults.items() if name.startswith("demo-") and default not in {"main", ""}
+    }
+
+    assert opened, "no demo task defaults to a branch of its own, so this test reads nothing"
+    orphans = sorted(f"{name} opens {default!r}" for name, default in opened.items() if default not in targets)
+    assert not orphans, f"branches `demo-clean` would not delete: {orphans}"

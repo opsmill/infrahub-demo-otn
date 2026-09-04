@@ -202,26 +202,18 @@ jobs:
       # infrahub-demo-dc sets this on the same runner group. The previous run
       # wrote a 19 MB job log, most of it container chatter nobody reads.
       INFRAHUB_TESTING_LOG_LEVEL: INFO
-    # The local load is 56 seconds for 1265 objects, and the whole job measures
-    # about 13 minutes locally now that it also registers the repository and
-    # runs a proposed change through the pipeline. Container start, the image
-    # build and a slower runner dominate. A job with no timeout hangs for six
-    # hours; a job with an optimistic one flakes.
-    #
-    # 90 rather than 45 because a four-core hosted runner is several times
-    # slower than the machine those local figures come from: the first CI run
-    # measured 3m17s just for the API server to answer its first request, where
-    # a laptop takes seconds.
-    #
     # The figure is the sum of the ceilings the suite itself allows, not a
     # guess. Repository sync 900s, definitions 600s and the proposed-change
     # pipeline 1800s is 55 minutes, and setup plus the dataset load has measured
-    # around 20 on top. A passing run takes 47, because every one of those waits
-    # returns as soon as its condition holds. A job that dies on its own timeout
-    # reports nothing useful, so this stays above the sum rather than near it.
+    # around 20 on top. A passing run comes in far under that, because every one
+    # of those waits returns as soon as its condition holds. A job that dies on
+    # its own timeout reports nothing useful, so this stays above the sum rather
+    # than near it, and a job with no timeout at all hangs for six hours.
     #
-    # Should the runner prove too slow anyway, the next lever is the
-    # `huge-runners` group demo-dc runs on rather than a longer wait.
+    # Measured wall clock, all on this runner group: 54m29s, then 37 or so once
+    # the bare `demo-clean` came out of the suite. That one test was 1003
+    # seconds of it, and almost none of that was deletion. See the docstring on
+    # test_demo_clean_with_a_branch_removes_only_that_one.
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -274,10 +266,11 @@ jobs:
           else
             echo "::notice::Runner '${RUNNER_LABEL}' carries no ghrunner<N> token; leaving pytest's default temp root."
           fi
-      # tests/integration/conftest.py sizes the task worker and gunicorn counts
-      # from os.cpu_count(). Print what the machine reports so a run that
-      # starves says what it had, rather than leaving the next reader to infer
-      # the runner from its name.
+      # tests/integration/conftest.py sets neither the task worker nor the
+      # gunicorn count, so the stack takes its packaged size whatever this
+      # machine turns out to be. Print what it reports, so a run that starves
+      # says what it had rather than leaving the next reader to infer the
+      # runner from its name.
       - name: Report what this runner has
         run: |
           echo "runner:  ${{ runner.name }}"

@@ -316,8 +316,14 @@ COVERAGE: tuple[CoverageRecord, ...] = (
     CoverageRecord(
         task="demo-clean",
         tier="stack",
-        invocations=("--branch demo", ""),
-        postcondition="`--branch demo` removes only that branch; the bare form leaves no branch in SCENARIO_BRANCHES",
+        invocations=("--branch demo",),
+        postcondition="`demo` is gone from the branch listing and the other scenario branches are still on it",
+        reason=(
+            "the bare form is not run here. It deleted seven branches for 1003 seconds, a third of this "
+            "suite, and about 157 of every 165 was the recomputation backlog draining rather than any "
+            "deletion. --branch demo proves every mechanism it uses; the list it adds is a comprehension "
+            "over SCENARIO_BRANCHES, which tests/unit/test_task_commands.py reads directly"
+        ),
     ),
 )
 

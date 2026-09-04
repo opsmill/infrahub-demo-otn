@@ -477,9 +477,8 @@ class TestTasksAgainstAStack(TestInfrahubDockerClient):
     def test_demo_runs_the_ten_walkthrough_steps_in_order(self, task_environment: str) -> None:
         """`demo`: the ten steps run in `WALKTHROUGH` order and every service is decided.
 
-        The long pole of this module. Decided rather
-        than active: `demo-refusal` refuses one of the five on purpose, and a
-        refusal is an answer.
+        Decided rather than active: `demo-refusal` refuses one of the five on
+        purpose, and a refusal is an answer.
         """
         output = plain(task_output(run_task("demo"), "demo"))
 
@@ -494,17 +493,28 @@ class TestTasksAgainstAStack(TestInfrahubDockerClient):
             assert status in {"active", "rejected"}, f"{name} is still {status}, so no generator decided it"
 
     def test_demo_clean_with_a_branch_removes_only_that_one(self, task_environment: str) -> None:
-        """`demo-clean --branch demo`: `demo` goes and the scenario branches stay."""
+        """`demo-clean --branch demo`: `demo` goes and the scenario branches stay.
+
+        The only deletion this module pays for, and the bare form is not here.
+
+        Deleting a branch costs eight seconds. Deleting one of these costs about
+        165, and the difference is not the branch: `branch-delete` above removes
+        an empty one in four. The rest is the recomputation backlog that seven
+        data-bearing scenario branches built up, draining through the task
+        workers while the delete waits its turn. Running the bare form after
+        this one paid that backlog down seven more times, for 1003 seconds, a
+        third of the whole suite.
+
+        Nothing is left unproven by dropping it. This method proves a scenario
+        branch is deleted and the others are not, which is every mechanism the
+        bare form uses; the bare form adds only the list it deletes, and that
+        list is a comprehension over a module constant that
+        `tests/unit/test_task_commands.py` reads directly. Draining the backlog
+        proved nothing either way, and at teardown it costs nothing, because
+        `docker compose down` does not wait for it.
+        """
         task_output(run_task("demo-clean", f"--branch {tasks.DEMO_BRANCH}"), "demo-clean --branch")
 
         branches = self.branches(task_environment)
         assert tasks.DEMO_BRANCH not in branches
         assert tasks.ODU_BRANCH in branches
-
-    def test_demo_clean_removes_every_scenario_branch(self, task_environment: str) -> None:
-        """`demo-clean`: no branch named in `SCENARIO_BRANCHES` is left."""
-        task_output(run_task("demo-clean"), "demo-clean")
-
-        branches = self.branches(task_environment)
-        left = sorted({row.branch for row in tasks.SCENARIO_BRANCHES} & set(branches))
-        assert not left, f"scenario branches the bare form did not remove: {left}"
