@@ -53,6 +53,7 @@ from infrahub_sdk.testing.docker import TestInfrahubDockerClient
 from infrahub_sdk.testing.repository import GitRepo
 from infrahub_testcontainers.container import PROJECT_ENV_VARIABLES, InfrahubDockerCompose
 
+from . import transport
 from .stack import relax_healthcheck_budgets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -156,6 +157,7 @@ ceiling, for this reason.
 pytestmark = pytest.mark.integration
 
 
+@pytest.mark.core
 class TestInfrahub(TestInfrahubDockerClient):
     """One Infrahub, loaded once, read by every method below in order."""
 
@@ -233,33 +235,11 @@ class TestInfrahub(TestInfrahubDockerClient):
         """Run a GraphQL document and fail on `errors`, whatever the status code.
 
         Retries a 5xx. The load balancer answers 502 and HTML 503 while the
-        pipeline renders artifacts, and an HTML page is not a GraphQL answer:
-        `.json()` raises before the `errors` check this helper exists to make.
-        A 200 is judged on its `errors` array on the first try, so no data
-        fault is retried away.
+        pipeline renders artifacts, and neither is a GraphQL answer. A 429 is
+        retried a layer down, by the SDK's rate limit handler. A 200 is judged on
+        its `errors` array on the first try, so no data fault is retried away.
         """
-        last = ""
-        for attempt in range(6):
-            response = httpx.post(
-                f"{address}/graphql/{branch}",
-                json={"query": document},
-                headers={"X-INFRAHUB-KEY": TOKEN},
-                timeout=180.0,
-            )
-            if response.status_code >= 500:
-                last = f"HTTP {response.status_code}"
-                time.sleep(2 * (attempt + 1))
-                continue
-            try:
-                payload = response.json()
-            except ValueError:
-                last = f"HTTP {response.status_code} with a non-JSON body"
-                time.sleep(2 * (attempt + 1))
-                continue
-            assert "errors" not in payload, f"GraphQL errors (HTTP {response.status_code}): {payload['errors']}"
-            data: dict[str, Any] = payload["data"]
-            return data
-        raise AssertionError(f"no JSON answer after 6 attempts, last was {last}")
+        return transport.graphql(address, document, branch, token=TOKEN)
 
     # ----------------------------------------------------------------- #
     # Load

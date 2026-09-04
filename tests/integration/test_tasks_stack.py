@@ -24,13 +24,13 @@ import time
 from pathlib import Path
 from typing import Any
 
-import httpx
 import pytest
 import tasks
 import yaml
 from infrahub_sdk.testing.docker import TestInfrahubDockerClient
 from infrahub_testcontainers.container import InfrahubDockerCompose
 
+from . import transport
 from .conftest import REPO_ROOT, run_task, task_output
 from .stack import relax_healthcheck_budgets
 from .taskcoverage import records_by_task
@@ -153,17 +153,13 @@ class TestTasksAgainstAStack(TestInfrahubDockerClient):
 
     @staticmethod
     def query(address: str, document: str, branch: str = "main") -> dict[str, Any]:
-        """Run a GraphQL document and fail on `errors`, whatever the status code."""
-        response = httpx.post(
-            f"{address}/graphql/{branch}",
-            json={"query": document},
-            headers={"X-INFRAHUB-KEY": TOKEN},
-            timeout=180.0,
-        )
-        payload = response.json()
-        assert "errors" not in payload, f"GraphQL errors (HTTP {response.status_code}): {payload['errors']}"
-        data: dict[str, Any] = payload["data"]
-        return data
+        """Run a GraphQL document and fail on `errors`, whatever the status code.
+
+        Every read here happens while a task is writing, so `transport` waits out
+        a busy server rather than asserting on it: a 5xx itself, a 429 through
+        the SDK's rate limit handler.
+        """
+        return transport.graphql(address, document, branch, token=TOKEN)
 
     @classmethod
     def count(cls, address: str, kind: str, branch: str = "main") -> int:
@@ -189,14 +185,7 @@ class TestTasksAgainstAStack(TestInfrahubDockerClient):
     @staticmethod
     def summary_kinds(address: str, branch: str) -> set[str]:
         """Every kind the schema summary reports for a branch, generics included."""
-        response = httpx.get(
-            f"{address}/api/schema/summary",
-            params={"branch": branch},
-            headers={"X-INFRAHUB-KEY": TOKEN},
-            timeout=60.0,
-        )
-        response.raise_for_status()
-        summary = response.json()
+        summary = transport.get_json(address, "/api/schema/summary", token=TOKEN, params={"branch": branch})
         return set(summary.get("nodes", {})) | set(summary.get("generics", {}))
 
     # ----------------------------------------------------------------- #

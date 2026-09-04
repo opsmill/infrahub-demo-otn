@@ -21,6 +21,7 @@ import inspect
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 import tasks
@@ -131,3 +132,166 @@ def test_demo_clean_targets_every_branch_a_scenario_task_opens() -> None:
     assert opened, "no demo task defaults to a branch of its own, so this test reads nothing"
     orphans = sorted(f"{name} opens {default!r}" for name, default in opened.items() if default not in targets)
     assert not orphans, f"branches `demo-clean` would not delete: {orphans}"
+
+
+class FakeResult:
+    """What `context.run(..., warn=True)` hands back, reduced to what is read."""
+
+    def __init__(self, *, ok: bool) -> None:
+        self.ok = ok
+
+
+class RecordingContext:
+    """Stands in for a `Context`, answering `run` from a script."""
+
+    def __init__(self, *outcomes: bool) -> None:
+        self.outcomes = list(outcomes)
+        self.commands: list[str] = []
+
+    def run(self, command: str, **_: object) -> FakeResult:
+        self.commands.append(command)
+        return FakeResult(ok=self.outcomes[min(len(self.commands) - 1, len(self.outcomes) - 1)])
+
+
+def undecorated(name: str) -> Any:
+    """One task's plain function.
+
+    Reached through the collection rather than off the module, because the
+    `@task` wrapper type-checks its first argument and `RecordingContext` is not
+    a `Context`. This is also how the signature reader above gets at a task.
+    """
+    return Collection.from_module(tasks)[name].body
+
+
+@pytest.fixture
+def no_waiting(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Collect the backoff instead of serving it."""
+    waits: list[float] = []
+    monkeypatch.setattr(tasks.time, "sleep", waits.append)
+    monkeypatch.setattr(tasks, "_env", lambda: {"INFRAHUB_ADDRESS": "http://x", "INFRAHUB_API_TOKEN": "t"})
+    return waits
+
+
+def test_a_branch_create_that_times_out_is_checked_against_the_server(
+    monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]
+) -> None:
+    """The failure in run 33863228168: the mutation landed, the read gave up.
+
+    `infrahubctl` exited 1 after a 300 second read timeout while the branch it
+    was asked for had been made. Judged on the exit code that is a dead task;
+    judged on the server it is done.
+    """
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: True)
+    context = RecordingContext(False)
+
+    undecorated("branch-create")(context, "raman-par-mad")
+
+    assert len(context.commands) == 1, "the create was repeated against a branch that was already there"
+    assert no_waiting == [], "it waited before looking"
+
+
+def test_a_branch_create_that_really_failed_is_asked_again(
+    monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]
+) -> None:
+    """Not there and not created is the case a retry is for."""
+    seen: list[bool] = [False, True]
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: seen.pop(0))
+    context = RecordingContext(False, False)
+
+    undecorated("branch-create")(context, "raman-par-mad")
+
+    assert len(context.commands) == 2
+    assert no_waiting == [tasks.BRANCH_CREATE_BACKOFF_SECONDS], f"backed off {no_waiting}"
+
+
+def test_a_branch_that_never_appears_stops_the_task(monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]) -> None:
+    """A retry that cannot fail is a task that hangs instead of reporting."""
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: False)
+    context = RecordingContext(False)
+
+    with pytest.raises(SystemExit):
+        undecorated("branch-create")(context, "raman-par-mad")
+
+    assert len(context.commands) == tasks.BRANCH_CREATE_ATTEMPTS
+
+
+def test_the_sync_with_git_flag_survives_the_retry(monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]) -> None:
+    """A branch made without Git runs the built-in validators, not this repository's."""
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: False)
+    context = RecordingContext(False, False, True)
+
+    undecorated("branch-create")(context, "demo")
+
+    assert all("--sync-with-git" in command for command in context.commands), context.commands
+
+
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+INTEGRATION_DIR = REPO_ROOT / "tests" / "integration"
+
+FULL_ONLY_MODULES = {"test_tasks_stack.py"}
+"""Integration modules the core tier deliberately leaves out.
+
+`test_tasks_stack.py` drives all 48 tasks and every scenario against the stack.
+It is forty of the suite's fifty minutes and only a change to the demo's own
+logic can break it, which is the whole reason the tiers exist.
+"""
+
+
+def test_every_tier_ci_asks_for_is_a_tier_the_task_knows() -> None:
+    """`ci.yml` picks a tier and `tasks.py` maps it to a pytest selection.
+
+    Two files, one vocabulary. A tier renamed in the table and not in the
+    workflow reaches `test-integration` as an unknown word, and the job fails on
+    a green tree.
+    """
+    workflow = CI_WORKFLOW.read_text()
+    assigned = set(re.findall(r'TIER="(\w+)"', workflow))
+    offered = set(re.findall(r'options: \["core", "full"\]', workflow) and ["core", "full"])
+
+    assert assigned, "ci.yml assigns no tier, so this test reads nothing"
+    unknown = sorted((assigned | offered) - set(tasks.TIERS))
+    assert not unknown, f"tiers ci.yml uses that tasks.py does not define: {unknown}"
+    assert offered == set(tasks.TIERS), "the dispatch offers a different set of tiers from the table"
+
+
+def test_the_core_tier_selects_something() -> None:
+    """A `-m` expression that matches nothing exits 5, which reads as broken.
+
+    Asserted by reading the source rather than by collecting, because
+    `tests/unit` must not import the testcontainers plugin.
+    """
+    marked = [path.name for path in INTEGRATION_DIR.glob("test_*.py") if "@pytest.mark.core" in path.read_text()]
+    assert marked, "no integration module carries the core marker, so `--tier=core` would collect nothing"
+
+
+def test_every_integration_module_is_in_a_tier_on_purpose() -> None:
+    """A new module is in the full tier by default, and has to say so.
+
+    The safe default: a module nobody placed runs in `full` and is missed by the
+    pull requests that run `core`. Naming it here is what turns that from an
+    oversight into a decision.
+    """
+    modules = {path.name for path in INTEGRATION_DIR.glob("test_*.py")}
+    core = {path.name for path in INTEGRATION_DIR.glob("test_*.py") if "@pytest.mark.core" in path.read_text()}
+
+    unplaced = sorted(modules - core - FULL_ONLY_MODULES)
+    assert not unplaced, (
+        f"integration modules in no tier: {unplaced}. Mark the class `@pytest.mark.core` "
+        "or add the module to FULL_ONLY_MODULES with the reason."
+    )
+    stale = sorted(FULL_ONLY_MODULES - modules)
+    assert not stale, f"FULL_ONLY_MODULES names modules that are gone: {stale}"
+    assert not (core & FULL_ONLY_MODULES), "a module cannot be both core and full-only"
+
+
+def test_an_unknown_tier_stops_before_the_stack_is_started() -> None:
+    """A typo must fail on the word, not after booting Infrahub."""
+    with pytest.raises(SystemExit):
+        undecorated("test-integration")(RecordingContext(True), tier="coer")
+
+
+def test_the_marker_is_registered_so_a_typo_fails_collection() -> None:
+    """`--strict-markers` is what turns a misspelled marker into an error."""
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text()
+    assert '"core: ' in pyproject, "the core marker is not registered, so it warns instead of selecting"
+    assert "--strict-markers" in pyproject, "without this an unregistered marker is a warning, not a failure"

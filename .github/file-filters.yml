@@ -34,3 +34,36 @@ schema_all:
 
 documentation_all:
   - "docs/**"
+
+# What makes a change able to break a demo scenario, and so what makes CI run
+# the full integration tier rather than the core one. Forty minutes against six,
+# so the list is the whole safety argument for the split.
+#
+# The demo's own logic: tasks.py is the command surface, src/ is the decision
+# layer the checks and generators import, and the six Infrahub directories are
+# what the scenarios read and write.
+#
+# The stack definition is here too, and it is the part a paths list is most
+# likely to leave out. A change to the image, the compose override or the
+# fixtures that size the stack can break every scenario without touching a line
+# of the demo, and this repository has spent more commits on that than on the
+# model. `.infrahub.yml` binds every definition, so a change to it moves what the
+# pipeline runs.
+demo_all:
+  - "tasks.py"
+  - "src/**"
+  - "checks/**"
+  - "generators/**"
+  - "transforms/**"
+  - "queries/**"
+  - "schemas/**"
+  - "objects/**"
+  - "menus/**"
+  - "demo/**"
+  - "scripts/**"
+  - ".infrahub.yml"
+  - "Dockerfile"
+  - "docker-compose*.yml"
+  - "tests/integration/**"
+  - "pyproject.toml"
+  - "uv.lock"
