@@ -38,7 +38,6 @@ from invoke import Collection
 from infrahub_demo_otn.budget import SYSTEM_MARGIN_MDB
 from infrahub_demo_otn.containers import SLOT_TABLE
 from infrahub_demo_otn.odudraw import HEADROOM_BAND_EDGES_SLOTS, HEADROOM_BANDS
-from infrahub_demo_otn.routing import REASON_PRECEDENCE
 from infrahub_demo_otn.units import mdb_to_db
 from tests.unit.conftest import (
     DOC_DIR,
@@ -104,148 +103,114 @@ def figure(page: str, pattern: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_the_object_total_every_page_publishes_is_the_total_that_loads() -> None:
-    """`installation-setup.mdx` and `provisioning-scenarios.mdx` both quote the
-    size of the load, and `tasks.py` prints it while the load runs.
-
-    Three copies of one number, and the copy in `tasks.py` is the one a reader
-    sees first. It said 2243 against a real 2190 until the documentation review
-    caught it, which is the drift this test exists to make unmergeable.
-    """
-    actual = sum(len((document.get("spec") or {}).get("data") or []) for document in object_documents())
-
-    install = int(figure("installation-setup.mdx", r"object load takes a few minutes for ([\d,]+) objects"))
-    provisioning = int(figure("provisioning-scenarios.mdx", r"already holding the ([\d,]+)-object dataset"))
-
-    banner = re.findall(r"objects, about a minute for ([\d,]+) of them", (REPO_ROOT / "tasks.py").read_text())
-    assert len(banner) == 1, "tasks.py should print the object total exactly once"
-
-    assert install == actual, f"installation-setup.mdx says {install} objects, {actual} load"
-    assert provisioning == actual, f"provisioning-scenarios.mdx says {provisioning} objects, {actual} load"
-    assert int(banner[0]) == actual, f"tasks.py announces {banner[0]} objects, {actual} load"
-
-
-def test_the_optical_element_count_the_install_page_publishes_is_the_manifest() -> None:
-    """`installation-setup.mdx` publishes the count `invoke inventory` reports.
-
-    The count is every kind inheriting `OtnOpticalElement`, and the ODU switches
-    inherit it too. The page said 532 and omitted them; the server answers 535.
-    """
-    expected = sum(MANIFEST[kind] for kind in OPTICAL_ELEMENT_KINDS)
-    published = int(figure("installation-setup.mdx", r"It counts (\d+) optical elements"))
-    assert published == expected, f"the page says {published}, the manifest gives {expected}"
-
-
-def test_the_inventory_sentence_is_the_dataset() -> None:
-    """`installation-setup.mdx` opens the data section with the inventory a reader
-    uses to decide whether the demo is worth twenty minutes.
-
-    Seven figures in two sentences, each of which the seed can move.
-    """
-    devices = (
-        "OtnRouter",
-        "OtnTransponder",
-        "OtnRoadm",
-        "OtnAmplifier",
-        "OtnMuxDemux",
-        "OtnPatchPanel",
-        "OtnRamanPump",
-        "OtnOduSwitch",
-    )
-    ports = (
-        "OtnRouterPort",
-        "OtnClientPort",
-        "OtnLinePort",
-        "OtnRoadmAddDropPort",
-        "OtnRoadmDegreePort",
-        "OtnAmplifierPort",
-        "OtnTributaryPort",
-        "OtnAmplifierMonitor",
-        "OtnRoadmDegreeMonitor",
-        "OtnMuxDemuxMonitor",
-        "OtnRamanMonitor",
-        "OtnReceiverMonitor",
-    )
-    published = {
-        "sites": int(figure("installation-setup.mdx", r"network: (\d+) sites")),
-        "sections": int(figure("installation-setup.mdx", r"(\d+) ROADM-to-ROADM sections")),
-        "spans": int(figure("installation-setup.mdx", r"(\d+) fiber\nspans")),
-        "devices": int(figure("installation-setup.mdx", r"sit (\d+) devices")),
-        "ports": int(figure("installation-setup.mdx", r"devices, ([\d,]+) ports")),
-        "wavelengths": int(figure("installation-setup.mdx", r"ports, (\d+) pre-provisioned wavelengths")),
-    }
-    actual = {
-        "sites": len(objects_of_kind("OtnSite")),
-        "sections": len(objects_of_kind("OtnOpticalMultiplexSection")),
-        "spans": len(objects_of_kind("OtnFiberSpan")),
-        "devices": sum(len(objects_of_kind(kind)) for kind in devices),
-        "ports": sum(len(objects_of_kind(kind)) for kind in ports),
-        "wavelengths": len(objects_of_kind("OtnOpticalCarrier")),
-    }
-    assert published == actual
-
-
 # ---------------------------------------------------------------------------
 # What the schema is
 # ---------------------------------------------------------------------------
 
 
-def test_the_device_kind_count_is_the_same_wherever_the_reference_says_it() -> None:
-    """`schema-reference.mdx` states the number of device kinds three times: in the
-    files table, in the two-generics section and in the sidebar section.
-
-    The sidebar sentence said seven while the other two said eight, which is the
-    kind of self-contradiction a page this long produces on its own.
-    """
-    parsed = yaml.safe_load((SCHEMA_DIR / "otn_devices.yml").read_text())
-    actual = sum(1 for node in parsed.get("nodes", []) if "OtnGenericDevice" in (node.get("inherit_from") or []))
-
-    page = doc_text("schema-reference.mdx")
-    spelled = {"seven": 7, "eight": 8, "nine": 9}
-    said = {spelled[word] for word in re.findall(r"(seven|eight|nine) device kinds", page)}
-
-    assert said == {actual}, f"the page says {sorted(said)} device kinds, the schema defines {actual}"
+# ---------------------------------------------------------------------------
+# What the demo runs
+# ---------------------------------------------------------------------------
 
 
-def test_the_rejection_code_count_is_the_python_and_the_schema() -> None:
-    """`concepts.mdx`, `provisioning-scenarios.mdx` and `schema-reference.mdx` all
-    say how many rejection codes there are, and the reference also says where they
-    live. It claimed five in `routing.py` and one in `optical_service.py`; all six
-    are in `routing.py`, and the source comment there says why.
-    """
-    routing = (REPO_ROOT / "src" / "infrahub_demo_otn" / "routing.py").read_text()
-    defined = set(re.findall(r"^REASON_([A-Z_]+) = \"", routing, re.MULTILINE))
-    assert len(defined) == len(REASON_PRECEDENCE) + 1, "REASON_NO_SLOTS is the one outside the precedence order"
+# ---------------------------------------------------------------------------
+# The figures the pages publish
+# ---------------------------------------------------------------------------
 
-    generator = (REPO_ROOT / "generators" / "optical_service.py").read_text()
-    assert not re.findall(r"^REASON_[A-Z_]+ = \"", generator, re.MULTILINE), (
-        "schema-reference.mdx says every rejection code lives in routing.py"
-    )
+SPELLED: dict[str, int] = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+}
+"""Words a page may write a figure as instead of digits.
 
-    spelled = {"five": 5, "six": 6, "seven": 7}
-    for page, pattern in (
-        ("concepts.mdx", r"of (five|six|seven) values"),
-        ("provisioning-scenarios.mdx", r"one of (five|six|seven) values the schema enforces"),
-        ("schema-reference.mdx", r"All (five|six|seven) live in"),
-    ):
-        assert spelled[figure(page, pattern)] == len(defined), f"{page} disagrees with routing.py"
+The pages spell small numbers and print large ones, which is ordinary English and
+not something a test should force either way. Both readings are accepted and the
+comparison happens on the integer.
+"""
+
+LEDGER_DEVICE_KINDS = (
+    "OtnRouter",
+    "OtnTransponder",
+    "OtnRoadm",
+    "OtnAmplifier",
+    "OtnMuxDemux",
+    "OtnPatchPanel",
+    "OtnRamanPump",
+    "OtnOduSwitch",
+)
+"""What `installation-setup.mdx` means by a device: everything a rack holds."""
+
+LEDGER_PORT_KINDS = (
+    "OtnRouterPort",
+    "OtnClientPort",
+    "OtnLinePort",
+    "OtnRoadmAddDropPort",
+    "OtnRoadmDegreePort",
+    "OtnAmplifierPort",
+    "OtnTributaryPort",
+    "OtnAmplifierMonitor",
+    "OtnRoadmDegreeMonitor",
+    "OtnMuxDemuxMonitor",
+    "OtnRamanMonitor",
+    "OtnReceiverMonitor",
+)
+"""What the same sentence means by a port, monitors included.
+
+A monitor is a port on the modelled device and is counted as one on the page, so
+it is counted as one here.
+"""
+
+SWEPT_PAGES: tuple[Path, ...] = (*sorted(DOC_DIR.glob("*.mdx")), REPO_ROOT / "README.md", REPO_ROOT / "CLAUDE.md")
+"""Pages the two shape sweeps read, markers or no markers.
+
+`CLAUDE.md` is `.gitignore`d, so it is here and is skipped when absent rather
+than failed on. It is present on a developer's machine, which is where a figure
+in it is about to be copied into a page.
+"""
+
+FACT_MARKER = re.compile(r'<span data-fact="([a-z-]+)">([^<]+)</span>')
+"""How a page marks a figure this module owns.
+
+A plain `span` rather than an MDX component, so it needs no import on the page,
+no theme swizzle and no build step. Docusaurus renders it as its text, so a
+reader sees the number and nothing else.
+
+`README.md` and `CLAUDE.md` carry no markers. They are the two pages a person
+reads before they have cloned anything, and markup in them buys a guard at the
+cost of the thing they exist to do. The figures they publish are held by the two
+sweeps at the end of this module instead, which read the shape of a phrase
+rather than a sentence and need nothing in the file.
+"""
 
 
-def test_the_monitor_reading_arithmetic_is_the_schema() -> None:
-    """`concepts.mdx` and `schema-reference.mdx` both count the monitor readings and
-    both say how many families share one.
+def _monitor_reading_counts() -> dict[str, int]:
+    """How many monitor families own each stored reading.
 
-    Both said the only shared reading was `measured_gain_mdb`. `OtnChannelMonitor`
-    contributes `total_power_mdbm` and `channel_count` to a ROADM degree and a
-    multiplexer, so three readings are shared and not one. The "eleven of
-    fourteen" arithmetic on the same page was right the whole time and is what
-    proves the sentence wrong.
+    A `_display` mirror is a rendering of a reading, not a second one, and
+    `measured_at` is the timestamp every family carries.
     """
     parsed = yaml.safe_load((SCHEMA_DIR / "otn_ports.yml").read_text())
     generics = {generic["name"]: generic for generic in parsed.get("generics", [])}
 
     def readings(node: dict) -> set[str]:
-        """Stored readings only: no `_display` mirror, and not the timestamp."""
         names: set[str] = set()
         sources = [node] + [generics[parent[3:]] for parent in node.get("inherit_from", []) if parent[3:] in generics]
         for source in sources:
@@ -255,52 +220,152 @@ def test_the_monitor_reading_arithmetic_is_the_schema() -> None:
                     names.add(name)
         return names
 
-    families = {node["name"]: readings(node) for node in parsed.get("nodes", []) if node["name"].endswith("Monitor")}
     counts: dict[str, int] = {}
-    for owned in families.values():
-        for name in owned:
-            counts[name] = counts.get(name, 0) + 1
-
-    total = len(counts)
-    alone = sum(1 for count in counts.values() if count == 1)
-    shared = total - alone
-
-    spelled = {"one": 1, "three": 3, "eleven": 11, "fourteen": 14}
-    for page, total_pattern, alone_pattern in (
-        ("concepts.mdx", r"of the (fourteen) in the model,\n(eleven)", None),
-        ("schema-reference.mdx", r"\n(fourteen) readings in the model, (eleven)", None),
-    ):
-        found = re.findall(total_pattern, doc_text(page))
-        assert len(found) == 1, f"{page}: the reading arithmetic moved"
-        assert spelled[found[0][0]] == total, f"{page} says {found[0][0]} readings, the schema has {total}"
-        assert spelled[found[0][1]] == alone, f"{page} says {found[0][1]} on one family, the schema has {alone}"
-
-    for page in ("concepts.mdx", "schema-reference.mdx"):
-        said = figure(page, r"(One|Three) readings are shared")
-        assert spelled[said.lower()] == shared, f"{page} says {said} shared, the schema shares {shared}"
+    for node in parsed.get("nodes", []):
+        if node["name"].endswith("Monitor"):
+            for name in readings(node):
+                counts[name] = counts.get(name, 0) + 1
+    return counts
 
 
-# ---------------------------------------------------------------------------
-# What the demo runs
-# ---------------------------------------------------------------------------
+def _bulleted_speaking_checks() -> list[str]:
+    """The checks `provisioning-scenarios.mdx` bullets as speaking about the change.
 
+    Bounded by the two fact markers rather than by the sentences around them.
+    Anchoring on the prose is what this module is being cured of, and it bit here
+    first: the block used to be found by splitting on "checks say something about
+    this change:", and rewrapping that sentence to fit the line length put a
+    newline inside the phrase and took three tests down with an `IndexError`.
 
-def test_the_scenario_count_the_demo_guide_publishes_is_what_the_tasks_number() -> None:
-    """`demo-guide.mdx` opens with the scenario count and lists one row each.
-
-    It said eight and listed eight while `tasks.py` numbered nine, because
-    `demo-infiniband` carries "Scenario 9" in its docstring and ran inside the
-    walkthrough without appearing in the guide.
+    The markers cannot drift the same way. They are what the test owns, a
+    reader never sees them, and no line-length rule will ever break one.
     """
-    numbered = {int(number) for number in re.findall(r"\"\"\"Scenario (\d+):", (REPO_ROOT / "tasks.py").read_text())}
-    assert numbered == set(range(1, len(numbered) + 1)), f"the scenario numbers have a gap: {sorted(numbered)}"
+    page = doc_text("provisioning-scenarios.mdx")
+    opens = page.find('<span data-fact="checks-speaking">')
+    closes = page.find('<span data-fact="checks-silent">')
+    assert 0 <= opens < closes, "the speaking and silent markers are not both on the page, in that order"
+    return re.findall(r"^- `(\w+)`", page[opens:closes], re.MULTILINE)
 
-    spelled = {"Eight": 8, "Nine": 9, "Ten": 10}
-    said = spelled[figure("demo-guide.mdx", r"(Eight|Nine|Ten) scenarios against")]
-    assert said == len(numbered), f"the guide says {said} scenarios, tasks.py numbers {len(numbered)}"
 
-    rows = re.findall(r"^\| (\d+) \| ", doc_text("demo-guide.mdx"), re.MULTILINE)
-    assert [int(row) for row in rows] == sorted(numbered), "the guide's table is missing a numbered scenario"
+@cache
+def facts() -> dict[str, int]:
+    """Every figure a page is allowed to state, each derived rather than typed.
+
+    One entry per claim, and the entry is the computation. A page states the
+    figure inside a `data-fact` span and this is what the span is checked
+    against, so a page may be reworded freely and a figure may not be wrong.
+    """
+    devices = yaml.safe_load((SCHEMA_DIR / "otn_devices.yml").read_text())
+    routing = (REPO_ROOT / "src" / "infrahub_demo_otn" / "routing.py").read_text()
+    readings = _monitor_reading_counts()
+    scenarios = {int(number) for number in re.findall(r'"""Scenario (\d+):', (REPO_ROOT / "tasks.py").read_text())}
+    assert scenarios == set(range(1, len(scenarios) + 1)), f"the scenario numbers have a gap: {sorted(scenarios)}"
+
+    return {
+        # What the load is. Every figure but the first is read out of
+        # `scripts/geant_manifest.json`, the ledger the seed generator writes,
+        # rather than counted out of `objects/` a second time here. The two
+        # agreed when this moved, and one of them is already guarded: the
+        # generator regenerates the ledger and `test_geant_dataset.py` diffs it,
+        # so a seed change that moved a count and left the ledger alone fails
+        # there before it reaches a page.
+        #
+        # `objects` is the exception and has to be. It is the whole load, and the
+        # ledger covers the generated seed only: the catalogs, the modes and the
+        # client signals are hand-written files it never sees. 2344 against the
+        # ledger's 2204 is those files, not a disagreement.
+        "objects": sum(len((document.get("spec") or {}).get("data") or []) for document in object_documents()),
+        "optical-elements": sum(MANIFEST[kind] for kind in OPTICAL_ELEMENT_KINDS),
+        "sites": MANIFEST["OtnSite"],
+        "sections": MANIFEST["OtnOpticalMultiplexSection"],
+        "spans": MANIFEST["OtnFiberSpan"],
+        "devices": sum(MANIFEST[kind] for kind in LEDGER_DEVICE_KINDS),
+        "ports": sum(MANIFEST[kind] for kind in LEDGER_PORT_KINDS),
+        "wavelengths": MANIFEST["OtnOpticalCarrier"],
+        # What the schema is.
+        "device-kinds": sum(
+            1 for node in devices.get("nodes", []) if "OtnGenericDevice" in (node.get("inherit_from") or [])
+        ),
+        "rejection-codes": len(set(re.findall(r'^REASON_([A-Z_]+) = "', routing, re.MULTILINE))),
+        "monitor-readings": len(readings),
+        "monitor-readings-alone": sum(1 for count in readings.values() if count == 1),
+        "monitor-readings-shared": sum(1 for count in readings.values() if count > 1),
+        # What the demo runs.
+        "scenarios": len(scenarios),
+        "checks": len(REPOSITORY_CONFIG["check_definitions"]),
+        "validators": (
+            len(REPOSITORY_CONFIG["check_definitions"])
+            + len(REPOSITORY_CONFIG["generator_definitions"])
+            + len(REPOSITORY_CONFIG["artifact_definitions"])
+            + BUILT_IN_VALIDATORS
+        ),
+        "queries": len(list((REPO_ROOT / "queries").glob("*.gql"))),
+        # The split between the checks that speak about one change and the ones
+        # that stay quiet. Derived from the bulleted list on the page rather than
+        # from the register, because which checks speak is a property of the
+        # branch and only the page knows it. The bullets are structure; the two
+        # sentences quoting them are prose, and this is what holds them together.
+        "checks-speaking": len(_bulleted_speaking_checks()),
+        "checks-silent": len(REPOSITORY_CONFIG["check_definitions"]) - len(_bulleted_speaking_checks()),
+    }
+
+
+def _stated_facts() -> list[tuple[str, int, str, int]]:
+    """Every `data-fact` span on every guarded page, as (name, line, page, value).
+
+    `value` is the integer the page states, spelled or in digits, with any
+    thousands comma removed.
+    """
+    found = []
+    for path in GUARDED_PAGES:
+        if not path.exists():
+            continue
+        text = path.read_text()
+        for match in FACT_MARKER.finditer(text):
+            name, written = match.group(1), match.group(2).strip()
+            line = text[: match.start()].count("\n") + 1
+            bare = written.replace(",", "").lower()
+            value = int(bare) if bare.isdigit() else SPELLED.get(bare, -1)
+            found.append((name, line, path.name, value))
+    return found
+
+
+def test_every_figure_a_page_states_is_the_figure_the_repository_has() -> None:
+    """Every `data-fact` span holds the number its name computes to.
+
+    This replaced fifteen tests that each pulled a figure out of prose with a
+    regex. Those failed two ways and could not tell them apart: rewording a
+    sentence failed with `expected one match ... found 0` while the page was
+    still correct, and moving a figure failed with a truncated dict comparison
+    that named no field. The loud failure was the wrong one.
+
+    Marking the figure inverts it. The page says which claim a number is and the
+    prose around it is free, so the only way to fail is to be wrong.
+    """
+    known = facts()
+    wrong = []
+    for name, line, page, value in _stated_facts():
+        where = f"{page}:{line}"
+        if name not in known:
+            wrong.append(f"{where} states `{name}`, which is not a fact this module computes")
+        elif value < 0:
+            wrong.append(f"{where} states `{name}` as a word this module cannot read as a number")
+        elif value != known[name]:
+            wrong.append(f"{where} says {name} is {value}, the repository has {known[name]}")
+
+    assert not wrong, "; ".join(wrong)
+
+
+def test_every_figure_this_module_computes_is_stated_somewhere() -> None:
+    """The other direction, so the registry cannot outlive the sentence.
+
+    A fact nobody states is a computation kept in step with nothing, which is the
+    shape the deleted `schema-vendor-diff` task had: correct, maintained, and
+    read by no one.
+    """
+    stated = {name for name, _, _, _ in _stated_facts()}
+    orphaned = sorted(set(facts()) - stated)
+    assert not orphaned, f"facts computed here that no page states: {orphaned}"
 
 
 # ---------------------------------------------------------------------------
@@ -604,44 +669,6 @@ speak about one change and the checks that stay quiet.
 """
 
 
-def test_the_check_count_every_page_publishes_is_what_infrahub_yml_registers() -> None:
-    """Four pages state how many checks the repository ships, in seven sentences.
-
-    Nothing read `.infrahub.yml` until this test did. Feature 024 registered
-    `channel_count_consistency` and `monitor_completeness`, taking the repository
-    from six checks to eight, and every one of those seven sentences stayed on
-    six with the whole suite green. That is the same drift this module was
-    written for, arriving in the one figure it had not been pointed at.
-
-    The enumeration on `client-mapping.mdx` is held to the register as well, not
-    only the count. A page can say eight and list six.
-    """
-    registered = [entry["name"] for entry in REPOSITORY_CONFIG["check_definitions"]]
-
-    for page, pattern in (
-        ("client-mapping.mdx", r"repository ships (\w+) checks"),
-        ("developer-guide.mdx", r"creates (\w+) check definitions"),
-        ("provisioning-scenarios.mdx", r"runs the (\w+) checks"),
-        ("provisioning-scenarios.mdx", r"of the (\w+) checks say something"),
-        ("what-this-shows.mdx", r"whole pipeline: (\w+) checks"),
-        ("what-this-shows.mdx", r"registers (\w+) check definitions"),
-        ("README.md", r"\*\*Block a bad merge\.\*\* (\w+) checks run"),
-    ):
-        # Lowered because README.md's count opens a sentence and the others do not.
-        said = figure(page, pattern)
-        assert COUNTS.get(said.lower()) == len(registered), (
-            f"{page} says {said} checks against {pattern!r}, .infrahub.yml registers {len(registered)}"
-        )
-
-    listed = set(re.findall(r"`(\w+)`", figure("client-mapping.mdx", r"repository ships \w+ checks: ([^.]+)\.")))
-    assert listed == set(registered), f"client-mapping.mdx lists {sorted(listed)}, .infrahub.yml registers {registered}"
-
-    named = figure("README.md", r"- \*\*Checks\.\*\* ([^.]+)\.")
-    assert len(re.findall(r",| and ", named)) + 1 == len(registered), (
-        f"README.md's checks bullet names {named!r} against {len(registered)} registered checks"
-    )
-
-
 def test_the_provisioning_page_accounts_for_every_check_that_ran() -> None:
     """The page splits the checks into the ones that speak and the ones that do not.
 
@@ -659,57 +686,17 @@ def test_the_provisioning_page_accounts_for_every_check_that_ran() -> None:
     block. The page has to name the check either way, because a check that logs
     four lines and is missing from the list is four lines a reader cannot place.
     """
-    registered = REPOSITORY_CONFIG["check_definitions"]
-    page = doc_text("provisioning-scenarios.mdx")
+    registered = {entry["name"] for entry in REPOSITORY_CONFIG["check_definitions"]}
+    named = _bulleted_speaking_checks()
 
-    speaking = COUNTS[figure("provisioning-scenarios.mdx", r"(\w+) of the \w+ checks say something").lower()]
-    silent = COUNTS[figure("provisioning-scenarios.mdx", r"The other (\w+) say nothing").lower()]
-    assert speaking + silent == len(registered), (
-        f"the page accounts for {speaking} plus {silent} of {len(registered)} checks"
+    assert named, "the page bullets no speaking check, so this test reads nothing"
+    unregistered = sorted(set(named) - registered)
+    assert not unregistered, f"bulleted checks that .infrahub.yml does not register: {unregistered}"
+
+    known = facts()
+    assert known["checks-speaking"] + known["checks-silent"] == known["checks"], (
+        f"the page accounts for {known['checks-speaking']} plus {known['checks-silent']} of {known['checks']} checks"
     )
-
-    block = page.split("checks say something about this change:", 1)[1].split("say nothing", 1)[0]
-    named = re.findall(r"^- `(\w+)`", block, re.MULTILINE)
-    assert len(named) == speaking, f"the page says {speaking} checks speak and bullets {len(named)}: {named}"
-    assert set(named) <= {entry["name"] for entry in registered}, f"bulleted checks that are not registered: {named}"
-
-
-def test_the_validator_count_the_provisioning_page_publishes_is_the_pipeline_plus_the_built_ins() -> None:
-    """One number on `provisioning-scenarios.mdx`, and it is the only place a
-    reader is told what a full pipeline looks like.
-
-    Every definition in `.infrahub.yml` becomes one validator on a proposed
-    change, and four more run that nothing in the file asks for. The page said
-    fourteen, which was measured live and correct for six checks. Two more checks
-    make sixteen.
-    """
-    expected = (
-        len(REPOSITORY_CONFIG["check_definitions"])
-        + len(REPOSITORY_CONFIG["generator_definitions"])
-        + len(REPOSITORY_CONFIG["artifact_definitions"])
-        + BUILT_IN_VALIDATORS
-    )
-    spelled = {"fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18}
-    said = spelled[figure("provisioning-scenarios.mdx", r"from two validators to (\w+)")]
-    assert said == expected, f"the page says {said} validators, the repository registers {expected}"
-
-
-def test_the_stored_query_count_the_pages_publish_is_what_queries_holds() -> None:
-    """Two pages count the stored queries, and both were left on seventeen when
-    feature 024 added two `.gql` files.
-
-    The count is the directory, not `.infrahub.yml`: `queries/` is loaded whole
-    and a query is bound by the Python class that names it, so a file that no
-    definition mentions is still a stored query on the server.
-    """
-    actual = len(list((REPO_ROOT / "queries").glob("*.gql")))
-    spelled = {"seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20}
-    for page, pattern in (
-        ("developer-guide.mdx", r"one generator definition and (\w+)\nGraphQL queries"),
-        ("what-this-shows.mdx", r"\| (\w+) queries, one per report or check"),
-    ):
-        said = spelled[figure(page, pattern).lower()]
-        assert said == actual, f"{page} says {said} queries, queries/ holds {actual}"
 
 
 def test_the_monitor_coverage_line_the_scenario_page_quotes_is_the_dataset() -> None:
@@ -845,17 +832,85 @@ def test_no_page_anywhere_states_a_check_count_that_is_not_the_register() -> Non
     whitespace, on any page, has to be the number of definitions `.infrahub.yml`
     registers. A page that grows an eighth sentence is covered the day it is
     written rather than the day someone remembers to add it here.
+
+    `README.md` is swept too, and it is the reason the sweep still exists after
+    the fact markers arrived. Every `.mdx` marks its count now; the README does
+    not, because it is read before anyone has cloned the repository and markup
+    in it costs more than the guard is worth. Shape rather than sentence is what
+    lets that page keep plain prose and still be held to the register.
+
+    The word is matched in either case and lowered before the lookup. It read
+    `[a-z]+` until the README came into the sweep, and that page opens the
+    sentence with the number, so `Nine checks run` was invisible to it: the count
+    could be edited to `Eight` and every test stayed green. Nothing else on any
+    page changed to expose that, which is the point of sweeping rather than
+    naming sentences.
     """
     registered = len(REPOSITORY_CONFIG["check_definitions"])
     offenders = []
 
-    for path in sorted(DOC_DIR.glob("*.mdx")):
+    for path in SWEPT_PAGES:
+        if not path.exists():
+            continue
         text = path.read_text()
-        for match in re.finditer(r"\b([a-z]+)\s+checks?\b", text):
-            spelled = COUNTS.get(match.group(1))
+        for match in re.finditer(r"\b([A-Za-z]+)\s+checks?\b", text):
+            spelled = COUNTS.get(match.group(1).lower())
             if spelled is None or spelled == registered:
                 continue
             line = text[: match.start()].count("\n") + 1
             offenders.append(f"{path.name}:{line} says {match.group(1)} where the register holds {registered}")
 
     assert not offenders, "check counts that disagree with .infrahub.yml: " + "; ".join(offenders)
+
+
+TASK_COUNT_SHAPES = (
+    (r"(\d+) invoke tasks\b", "defined"),
+    (r"\b(?:prints|shows) the (\d+) tasks? a reader needs", "listed"),
+    (r"`--all` adds the other (\d+)", "hidden"),
+    (r"adds the other \d+, (\d+) in total", "defined"),
+)
+"""Noun phrases that carry the size of the task surface, wherever they appear.
+
+The same trade the check sweep makes, for the same reason: `README.md` states
+these and carries no marker, because it is read before the repository is cloned.
+
+Each pattern is a phrase rather than a sentence, so the prose around it moves
+freely. `48 invoke tasks` survives a rewritten bullet; it fails when a task is
+added and nobody updated the number, which is the case that has already happened
+once, when `schema-vendor-diff` was deleted and 49 stayed on the page.
+"""
+
+
+def test_no_page_states_a_task_count_that_is_not_the_collection() -> None:
+    """The size of the task surface, held without marking up a page a reader lands on.
+
+    `invoke list` prints the grouped half and `--all` adds the rest, so the three
+    figures partition one set. A task moved between the halves has to move two of
+    them, and a task added has to move two as well.
+    """
+    collection = Collection.from_module(tasks)
+    listed = {name for _, names, _ in tasks.TASK_GROUPS for name in names}
+    actual = {
+        "defined": len(collection.task_names),
+        "listed": len(listed),
+        "hidden": len(set(collection.task_names) - listed),
+    }
+
+    offenders = []
+    matched = 0
+    for path in SWEPT_PAGES:
+        if not path.exists():
+            continue
+        text = path.read_text()
+        for pattern, figure_name in TASK_COUNT_SHAPES:
+            for match in re.finditer(pattern, text):
+                matched += 1
+                said = int(match.group(1))
+                if said != actual[figure_name]:
+                    line = text[: match.start()].count("\n") + 1
+                    offenders.append(
+                        f"{path.name}:{line} says {said} tasks {figure_name}, the collection has {actual[figure_name]}"
+                    )
+
+    assert matched, "no page states a task count, so this test asserted nothing"
+    assert not offenders, "task counts that disagree with tasks.py: " + "; ".join(offenders)

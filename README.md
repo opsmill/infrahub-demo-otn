@@ -80,7 +80,7 @@ reports. No prior Infrahub experience needed.
 > Start with [Quick start](#quick-start) below, then the docs site: the
 > [quick start page](docs/docs/quickstart.mdx) takes you from a clone to
 > a merge that will not close, and the [demo guide](docs/docs/demo-guide.mdx)
-> covers the eight scenarios.
+> covers the nine scenarios.
 
 **Transport engineer:** You want to know whether the optical model is real. The
 link budget is verified against hand-computed reference values, every quantity
@@ -238,9 +238,10 @@ which spends the one wide block, and all ten fit nowhere.
 - **Reports.** Service trace, impact, capacity, reach, AI latency, SRLG
   exposure, link budget and monitor drift, each with its own GraphQL query, plus
   the two rendered maps.
-- **Tasks.** One invoke task per lifecycle step, per demo scenario and per
-  loadable scenario. `invoke load` does the loading in one step, and
-  `invoke demo` runs the whole walkthrough.
+- **Tasks.** 48 invoke tasks, one per lifecycle step, per demo scenario and
+  per loadable scenario. `invoke list` prints the 27 a reader needs and `--all`
+  adds the other 21. `invoke load` does the loading in one step, and
+  `invoke demo` runs the whole walkthrough in ten steps.
 
 ---
 
