@@ -91,9 +91,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: uv sync
       - name: Check formatting
-        run: |
-          uv run ruff format --check --diff
-          uv run ruff check --select I .
+        run: uv run ruff format --check --diff
+      # No separate `--select I` pass. `[tool.ruff.lint] select` in pyproject.toml
+      # already carries "I", so the step below reports an unsorted import on its
+      # own and the extra run was the same check twice.
       - name: Lint
         run: uv run ruff check
       - name: Type check
