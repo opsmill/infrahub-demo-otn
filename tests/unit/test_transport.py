@@ -1,7 +1,12 @@
 """The integration suite's HTTP helper, driven without a server.
 
-The helper imports `httpx` and nothing else, so it loads without the
-testcontainers settings `tests/integration/conftest.py` applies at import time.
+The helper imports `httpx` and `infrahub_sdk.rate_limit`, neither of which
+touches testcontainers, so it loads without the settings
+`tests/integration/conftest.py` applies at import time.
+
+A 429 is the SDK's to retry. What is tested here is that this module hands one
+over rather than handling it, and that the handler it hands one to is sized to
+fit inside `RETRY_BUDGET_SECONDS`.
 """
 
 from __future__ import annotations
@@ -10,9 +15,13 @@ from typing import Any
 
 import httpx
 import pytest
+from infrahub_sdk.exceptions import RateLimitError
+from infrahub_sdk.rate_limit import RateLimitRetryHandler
 
 from tests.integration.transport import (
     MAXIMUM_DELAY_SECONDS,
+    RATE_LIMIT,
+    RATE_LIMIT_MAX_RETRIES,
     RETRY_BUDGET_SECONDS,
     RETRYABLE_STATUS,
     _delay_for,
@@ -22,6 +31,11 @@ from tests.integration.transport import (
 )
 
 TOKEN = "not-a-real-token"
+
+
+def handler(max_retries: int = 3) -> RateLimitRetryHandler:
+    """A real SDK handler whose waits are too small to slow a unit test."""
+    return RateLimitRetryHandler(max_retries=max_retries, backoff_base=0.001, backoff_max=0.001)
 
 
 class Recorder:
@@ -76,34 +90,39 @@ def drive(recorder: Recorder, **kwargs: Any) -> httpx.Response:
     )
 
 
-def test_a_429_is_waited_out_rather_than_asserted_through() -> None:
-    """The failure this module was written for, run 33845114251."""
+def test_a_429_is_waited_out_by_the_sdk_and_never_by_this_module() -> None:
+    """The failure this module was written for, run 33845114251, now the SDK's."""
     shedding = response(429, json={"data": None, "errors": [{"message": "Server is shedding load; retry later."}]})
     recorder = Recorder(shedding, shedding, response(200, json={"data": {"Branch": []}}))
 
-    answer = drive(recorder)
+    answer = drive(recorder, rate_limit=handler())
 
     assert answer.status_code == 200
-    assert len(recorder.calls) == 3, "the helper stopped asking too early"
-    assert recorder.waits == [1.0, 2.0], f"the schedule was {recorder.waits}"
+    assert len(recorder.calls) == 3, "the handler stopped asking too early"
+    assert recorder.waits == [], "this module waited on a 429 it was supposed to hand over"
 
 
-def test_the_server_saying_how_long_beats_the_schedule() -> None:
-    """`Retry-After` is the server's reading of its own load, so it wins."""
-    recorder = Recorder(response(429, json={}, headers={"Retry-After": "12"}), response(200, json={"data": {}}))
+def test_a_429_the_sdk_gives_up_on_travels_rather_than_being_retried_again() -> None:
+    """Two refusals in a row is the server saying it twice. Asking a third time lengthens the shed."""
+    recorder = Recorder(response(429, json={}))
 
-    drive(recorder)
+    with pytest.raises(RateLimitError) as failure:
+        drive(recorder, rate_limit=handler(max_retries=0))
 
-    assert recorder.waits == [12.0], "the schedule was used where the server had answered"
+    assert "http://stack/graphql/main" in str(failure.value), str(failure.value)
+    assert len(recorder.calls) == 1
+    assert recorder.waits == []
 
 
-@pytest.mark.parametrize("header", ["Wed, 21 Oct 2015 07:28:00 GMT", "not-a-number", "-3"])
-def test_a_retry_after_this_module_cannot_read_falls_back_to_the_schedule(header: str) -> None:
-    recorder = Recorder(response(429, json={}, headers={"Retry-After": header}), response(200, json={"data": {}}))
+def test_the_sdk_handler_is_sized_to_fit_inside_the_budget() -> None:
+    """The SDK defaults to ten retries under a sixty second ceiling and can sit for minutes."""
+    worst_case = sum(RATE_LIMIT.compute_backoff(attempt) for attempt in range(RATE_LIMIT_MAX_RETRIES))
 
-    drive(recorder)
-
-    assert recorder.waits == [1.0], f"{header!r} was read as a delay when it should not have been"
+    assert worst_case <= RETRY_BUDGET_SECONDS, (
+        f"a 429 can hold a read for {worst_case}s of a {RETRY_BUDGET_SECONDS}s budget"
+    )
+    assert RATE_LIMIT.backoff_max <= MAXIMUM_DELAY_SECONDS, "one 429 wait can outlast one 5xx wait"
+    assert RATE_LIMIT.enabled, "the SDK's 429 retry is off and nothing else here covers one"
 
 
 def test_a_502_from_the_load_balancer_is_retried_and_its_html_never_parsed() -> None:
@@ -128,7 +147,7 @@ def test_a_400_is_handed_back_rather_than_retried() -> None:
     recorder = Recorder(response(400, json={"errors": [{"message": "Syntax Error"}]}))
 
     assert drive(recorder).status_code == 400
-    assert len(recorder.calls) == 1, "a 4xx that is not 429 was retried"
+    assert len(recorder.calls) == 1, "a 4xx was retried"
     assert recorder.waits == []
 
 
@@ -145,19 +164,19 @@ def test_a_200_carrying_graphql_errors_is_not_retried() -> None:
 
 def test_the_budget_is_wall_clock_and_the_failure_says_what_it_spent() -> None:
     """Six tries at `2 * (attempt + 1)` gave up after 42 seconds. This does not."""
-    recorder = Recorder(response(429, json={}))
+    recorder = Recorder(response(503, text="<html>"))
 
     with pytest.raises(AssertionError) as failure:
         drive(recorder, budget=60.0)
 
     message = str(failure.value)
     assert "did not answer within 60s" in message, message
-    assert "last was HTTP 429" in message, message
+    assert "last was HTTP 503" in message, message
     assert sum(recorder.waits) == pytest.approx(60.0), f"the helper waited {sum(recorder.waits)}s of a 60s budget"
 
 
 def test_the_last_wait_is_trimmed_to_what_is_left_of_the_budget() -> None:
-    recorder = Recorder(response(429, json={}))
+    recorder = Recorder(response(503, text="<html>"))
 
     with pytest.raises(AssertionError):
         drive(recorder, budget=5.0)
@@ -177,14 +196,14 @@ def test_the_budget_is_short_enough_to_surface_a_saturated_stack() -> None:
 
 
 def test_every_wait_is_jittered_into_the_top_half_of_its_slot() -> None:
-    """Two readers that met the same shed must not come back together."""
+    """Two readers that met the same 500 must not come back together."""
     windows: list[tuple[float, float]] = []
 
     def record(low: float, high: float) -> float:
         windows.append((low, high))
         return low
 
-    recorder = Recorder(response(429, json={}))
+    recorder = Recorder(response(503, text="<html>"))
     with pytest.raises(AssertionError):
         request_with_backoff(
             "POST",
@@ -201,23 +220,15 @@ def test_every_wait_is_jittered_into_the_top_half_of_its_slot() -> None:
     assert all(low == high / 2 for low, high in windows), "a wait could be jittered to nearly nothing"
 
 
-def test_a_retry_after_is_taken_whole_and_never_jittered() -> None:
-    """The server named a time. Shortening it is ignoring it."""
-    recorder = Recorder(response(429, json={}, headers={"Retry-After": "3"}), response(200, json={}))
-
-    drive(recorder)
-
-    assert recorder.waits == [3.0]
-
-
 def test_the_retryable_set_is_the_busy_ones_and_not_the_wrong_ones() -> None:
-    assert 429 in RETRYABLE_STATUS
+    assert 429 not in RETRYABLE_STATUS, "a 429 the SDK gave up on would be asked for a third time"
+    assert RETRYABLE_STATUS == frozenset({500, 502, 503, 504})
     assert RETRYABLE_STATUS.isdisjoint({400, 401, 403, 404, 409, 422})
 
 
 def test_the_token_reaches_the_server_on_every_attempt() -> None:
     """A retry that drops the header retries as an anonymous caller."""
-    recorder = Recorder(response(429, json={}), response(200, json={"data": {}}))
+    recorder = Recorder(response(503, text="<html>"), response(200, json={"data": {}}))
 
     drive(recorder)
 

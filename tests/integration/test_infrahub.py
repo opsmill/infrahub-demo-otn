@@ -233,10 +233,10 @@ class TestInfrahub(TestInfrahubDockerClient):
     def query(address: str, document: str, branch: str = BRANCH) -> dict[str, Any]:
         """Run a GraphQL document and fail on `errors`, whatever the status code.
 
-        Retries a 429 and a 5xx. The load balancer answers 502 and HTML 503 while
-        the pipeline renders artifacts, and the 429 is the API shedding load. A
-        200 is judged on its `errors` array on the first try, so no data fault is
-        retried away.
+        Retries a 5xx. The load balancer answers 502 and HTML 503 while the
+        pipeline renders artifacts, and neither is a GraphQL answer. A 429 is
+        retried a layer down, by the SDK's rate limit handler. A 200 is judged on
+        its `errors` array on the first try, so no data fault is retried away.
         """
         return transport.graphql(address, document, branch, token=TOKEN)
 
