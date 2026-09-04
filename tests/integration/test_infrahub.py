@@ -157,6 +157,7 @@ ceiling, for this reason.
 pytestmark = pytest.mark.integration
 
 
+@pytest.mark.core
 class TestInfrahub(TestInfrahubDockerClient):
     """One Infrahub, loaded once, read by every method below in order."""
 

@@ -7,6 +7,15 @@ on:
   push:
     branches:
       - main
+  # The one way to ask for the full tier without editing a demo file. A release
+  # rehearsal wants every scenario run against a tree that changed none of them.
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "Integration tier: core is about six minutes, full about fifty"
+        type: choice
+        options: ["core", "full"]
+        default: "full"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -30,6 +39,7 @@ jobs:
       markdown: ${{ steps.changes.outputs.markdown_all }}
       schema: ${{ steps.changes.outputs.schema_all }}
       documentation: ${{ steps.changes.outputs.documentation_all }}
+      tier: ${{ steps.tier.outputs.tier }}
     steps:
       - uses: actions/checkout@v7
       - uses: opsmill/paths-filter@v3.0.2
@@ -37,6 +47,30 @@ jobs:
         with:
           token: ${{ github.token }}
           filters: .github/file-filters.yml
+      # Full when the change can reach a scenario, core otherwise, and whatever
+      # a dispatch asked for over both. Decided here rather than in an `if:` on
+      # the steps below, so the answer is one value the log prints once and the
+      # job cannot disagree with itself.
+      - name: Decide the integration tier
+        id: tier
+        env:
+          DEMO_CHANGED: ${{ steps.changes.outputs.demo_all }}
+          DISPATCH_TIER: ${{ github.event.inputs.tier }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DISPATCH_TIER}" ]; then
+            TIER="${DISPATCH_TIER}"
+            WHY="asked for by this dispatch"
+          elif [ "${DEMO_CHANGED}" = "true" ]; then
+            TIER="full"
+            WHY="this change touches a path that can break a scenario"
+          else
+            TIER="core"
+            WHY="nothing the demo's scenarios read or write has changed"
+          fi
+          echo "tier=${TIER}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Integration tier ${TIER}: ${WHY}."
+          echo "- Integration tier: \`${TIER}\` (${WHY})" >> "$GITHUB_STEP_SUMMARY"
 
   python-lint:
     if: needs.files-changed.outputs.python == 'true'
@@ -279,8 +313,14 @@ jobs:
       # infrahub-testcontainers is pinned to 1.11.0, the same version
       # docker-compose runs, so this exercises the version the demo ships
       # against rather than whatever is newest.
+      # Through the task, not a bare pytest: `tasks.py::TIERS` is what maps a
+      # tier to a selection, and a second copy of that mapping here is a second
+      # thing to keep in step. `tests/unit/test_task_commands.py` reads the tier
+      # out of this file and checks it against that table.
       - name: Load the dataset, register the repository, run the pipeline
-        run: exec tini -s -g -- uv run pytest tests/integration -v --color=yes
+        env:
+          TIER: ${{ needs.files-changed.outputs.tier }}
+        run: exec tini -s -g -- uv run invoke test-integration --tier="${TIER}"
 
   documentation:
     if: |

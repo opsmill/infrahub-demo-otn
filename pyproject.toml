@@ -39,7 +39,15 @@ asyncio_mode = "auto"
 # and catches a design-claim regression in under a second, so `pytest tests/unit`
 # must not so much as import the testcontainers plugin. CI selects the
 # integration layer explicitly by path.
-markers = ["integration: needs a live Infrahub via infrahub-testcontainers"]
+markers = [
+  "integration: needs a live Infrahub via infrahub-testcontainers",
+  "core: runs on every pull request, not only when the demo's own logic changes",
+]
+# `--strict-markers` so a typo in a marker name fails collection rather than
+# silently selecting nothing. `invoke test-integration --tier=core` is a `-m`
+# expression, and pytest exits 5 when `-m` matches nothing, which reads as a
+# broken tier rather than a passing one.
+addopts = "--strict-markers"
 
 [tool.ruff]
 line-length = 120
