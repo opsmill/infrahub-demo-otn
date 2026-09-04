@@ -56,7 +56,7 @@ occupying a width of spectrum around it.
   regenerator and budget each half on its own. The demo tries three regenerator
   sites on Madrid to Warsaw, all three are refused at DP-16QAM, and the fix turns
   out to be a regenerator and a different modulation.
-- **Block a bad merge.** Nine checks run against a proposed change: the
+- **Block a bad merge.** <span data-fact="checks">Nine</span> checks run against a proposed change: the
   shared package imports in the worker, no two carriers claim the same channel
   on the same section, every wavelength still closes its OSNR margin, no
   container commits more tributary slots than its parent offers, no two
@@ -80,7 +80,7 @@ reports. No prior Infrahub experience needed.
 > Start with [Quick start](#quick-start) below, then the docs site: the
 > [quick start page](docs/docs/quickstart.mdx) takes you from a clone to
 > a merge that will not close, and the [demo guide](docs/docs/demo-guide.mdx)
-> covers the eight scenarios.
+> covers the nine scenarios.
 
 **Transport engineer:** You want to know whether the optical model is real. The
 link budget is verified against hand-computed reference values, every quantity
@@ -238,9 +238,10 @@ which spends the one wide block, and all ten fit nowhere.
 - **Reports.** Service trace, impact, capacity, reach, AI latency, SRLG
   exposure, link budget and monitor drift, each with its own GraphQL query, plus
   the two rendered maps.
-- **Tasks.** One invoke task per lifecycle step, per demo scenario and per
-  loadable scenario. `invoke load` does the loading in one step, and
-  `invoke demo` runs the whole walkthrough.
+- **Tasks.** <span data-fact="tasks-defined">48</span> invoke tasks, one per lifecycle step, per demo scenario and
+  per loadable scenario. `invoke list` prints the <span data-fact="tasks-listed">27</span> a reader needs and `--all`
+  adds the other <span data-fact="tasks-hidden">21</span>. `invoke load` does the loading in one step, and
+  `invoke demo` runs the whole walkthrough in ten steps.
 
 ---
 
