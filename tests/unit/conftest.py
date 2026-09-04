@@ -51,7 +51,14 @@ def doc_text(name: str) -> str:
     pages are prose, and the only thing a test wants from them is the number a
     reader will see. Handing back the raw text keeps the extraction in the test
     that owns the claim, where the regex sits next to the sentence it matches.
+
+    `README.md` is not under `docs/docs/` and is resolved from the repository
+    root instead. It publishes the same figures the pages do, to more readers
+    than any of them, so a guard that could not reach it was guarding the
+    quieter half.
     """
+    if name == "README.md":
+        return (REPO_ROOT / name).read_text()
     return (DOC_DIR / name).read_text()
 
 

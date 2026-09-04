@@ -56,13 +56,15 @@ occupying a width of spectrum around it.
   regenerator and budget each half on its own. The demo tries three regenerator
   sites on Madrid to Warsaw, all three are refused at DP-16QAM, and the fix turns
   out to be a regenerator and a different modulation.
-- **Block a bad merge.** Six checks run against a proposed change: the
+- **Block a bad merge.** Nine checks run against a proposed change: the
   shared package imports in the worker, no two carriers claim the same channel
   on the same section, every wavelength still closes its OSNR margin, no
   container commits more tributary slots than its parent offers, no two
-  circuits an operator declared diverse route through the same duct, and no
+  circuits an operator declared diverse route through the same duct, no
   service the model refused reaches the default branch unless somebody signed
-  for the refusal.
+  for the refusal, no degree monitor disagrees with the carriers on its
+  section, no device that should carry a monitor is missing one, and no active
+  wavelength is left half-terminated.
 - **See the drift.** Every other report predicts. One compares: configured gain
   against the gain each amplifier and Raman pump last reported delivering, so a
   stage sliding towards a maintenance visit is named before it fails anything.
@@ -126,9 +128,10 @@ uv run invoke demo-setup
 uv run invoke demo-capacity
 ```
 
-`uv run invoke list` prints every task. Every step of the demo guide is one of
-them, so nothing in this repository asks you to remember a command-line tool's
-subcommands or to export an API token.
+`uv run invoke list` prints the tasks you need, grouped, and `--all` adds the
+rest. Every step of the demo guide is one of them, so nothing in this repository
+asks you to remember a command-line tool's subcommands or to export an API
+token.
 
 ---
 
@@ -230,12 +233,14 @@ which spends the one wide block, and all ten fit nowhere.
   checks in the same proposed change, so the gate reads a verdict written
   seconds earlier and never a stale one.
 - **Checks.** Shared-package import, channel collision, OSNR margin, container
-  capacity, declared diversity, and the provisionable gate.
+  capacity, declared diversity, the provisionable gate, channel count
+  consistency, monitor completeness and carrier termination.
 - **Reports.** Service trace, impact, capacity, reach, AI latency, SRLG
   exposure, link budget and monitor drift, each with its own GraphQL query, plus
   the two rendered maps.
-- **Tasks.** One invoke task per lifecycle step, per loading step and per demo
-  scenario.
+- **Tasks.** One invoke task per lifecycle step, per demo scenario and per
+  loadable scenario. `invoke load` does the loading in one step, and
+  `invoke demo` runs the whole walkthrough.
 
 ---
 
