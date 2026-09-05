@@ -189,12 +189,12 @@ jobs:
             "s/(os\.environ\.get\(\"INFRAHUB_BASE_VERSION\", \")\Q${CURRENT}\E(\")/\${1}${VERSION}\${2}/" \
             "os.environ.get(\"INFRAHUB_BASE_VERSION\", \"${VERSION}\")"
 
-          # Extras- and operator-agnostic, so a specifier that later grows a
-          # bound or an extra still matches. [^,"]+ stops at the comma, so an
-          # upper bound survives.
+          # Operator- and extras-agnostic, so the floor keeps its operator and a
+          # specifier that later grows a bound or an extra still matches.
+          # [^,"]+ stops at the comma, so an upper bound survives.
           rewrite pyproject.toml \
             "s/(\"infrahub-testcontainers(\[[^]]*\])?[=<>~]+)[^,\"]+/\${1}${VERSION}/" \
-            "infrahub-testcontainers==${VERSION}"
+            "infrahub-testcontainers>=${VERSION}"
 
           # Compose declares it twice and the loop above rewrites both, so prove
           # no copy of the old version survived anywhere.

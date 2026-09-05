@@ -172,15 +172,24 @@ def test_neither_file_mentions_the_version_the_dockerfile_builds(path: Path, why
     )
 
 
-def test_testcontainers_is_pinned_to_the_version_the_stack_runs() -> None:
+def test_testcontainers_declares_the_version_the_stack_runs() -> None:
     """The package that starts the stack and the image it starts must match.
 
     `infrahub-testcontainers` ships the compose file the stack is built from, so
     a mismatch pairs one release's topology with another's server.
+
+    Read operator-agnostically. The specifier is a floor rather than a pin, so
+    what has to equal the Dockerfile is the *version named in it*, not the whole
+    string. Asserting the string meant this test had to be edited the day the
+    house specifier policy changed, which is exactly the coupling the rest of
+    this module avoids by deriving everything from the Dockerfile.
     """
     dependencies = tomllib.loads(PYPROJECT.read_text())["dependency-groups"]["dev"]
-    pins = [d for d in dependencies if d.startswith("infrahub-testcontainers")]
-    assert len(pins) == 1, f"expected exactly one infrahub-testcontainers pin, found {pins}"
-    assert pins[0] == f"infrahub-testcontainers=={_base_version()}", (
-        f"{pins[0]!r} does not pin the version the Dockerfile builds ({_base_version()})"
+    declarations = [d for d in dependencies if d.startswith("infrahub-testcontainers")]
+    assert len(declarations) == 1, f"expected exactly one infrahub-testcontainers declaration, found {declarations}"
+    match = re.fullmatch(r"infrahub-testcontainers(\[[^]]*\])?[=<>~!]+([^,]+)", declarations[0])
+    assert match, f"{declarations[0]!r} is not a specifier this guard knows how to read"
+    assert match.group(2) == _base_version(), (
+        f"{declarations[0]!r} names {match.group(2)}, but the Dockerfile builds {_base_version()}. "
+        f"A bump moved one and not the other."
     )
