@@ -1,19 +1,26 @@
 ---
-title: What this demo shows of Infrahub
+title: What this demo shows
 ---
 
-# What this demo shows of Infrahub
+# What this demo shows
 
-If you are evaluating Infrahub and have no interest in optics, each row below
-names a capability first, then the scenario in this demo that exercises it, then
-a link to the page that walks it. The optical detail is the example rather than
-the subject. A wavelength here plays the part a prefix, a VLAN or a circuit would
-play in your own domain, and the mechanism is the same one you would use.
+Two readers land on this page. One is evaluating Infrahub and has no interest
+in optics. The other works in optics every day and already owns a planner and a
+controller. The first half below is written for the first reader and the second
+half for the second. The last two sections are for both.
 
 If you want the result before the reading, [the quick start](./quickstart.mdx)
 takes you from a fresh clone to a merge Infrahub refuses.
 
-## The capability map
+## For the network automation engineer
+
+Each row below names a capability first, then the scenario in this demo that
+exercises it, then a link to the page that walks it. The optical detail is the
+example rather than the subject. A wavelength here plays the part a prefix, a
+VLAN or a circuit would play in your own domain, and the mechanism is the same
+one you would use.
+
+### The capability map
 
 | Infrahub capability | What this demo does with it | Scenario, and where it is walked |
 | --- | --- | --- |
@@ -33,7 +40,7 @@ takes you from a fresh clone to a merge Infrahub refuses.
 | Groups as targets | A `CoreGeneratorGroup` fires the generator. A `CoreStandardGroup` scoped to the PoPs is what the two map artifacts render against. | Scenario one, [create the branch and the request](./provisioning-scenarios.mdx#create-the-branch-and-the-request) |
 | The repository as a Git integration | The schema, the object files, the checks, the generator and the transforms all come from this repository. `invoke init` registers it, and that is what turns the pipeline on. | [Registering the repository](./developer-guide.mdx#registering-the-repository) |
 
-## How a check decides a merge
+### How a check decides a merge
 
 Three facts carry most of the weight, and they are worth stating on their own
 because they are the part that translates directly to your domain.
@@ -57,6 +64,93 @@ actually holds a merge shut is `demo/06_mad_waw_16qam.yml`, where nothing signs
 for anything. [Concepts](./concepts.mdx#a-refusal-is-an-answer-and-it-does-not-merge-unless-somebody-signed-for-it)
 has the decision tree.
 
+## For the optical engineer
+
+Nothing here replaces a planner or a controller, and the demo is not an
+argument that it should. A planner designs a corridor, and it needs no live
+equipment to do it. A controller runs the equipment, and it holds planned
+objects too. What neither of them is, is the union: one record that spans every
+vendor, every layer and every project, that a person reviewed before it became
+true, and that is still answerable a year after the project that produced it
+closed.
+
+The bounds belong before the tables rather than after them. This demo runs no
+propagation simulation, touches no device, and reconciles against no external
+system. [What this demo does not exercise](#what-this-demo-does-not-exercise)
+is the full list.
+
+### Where this sits next to your planner and your NMS
+
+| Question | Offline planner | Domain controller | This demo |
+| --- | --- | --- | --- |
+| Design a corridor: amplifier siting, budget, bill of materials | Yes. This is the tool for it. | No | No. It holds the result of that work, not the work |
+| Receive power and error rate on a channel right now | No | Yes, with history | The last reading only, carried as a fact on a monitor |
+| Turn the service up on the hardware | No | Yes | No. Nothing here writes to a device |
+| What is committed but not yet built, across vendors | Inside one project file | As planned objects, inside one domain | On a branch, across the whole plant |
+| Why this route and not the other one | With whoever ran the tool | No | The path, its ordered hops, the running budget, and the proposed change where a person signed |
+| What drops if one duct is cut | Within its own project | Within its own domain | [Scenario four](./reporting-scenarios.mdx#scenario-four-cut-the-frankfurt-to-amsterdam-fiber) |
+| Where a 400ZR in a router lands on the line system | It is not that tool's transponder | Split across two controllers | One chain of objects, the one below |
+| Which IP link rides which wavelength rides which duct | No | No | One query, and [scenario seven](./reporting-scenarios.mdx#scenario-seven-which-services-are-not-diverse) reads it |
+| What the plan looked like last quarter | An older file, if anyone kept it | Rarely | The branch and the commit history |
+
+The first three rows are why the other six are worth reading. A record that
+claimed the first three would be claiming to be something it is not.
+
+### What varies by vendor, and where the model puts it
+
+| What varies | Where the model puts it | What a second vendor costs |
+| --- | --- | --- |
+| The mode catalog: reach, required OSNR, baud, forward error correction | `OtnOpticalMode` objects in `objects/03_optical_modes.yml` | More objects. No schema change and no code change |
+| How much spectrum a mode occupies | A width on the mode, fitted against `OtnFrequencyGrid` | Nothing. `channel_collision` reads the width and never asks who built the card |
+| Insertion loss and noise figure | `vendor` and `model` on `OtnOpticalElement`, with the loss fields beside them | Objects per model |
+| An alien wavelength on a line system another operator built | A transponder whose carrier crosses sections built from other equipment | Nothing. No relationship in the hop chain is scoped to a vendor |
+| Framing and correction latency | `fec_latency_ns` on the mode, `framing_latency_ns` on the ODU switch | Values per model, added up by [scenario eight](./reporting-scenarios.mdx#scenario-eight-the-ai-services-against-their-budgets) |
+| Naming and slot conventions | The `human_friendly_id` on each kind | A different string |
+
+Every racked element in this plant loads as `vendor: Generic`. The field is
+there and left unnamed on purpose. Naming one would send the reader off to
+argue about that vendor instead of about the model, and the point of the row
+above is that the vendor is data.
+
+### One model, every layer it touches
+
+| Layer | What the demo holds | Kinds |
+| --- | --- | --- |
+| Duct and shared risk | Which routes share a duct, which is what makes two services not diverse | `OtnConduit` |
+| Fiber | Attenuation, dispersion, group index, and Raman gain where it is pumped | `OtnFiberSpan`, `OtnFiberType`, `OtnRamanPump` |
+| Spectrum | The 50 GHz grid, the coarse grid, and what each carrier occupies on both | `OtnFrequencyGrid`, `OtnCwdmChannel` |
+| Optical carrier | One provisioned wavelength, the mode it runs, and every section it crosses | `OtnOpticalCarrier`, `OtnOpticalMode` |
+| Digital wrapper | The container hierarchy, tributary slots, and where a wavelength terminates and the next one starts | `OtnContainer`, `OtnOduSwitch` |
+| Client handover | Ethernet, SDH, PDH, Fibre Channel and InfiniBand, each with the container it maps into | `OtnClientSignal` |
+| Router edge | The router and its grey port, as the endpoint a service names | `OtnRouter`, `OtnRouterPort` |
+| Above that | Nothing. No VLAN, no prefix, no routing protocol | [Not exercised](#what-this-demo-does-not-exercise) |
+
+The last row is the honest one. What the demo demonstrates is not that Infrahub
+already models your IP layer, it is that the layer boundary is a relationship
+like any other, and that a model reaching one layer further up is the same kind
+of work as the layers already here.
+
+### From a router port to a duct
+
+Eight steps, each one a relationship that already exists in the schema.
+
+| Step | Kind | Reached through | What it fixes |
+| --- | --- | --- | --- |
+| 1 | `OtnRouterPort` | the service endpoint's `ports` | the interface the IP side sees |
+| 2 | `OtnClientPort` | `connected_to` | the grey handover |
+| 3 | `OtnTransponder` | `device` | the card doing the adaptation |
+| 4 | `OtnLinePort` | `ports` | the coloured line side |
+| 5 | `OtnOpticalCarrier` | `carrier` | the wavelength and its mode |
+| 6 | `OtnOpticalMultiplexSection` | `sections` | ROADM to ROADM |
+| 7 | `OtnFiberSpan` | `spans` | the physical section and its loss |
+| 8 | `OtnConduit` | `conduit` | the shared risk |
+
+Two IP links are diverse only if step eight differs for both. `diversity.py` is
+what says so, and [scenario seven](./reporting-scenarios.mdx#scenario-seven-which-services-are-not-diverse)
+is where it is walked. An IP engineer asking whether two links share a duct and
+an optical engineer asking what a duct cut takes down are reading the same
+chain from opposite ends, which is the argument for holding it in one place.
+
 ## What this demo does not exercise
 
 Absence read from silence is a bad inference, so the list below is explicit.
@@ -64,6 +158,8 @@ Each row was checked against the repository rather than recalled.
 
 | Capability | Status here |
 | --- | --- |
+| Physical-layer propagation modelling | Not done. The budget is a running total against a mode's required OSNR, walked at [the link budget](./link-budget.mdx). Nothing here solves for a nonlinear penalty or fits a spectrum plan the way a planning tool does. |
+| Live performance monitoring | Not held. A monitor carries its last reading and the timestamp it was taken at, and `invoke demo-drift` compares that against what the model says it should be. There is no time series and nothing polls anything. |
 | Resource pools, `CoreNumberPool`, prefix and address pools | Not used. No pool of any kind is declared. A channel is chosen by fitting a mode's occupied width into free spectrum, which is a bin-packing decision rather than an allocation from a range. |
 | Profiles, `generate_profile` | Not used. Shared default values are written into the object files. |
 | Object templates, `generate_template` | Not used. The generator writes structure instead, because what it writes depends on which route closed. |
@@ -73,7 +169,7 @@ Each row was checked against the repository rather than recalled.
 | Hierarchical locations | Declared and then switched off. The vendored generic carries `hierarchical: true`, but `OtnSite` sets `parent: ""` and `children: ""`, so the fifteen sites are one flat set with no region or country above them. |
 | Webhooks and event-driven integration | Not used. Every run here is a command you type or a proposed change you open. |
 | Accounts, roles and permissions | Not used. The repository ships no account, no account group and no permission object, and every command runs as the admin token in `.env`. |
-| Synchronisation with an external system | Not used. Nothing in this repository reads from or writes to a source of truth outside Infrahub. |
+| Synchronisation with an external system | Not used. Nothing in this repository reads from or writes to anything outside Infrahub, a management system or a planning tool included. The monitor readings in `objects/` are loaded from files, not polled from equipment. |
 
 Two capabilities look absent from that list and are not. `on_delete: cascade`
 is used, and so are uniqueness constraints of the
@@ -88,5 +184,7 @@ above.
   refused and a 100G is not.
 - [Reporting scenarios](./reporting-scenarios.mdx) walk the six that read,
   including what a fiber cut takes down and which services are not diverse.
+- [The link budget](./link-budget.mdx) is where the optical arithmetic is set
+  out, corridor by corridor, including the two that do not close.
 - [Developer guide](./developer-guide.mdx) is where to look if you want to add a
   report, a check or an element of your own.
