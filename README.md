@@ -23,6 +23,30 @@ occupying a width of spectrum around it.
 
 ---
 
+## The two maps every PoP carries
+
+Both are Infrahub artifacts. Each renders from the branch it is asked for, so
+every figure on them is read from the model rather than drawn by hand. Click
+either one to open it at full size.
+
+[![The fourteen PoPs of the modelled European optical core, with the 21 multiplex sections between them coloured by OSNR margin. Paris to Madrid is red, Frankfurt to Milan carries an occupancy chip, and Vienna to Milan is marked as Raman pumped and asymmetric.](docs/docs/media/network-map.svg)](docs/docs/media/network-map.svg)
+
+**European optical core.** Colour answers one question: does a wavelength close
+on this route? Red is Paris to Madrid, which does not close unamplified and
+needs the Raman pumps. This is the optical layer, and the
+[network map](docs/docs/network-map.mdx) page reads it panel by panel.
+
+[![The same fourteen PoPs and 21 routes, coloured instead by ODU capacity and grooming headroom, with tributary slot occupancy on each route.](docs/docs/media/odu-map.svg)](docs/docs/media/odu-map.svg)
+
+**ODU capacity and grooming.** Same coastline, same discs, same routes,
+different question: does another circuit fit on this one? This is the digital
+layer above the light, and the [ODU map](docs/docs/odu-map.mdx) page reads it.
+
+The optical layer and the digital layer above it, from one model on one
+branch.
+
+---
+
 ## What you can do with it
 
 - **Provision a wavelength from intent.** Name two routers, a rate and an SLA.
@@ -82,13 +106,25 @@ reports. No prior Infrahub experience needed.
 > a merge that will not close, and the [demo guide](docs/docs/demo-guide.mdx)
 > covers the nine scenarios.
 
-**Transport engineer:** You want to know whether the optical model is real. The
-link budget is verified against hand-computed reference values, every quantity
-is a scaled integer with the unit in the attribute name, and the demo reports
-its negative results: 400ZR reaches nothing on this network, Madrid has no
-diverse route, and one site pair breaks the dispersion limit.
+**Network automation engineer:** You want to know what Infrahub does, and the
+optics is only the example. Branches, proposed changes, checks that gate a
+merge, generators, artifacts and transforms are all exercised here, and a
+wavelength plays the part a prefix or a VLAN plays in your own domain.
 
-> Go to the [link budget](docs/docs/link-budget.mdx) and the
+> Go to [what this demo shows](docs/docs/what-this-shows.mdx#for-the-network-automation-engineer),
+> which maps every capability to the scenario that exercises it.
+
+**Optical engineer:** You design corridors in a planning tool and turn services
+up through a controller. This demo holds the record those two tools do not
+share: every vendor, every layer and every project on one branch, reviewed
+before it becomes true. The optical model is verified against hand-computed
+reference values, every quantity is a scaled integer with the unit in the
+attribute name, and the demo reports its negative results: 400ZR reaches
+nothing on this network, Madrid has no diverse route, and one site pair breaks
+the dispersion limit.
+
+> Go to [where this sits next to your planner and your NMS](docs/docs/what-this-shows.mdx#for-the-optical-engineer),
+> then the [link budget](docs/docs/link-budget.mdx) and the
 > [schema reference](docs/docs/schema-reference.mdx).
 
 **Implementer:** You want patterns for generators that refuse, checks that
@@ -96,6 +132,17 @@ replace stored state, and reports that read a branch. The decision layer imports
 no SDK, so all of it is tested with no server running.
 
 > Go to the [developer guide](docs/docs/developer-guide.mdx).
+
+This repository models the optical layer, which is the one usually left out.
+Any layer can be modelled the same way, and other repositories already have.
+[infrahub-demo-dc](https://github.com/opsmill/infrahub-demo-dc) models a data
+center down to cables, VLANs and IP space.
+[infrahub-demo-sp](https://github.com/opsmill/infrahub-demo-sp) models a service
+provider core with MPLS, BGP and L3VPN services.
+[infrahub-solution-ai-dc](https://github.com/opsmill/infrahub-solution-ai-dc)
+models an AI data center from the physical location up through the routing
+overlay to the workload. The approach is the same at every layer. Only the
+physics is specific to this one.
 
 ---
 

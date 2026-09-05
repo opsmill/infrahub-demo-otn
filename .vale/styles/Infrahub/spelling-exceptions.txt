@@ -43,6 +43,8 @@ SDKs
 THz
 Tbps
 Terraform
+VLAN
+VLANs
 Vale
 Vega
 WSS
