@@ -66,18 +66,23 @@ has the decision tree.
 
 ## For the optical engineer
 
-Nothing here replaces a planner or a controller, and the demo is not an
-argument that it should. A planner designs a corridor, and it needs no live
-equipment to do it. A controller runs the equipment, and it holds planned
-objects too. What neither of them is, is the union: one record that spans every
-vendor, every layer and every project, that a person reviewed before it became
-true, and that is still answerable a year after the project that produced it
-closed.
+An optical team does three jobs with a corridor. Design it, turn it up, and
+then answer questions about it for as long as it carries traffic: which
+services a duct cut takes down, whether two circuits are diverse, what is
+committed on a corridor nobody has built yet.
 
-The bounds belong before the tables rather than after them. This demo runs no
-propagation simulation, touches no device, and reconciles against no external
-system. [What this demo does not exercise](#what-this-demo-does-not-exercise)
-is the full list.
+The first two jobs have tools. A planning tool designs the corridor and needs
+no live equipment to do it. A domain controller turns the service up, and it
+holds planned objects too. Both are scoped, the planning tool to one project
+and one vendor, the controller to one domain. The third job crosses every
+vendor, every layer and every project, which is why it usually ends up in a
+spreadsheet.
+
+This demo holds that third record: versioned, held in one graph, and reviewed
+before it becomes true. It runs no propagation simulation, writes to no device, and
+reconciles against no external system.
+[What this demo does not exercise](#what-this-demo-does-not-exercise) is the
+full list.
 
 ### Where this sits next to your planner and your NMS
 
@@ -93,8 +98,9 @@ is the full list.
 | Which IP link rides which wavelength rides which duct | No | No | One query, and [scenario seven](./reporting-scenarios.mdx#scenario-seven-which-services-are-not-diverse) reads it |
 | What the plan looked like last quarter | An older file, if anyone kept it | Rarely | The branch and the commit history |
 
-The first three rows are why the other six are worth reading. A record that
-claimed the first three would be claiming to be something it is not.
+The first three rows are jobs the planning tool and the controller already do,
+and this demo does not attempt any of them. The remaining six fall between the
+two tools.
 
 ### What varies by vendor, and where the model puts it
 
@@ -107,10 +113,10 @@ claimed the first three would be claiming to be something it is not.
 | Framing and correction latency | `fec_latency_ns` on the mode, `framing_latency_ns` on the ODU switch | Values per model, added up by [scenario eight](./reporting-scenarios.mdx#scenario-eight-the-ai-services-against-their-budgets) |
 | Naming and slot conventions | The `human_friendly_id` on each kind | A different string |
 
-Every racked element in this plant loads as `vendor: Generic`. The field is
-there and left unnamed on purpose. Naming one would send the reader off to
-argue about that vendor instead of about the model, and the point of the row
-above is that the vendor is data.
+Every racked element in this plant loads as `vendor: Generic`. The field
+exists and the dataset leaves it unnamed, so the table above says where a
+vendor difference goes rather than which vendor. A second vendor is more
+objects in `objects/`, reviewed on a branch like any other change.
 
 ### One model, every layer it touches
 
@@ -125,10 +131,20 @@ above is that the vendor is data.
 | Router edge | The router and its grey port, as the endpoint a service names | `OtnRouter`, `OtnRouterPort` |
 | Above that | Nothing. No VLAN, no prefix, no routing protocol | [Not exercised](#what-this-demo-does-not-exercise) |
 
-The last row is the honest one. What the demo demonstrates is not that Infrahub
-already models your IP layer, it is that the layer boundary is a relationship
-like any other, and that a model reaching one layer further up is the same kind
-of work as the layers already here.
+The last row counts as much as the others. This model stops at the router port.
+A layer boundary is a relationship like any other, so reaching one layer
+further up is the same work as the layers already modelled here.
+
+Other repositories have done that work for the layers above.
+[infrahub-demo-dc](https://github.com/opsmill/infrahub-demo-dc) models a data
+center down to cables, VLANs and IP space.
+[infrahub-demo-sp](https://github.com/opsmill/infrahub-demo-sp) models a
+service provider core with MPLS, BGP and L3VPN services.
+[infrahub-solution-ai-dc](https://github.com/opsmill/infrahub-solution-ai-dc)
+models an AI data center from the physical location up through the routing
+overlay to the workload. This repository is the layer below all three, and none
+of them shares code with it. Each defines its layer in schema files, which is
+what makes a layer a modelling decision rather than a product feature.
 
 ### From a router port to a duct
 
@@ -145,11 +161,12 @@ Eight steps, each one a relationship that already exists in the schema.
 | 7 | `OtnFiberSpan` | `spans` | the physical section and its loss |
 | 8 | `OtnConduit` | `conduit` | the shared risk |
 
-Two IP links are diverse only if step eight differs for both. `diversity.py` is
-what says so, and [scenario seven](./reporting-scenarios.mdx#scenario-seven-which-services-are-not-diverse)
-is where it is walked. An IP engineer asking whether two links share a duct and
-an optical engineer asking what a duct cut takes down are reading the same
-chain from opposite ends, which is the argument for holding it in one place.
+Two IP links are diverse only when step eight differs for both. `diversity.py`
+checks that on every proposed change, and
+[scenario seven](./reporting-scenarios.mdx#scenario-seven-which-services-are-not-diverse)
+walks it. The IP team asks whether two links share a duct. The optical team
+asks which services a duct cut takes down. Both questions read this chain, so
+both teams need it in the same place.
 
 ## What this demo does not exercise
 
