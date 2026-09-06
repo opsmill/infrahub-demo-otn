@@ -77,8 +77,8 @@ NO_PATH_YET = NeedsGenerator(
 )
 """The one check this module cannot judge at all, on any file.
 
-Named once and used twelve times so the hole is a shape a reader can see, rather
-than twelve cells that each look like a verdict.
+Named once and used on every scenario so the hole is a shape a reader can see,
+rather than a column of cells that each look like a verdict.
 """
 
 PAR_MAD = Fails(
@@ -113,6 +113,7 @@ _DEFAULT: dict[str, Outcome] = {
     "channel_count_consistency": PASSES,
     "monitor_completeness": PASSES,
     "carrier_termination": PASSES,
+    "mux_channel_binding": PASSES,
 }
 """What a scenario that adds services and containers and nothing else looks like.
 
@@ -194,6 +195,17 @@ _quiet(
 )
 
 _quiet(
+    "11_mux_channel_binding.yml",
+    mux_channel_binding=Fails(
+        2,
+        "CH094 on mux-fra-01 binds neither channel kind and CH1531-2 on mux-ams-02 binds both, which is the "
+        "whole of the file. Two findings and not three: the coarse half of the double binding names 1531 nm, "
+        "which mux-ams-02 does list, so the unlisted-wavelength row stays silent and each port draws exactly "
+        "one complaint",
+    ),
+)
+
+_quiet(
     "90_fra_mil_saturated.yml",
     provisionable=NeedsGenerator(
         1,
@@ -250,11 +262,11 @@ def test_the_expectation_table_is_exactly_the_product_of_the_two_directories() -
     )
 
 
-def test_the_sweep_covers_twelve_scenarios_and_nine_checks() -> None:
+def test_the_sweep_covers_thirteen_scenarios_and_ten_checks() -> None:
     """The two numbers this module's docstring publishes, read back from the tree."""
-    assert len(SCENARIOS) == 12, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
-    assert len(CHECKS) == 9, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
-    assert len(CELLS) == 108
+    assert len(SCENARIOS) == 13, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
+    assert len(CHECKS) == 10, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
+    assert len(CELLS) == 130
 
 
 @pytest.mark.parametrize("check_name", CHECKS)
@@ -326,7 +338,7 @@ def test_a_needs_generator_cell_names_a_check_that_reads_a_generator_relationshi
 
 
 def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
-    """The default branch, run through all nine, against what the tree already asserts."""
+    """The default branch, run through all ten, against what the tree already asserts."""
     verdicts = {name: len(_errors(name, None)) for name in CHECKS}
     with_services = {name: len(_errors(name, "00_services.yml")) for name in CHECKS}
     assert verdicts == with_services, (
@@ -336,7 +348,13 @@ def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
     )
 
     assert verdicts["osnr_margin"] == 2, "the sweep should find the Paris to Madrid deficit in both directions"
-    for quiet in ("container_capacity", "monitor_completeness", "channel_collision", "carrier_termination"):
+    for quiet in (
+        "container_capacity",
+        "monitor_completeness",
+        "channel_collision",
+        "carrier_termination",
+        "mux_channel_binding",
+    ):
         assert verdicts[quiet] == 0, f"{quiet} fails the shipped plant, which nothing else in the suite says"
 
     par_mad = _errors("osnr_margin", None)
@@ -350,6 +368,32 @@ def test_every_shipped_carrier_is_terminated_at_both_ends_through_the_resolver()
     counts = {str(edge["node"]["name"]["value"]): len(edge["node"]["line_ports"]["edges"]) for edge in carriers}
     wrong = {name: count for name, count in counts.items() if count != 2}
     assert not wrong, f"shipped wavelengths not terminated at exactly two ends: {wrong}"
+
+
+def test_every_shipped_mux_client_port_binds_exactly_one_channel_through_the_resolver() -> None:
+    """Eighty-eight client ports, one channel each, read the way the check reads them.
+
+    The generator derives a dense multiplexer's client ports from the same
+    carrier plan the monitor's `channel_count` comes from, so this is the
+    assertion that catches the two drifting apart: a port list built from one
+    rule and a count from another would still leave the check green until the
+    carrier plan moved.
+    """
+    devices = payload("mux_channel_binding", None)["OtnMuxDemux"]["edges"]
+    assert len(devices) == 16
+
+    bound: dict[str, int] = {}
+    for edge in devices:
+        node = edge["node"]
+        for port in node["ports"]["edges"]:
+            if port["node"]["__typename"] != "OtnMuxClientPort":
+                continue
+            plans = [name for name in ("dwdm_channel", "cwdm_channel") if port["node"][name]["node"]]
+            bound[f"{node['name']['value']}/{port['node']['name']['value']}"] = len(plans)
+
+    assert len(bound) == 88, f"the shipped dataset holds {len(bound)} mux client ports"
+    wrong = {port: plans for port, plans in bound.items() if plans != 1}
+    assert not wrong, f"shipped mux client ports not on exactly one channel: {wrong}"
 
 
 def test_a_regenerator_terminates_the_two_segments_it_joins_on_the_scenario_branch() -> None:

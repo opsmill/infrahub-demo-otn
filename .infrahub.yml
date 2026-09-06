@@ -82,6 +82,13 @@ queries:
   # relationship rather than parsed out of the carrier name.
   - name: carrier_termination
     file_path: "./queries/carrier_termination.gql"
+  # Rooted on OtnMuxDemux and unfiltered, because the disagreement it feeds is
+  # between a device and its own ports and a filter would drop one of the two
+  # sides. Both mux port kinds come back through inline fragments on `ports`,
+  # for the reason monitor_completeness.gql states: that relationship peers a
+  # generic and cannot be filtered by the kind of its peers.
+  - name: mux_channel_binding
+    file_path: "./queries/mux_channel_binding.gql"
 
 # Every `watch.files` list below this line is generated. Run
 # `uv run python scripts/generate_watch_lists.py` after any import changes under
@@ -129,7 +136,7 @@ generator_definitions:
 # whole file at sync. scripts/generate_watch_lists.py knows this and skips the
 # section.
 #
-# Nine checks, and one of the nine carries a name this file once recorded as
+# Ten checks, and one of the ten carries a name this file once recorded as
 # deleted. There was a monitor_completeness check here, and it asserted that a
 # monitor carried the readings its family reports and none it cannot take. Both
 # halves are now schema constraints: the readings are mandatory on each monitor
@@ -181,7 +188,7 @@ check_definitions:
   - name: diversity
     file_path: "./checks/diversity.py"
     class_name: DiversityCheck
-  # Global, and it is the sixth here rather than the fourth: none of the nine
+  # Global, and it is the sixth here rather than the fourth: none of the ten
   # entries in this section declares `targets`, including the two above that say
   # nothing about it. The reason for this one is the shared one worded for a
   # single node: a proposed change may touch one service while a different
@@ -234,6 +241,22 @@ check_definitions:
   - name: carrier_termination
     file_path: "./checks/carrier_termination.py"
     class_name: CarrierTerminationCheck
+  # Global, because the disagreement is between a multiplexer and its ports, and
+  # a change may add a client port while the device that lists the wavelengths
+  # sits outside it. A targeted check handed the new port alone cannot read the
+  # cwdm_channels the port has to agree with.
+  #
+  # No `query:` key, per the note at the top of this section. The class binds it
+  # with `query = "mux_channel_binding"`.
+  #
+  # It owns both halves the schema could not take: a client port binding neither
+  # channel kind and one binding both. The two channel relationships are
+  # optional because the dense and coarse plans are separate kinds and Infrahub
+  # has no cross-relationship constraint, so "exactly one of these two" is not
+  # something the schema can say.
+  - name: mux_channel_binding
+    file_path: "./checks/mux_channel_binding.py"
+    class_name: MuxChannelBindingCheck
 
 python_transforms:
   - name: budget_report

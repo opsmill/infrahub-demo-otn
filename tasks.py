@@ -89,6 +89,7 @@ CHECKS = (
     "channel_count_consistency",
     "monitor_completeness",
     "carrier_termination",
+    "mux_channel_binding",
 )
 
 DEMO_BRANCH = "demo"
@@ -103,6 +104,7 @@ OEO_REFUSED_BRANCH = "oeo-refused"
 OEO_CLOSED_BRANCH = "oeo-closed"
 DIVERSITY_BRANCH = "diversity-demo"
 MONITOR_GAP_BRANCH = "monitor-gap"
+MUX_BINDING_BRANCH = "mux-binding"
 
 DEMO_SERVICES = (
     "svc-ber-ams-400g",
@@ -208,6 +210,12 @@ SCENARIO_BRANCHES: tuple[ScenarioBranch, ...] = (
         branch=MONITOR_GAP_BRANCH,
         files=("demo/10_amplifier_without_monitor.yml",),
         check="monitor_completeness",
+    ),
+    ScenarioBranch(
+        task="demo-mux-binding",
+        branch=MUX_BINDING_BRANCH,
+        files=("demo/11_mux_channel_binding.yml",),
+        check="mux_channel_binding",
     ),
 )
 
@@ -567,7 +575,15 @@ TASK_GROUPS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ("The walkthrough", ("demo-setup", "demo", *WALKTHROUGH, "demo-budget", "demo-drift"), ()),
     (
         "The loadable scenarios",
-        ("demo-raman", "demo-odu", "demo-regenerator", "demo-diversity", "demo-monitor-gap", "demo-clean"),
+        (
+            "demo-raman",
+            "demo-odu",
+            "demo-regenerator",
+            "demo-diversity",
+            "demo-monitor-gap",
+            "demo-mux-binding",
+            "demo-clean",
+        ),
         (),
     ),
     ("Read the data", ("inventory",), ("dataset-generate", "dataset-check", "maps-regenerate")),
@@ -1792,6 +1808,32 @@ def demo_monitor_gap(context: Context, branch: str = MONITOR_GAP_BRANCH) -> None
         "  than as one total, because 306 covered amplifiers would hide nine\n"
         "  uncovered Raman pumps inside a single percentage. No other check moves on\n"
         "  this branch: an amplifier lights no wavelength and carries no service."
+    )
+    _next_step("demo-mux-binding")
+
+
+@task
+def demo_mux_binding(context: Context, branch: str = MUX_BINDING_BRANCH) -> None:
+    """A multiplexer port on no channel and one on two, and the check that finds both.
+
+    Both records load, because the two channel relationships are optional and
+    Infrahub has no cross-relationship constraint, so the schema cannot say
+    "exactly one of these two".
+    """
+    _banner("The multiplexer port on the wrong number of channels", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-mux-binding")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  Two findings, one per port. CH094 on mux-fra-01 binds neither plan, so\n"
+        "  nothing says what light it passes. CH1531-2 on mux-ams-02 binds dense\n"
+        "  channel 94 and coarse 1531 nm at once, where one filter slot passes one\n"
+        "  wavelength. The same run reports what it judged and what it did not: a\n"
+        "  mux line port binds no channel by design, and a dense binding is compared\n"
+        "  against nothing, because the graph holds no dense equivalent of\n"
+        "  cwdm_channels. No other check moves on this branch."
     )
     _next_step("demo-clean")
 

@@ -155,7 +155,7 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         task="check",
         tier="stack",
         invocations=("--name units_import", ""),
-        postcondition="the named form reports that one check; the bare form names all nine in `CHECKS`",
+        postcondition="the named form reports that one check; the bare form names all ten in `CHECKS`",
     ),
     # ------------------------------------------------------------------ #
     # Tests
@@ -309,6 +309,14 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         tier="stack",
         invocations=("",),
         postcondition="`monitor-gap` holds the unmonitored amplifier and `check monitor_completeness` names it",
+    ),
+    CoverageRecord(
+        task="demo-mux-binding",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`mux-binding` holds both broken client ports and `check mux_channel_binding` reports one finding for each"
+        ),
     ),
     # ------------------------------------------------------------------ #
     # Cleanup

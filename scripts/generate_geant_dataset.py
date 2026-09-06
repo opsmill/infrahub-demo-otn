@@ -1354,6 +1354,8 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
         "OtnLinePort": [],
         "OtnAmplifierPort": [],
         "OtnTributaryPort": [],
+        "OtnMuxLinePort": [],
+        "OtnMuxClientPort": [],
         "OtnAmplifierMonitor": [],
         "OtnRoadmDegreeMonitor": [],
         "OtnMuxDemuxMonitor": [],
@@ -1461,6 +1463,33 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
         role = roles[name]
         ports["OtnAmplifierPort"].append(_port("IN", name, role, rx_sensitivity_mdbm=-28000, connector_type="LC"))
         ports["OtnAmplifierPort"].append(_port("OUT", name, role, tx_power_mdbm=17000, connector_type="LC"))
+
+    # One line port per multiplexer, and one client port per channel the device
+    # actually lights. A coarse filter lights the wavelengths its own
+    # `cwdm_channels` names; a dense AWG lights the distinct channels that a
+    # carrier terminates at its site, which is the same figure its monitor
+    # reports. Forty client ports per dense unit would be 560 ports standing for
+    # wavelengths that do not exist, and eight of the fourteen sites terminate
+    # nothing at all.
+    #
+    # Neither kind carries a power figure. A passive filter transmits nothing
+    # and has no receiver, so tx_power_mdbm and rx_sensitivity_mdbm stay unset
+    # rather than carrying a launch level copied off a transponder.
+    dense = dense_channels_by_site()
+    for mux in build_devices()["OtnMuxDemux"]:
+        name = str(mux["name"])
+        ports["OtnMuxLinePort"].append(_port("LINE", name, "line", connector_type="LC"))
+        coarse = [str(wavelength) for wavelength in mux.get("cwdm_channels") or []]
+        for wavelength in coarse:
+            ports["OtnMuxClientPort"].append(
+                _port(f"CH{wavelength}", name, "client", connector_type="LC", cwdm_channel=wavelength)
+            )
+        if coarse:
+            continue
+        for channel in dense[str(mux["site"])]:
+            ports["OtnMuxClientPort"].append(
+                _port(f"CH{channel:03d}", name, "client", connector_type="LC", dwdm_channel=str(channel))
+            )
 
     for kind, monitors in build_monitoring_ports(ports).items():
         ports[kind].extend(monitors)
@@ -2029,6 +2058,26 @@ def carrier_endpoints(carriers: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 @lru_cache(maxsize=1)
+def dense_channels_by_site() -> dict[str, list[int]]:
+    """shortname -> the distinct dense channels a carrier terminates there.
+
+    The channel list behind `channels_terminating_by_site`, which counts the
+    same set for the multiplexer monitor. A dense AWG gets one client port per
+    entry, so the two can never disagree about what a site lights.
+
+    Every site in `SITES` is present, and eight of them map to an empty list:
+    all forty wavelengths cross Frankfurt to Milan and only six sites are an end
+    of one. A multiplexer with no client port is a unit lighting nothing, which
+    is what the carrier plan says about those eight.
+    """
+    lit: dict[str, set[int]] = {short: set() for _, short, _, _ in SITES}
+    for record in carrier_endpoints(build_carriers()):
+        for site in record["endpoints"]:
+            lit[str(site)].add(int(record["channel"]))
+    return {site: sorted(channels) for site, channels in lit.items()}
+
+
+@lru_cache(maxsize=1)
 def line_port_slots() -> dict[str, list[tuple[str, str]]]:
     """shortname -> its line ports in the order a wavelength takes them.
 
@@ -2324,6 +2373,9 @@ def generate(target: Path) -> dict[str, int]:
             "No port writes enabled or admin_state. OtnGenericPort defaults them",
             "to true and up, which is what every port here is. oper_state is",
             "written, because what a port is doing is not what it was asked to do.",
+            "",
+            "A mux client port binds the one channel it carries and a mux line",
+            "port binds none, because it carries every channel the device lights.",
         ],
         [
             _document(kind, ports[kind])
@@ -2335,6 +2387,8 @@ def generate(target: Path) -> dict[str, int]:
                 "OtnLinePort",
                 "OtnAmplifierPort",
                 "OtnTributaryPort",
+                "OtnMuxLinePort",
+                "OtnMuxClientPort",
                 "OtnAmplifierMonitor",
                 "OtnRoadmDegreeMonitor",
                 "OtnMuxDemuxMonitor",

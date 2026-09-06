@@ -69,7 +69,7 @@ def test_list_names_the_readers_set_by_default_and_everything_with_all(
 
     assert _names_in_listing(default) == set(DEFAULT_LISTING)
     assert _names_in_listing(everything) == set(TASK_NAMES)
-    assert len(DEFAULT_LISTING) == 27
+    assert len(DEFAULT_LISTING) == 28
     assert len(TASK_NAMES) - len(DEFAULT_LISTING) == 21
 
 

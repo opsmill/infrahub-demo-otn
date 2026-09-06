@@ -11,6 +11,9 @@
 # No port writes enabled or admin_state. OtnGenericPort defaults them
 # to true and up, which is what every port here is. oper_state is
 # written, because what a port is doing is not what it was asked to do.
+#
+# A mux client port binds the one channel it carries and a mux line
+# port binds none, because it carries every channel the device lights.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:
@@ -7272,6 +7275,628 @@ spec:
       speed_kbps: 2048
       impedance_ohm: 120
       connector_type: RJ48
+
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnMuxLinePort
+  data:
+    - name: LINE
+      device: mux-ams-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-ams-02
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-asp-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-ber-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-bru-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-cph-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-fra-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-gva-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-ham-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-lon-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-mad-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-mil-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-par-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-prg-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-vie-01
+      role: line
+      oper_state: up
+      connector_type: LC
+    - name: LINE
+      device: mux-waw-01
+      role: line
+      oper_state: up
+      connector_type: LC
+
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnMuxClientPort
+  data:
+    - name: CH002
+      device: mux-ams-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '2'
+    - name: CH005
+      device: mux-ams-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '5'
+    - name: CH008
+      device: mux-ams-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '8'
+    - name: CH011
+      device: mux-ams-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '11'
+    - name: CH014
+      device: mux-ams-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '14'
+    - name: CH017
+      device: mux-ams-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '17'
+    - name: CH020
+      device: mux-ams-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '20'
+    - name: CH1471
+      device: mux-ams-02
+      role: client
+      oper_state: up
+      connector_type: LC
+      cwdm_channel: '1471'
+    - name: CH1491
+      device: mux-ams-02
+      role: client
+      oper_state: up
+      connector_type: LC
+      cwdm_channel: '1491'
+    - name: CH1511
+      device: mux-ams-02
+      role: client
+      oper_state: up
+      connector_type: LC
+      cwdm_channel: '1511'
+    - name: CH1531
+      device: mux-ams-02
+      role: client
+      oper_state: up
+      connector_type: LC
+      cwdm_channel: '1531'
+    - name: CH1471
+      device: mux-asp-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      cwdm_channel: '1471'
+    - name: CH1491
+      device: mux-asp-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      cwdm_channel: '1491'
+    - name: CH1511
+      device: mux-asp-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      cwdm_channel: '1511'
+    - name: CH1531
+      device: mux-asp-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      cwdm_channel: '1531'
+    - name: CH023
+      device: mux-ber-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '23'
+    - name: CH026
+      device: mux-ber-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '26'
+    - name: CH029
+      device: mux-ber-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '29'
+    - name: CH032
+      device: mux-ber-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '32'
+    - name: CH035
+      device: mux-ber-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '35'
+    - name: CH047
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '47'
+    - name: CH049
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '49'
+    - name: CH051
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '51'
+    - name: CH053
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '53'
+    - name: CH055
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '55'
+    - name: CH057
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '57'
+    - name: CH059
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '59'
+    - name: CH061
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '61'
+    - name: CH063
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '63'
+    - name: CH065
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '65'
+    - name: CH067
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '67'
+    - name: CH069
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '69'
+    - name: CH071
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '71'
+    - name: CH073
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '73'
+    - name: CH075
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '75'
+    - name: CH077
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '77'
+    - name: CH079
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '79'
+    - name: CH081
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '81'
+    - name: CH083
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '83'
+    - name: CH085
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '85'
+    - name: CH087
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '87'
+    - name: CH089
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '89'
+    - name: CH091
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '91'
+    - name: CH092
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '92'
+    - name: CH093
+      device: mux-fra-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '93'
+    - name: CH002
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '2'
+    - name: CH005
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '5'
+    - name: CH008
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '8'
+    - name: CH011
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '11'
+    - name: CH014
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '14'
+    - name: CH017
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '17'
+    - name: CH020
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '20'
+    - name: CH023
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '23'
+    - name: CH026
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '26'
+    - name: CH029
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '29'
+    - name: CH032
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '32'
+    - name: CH035
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '35'
+    - name: CH038
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '38'
+    - name: CH041
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '41'
+    - name: CH044
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '44'
+    - name: CH047
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '47'
+    - name: CH049
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '49'
+    - name: CH051
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '51'
+    - name: CH053
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '53'
+    - name: CH055
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '55'
+    - name: CH057
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '57'
+    - name: CH059
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '59'
+    - name: CH061
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '61'
+    - name: CH063
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '63'
+    - name: CH065
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '65'
+    - name: CH067
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '67'
+    - name: CH069
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '69'
+    - name: CH071
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '71'
+    - name: CH073
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '73'
+    - name: CH075
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '75'
+    - name: CH077
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '77'
+    - name: CH079
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '79'
+    - name: CH081
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '81'
+    - name: CH083
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '83'
+    - name: CH085
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '85'
+    - name: CH087
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '87'
+    - name: CH089
+      device: mux-mil-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '89'
+    - name: CH038
+      device: mux-par-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '38'
+    - name: CH041
+      device: mux-par-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '41'
+    - name: CH044
+      device: mux-par-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '44'
+    - name: CH091
+      device: mux-vie-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '91'
+    - name: CH092
+      device: mux-vie-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '92'
+    - name: CH093
+      device: mux-vie-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '93'
 
 ---
 apiVersion: infrahub.app/v1

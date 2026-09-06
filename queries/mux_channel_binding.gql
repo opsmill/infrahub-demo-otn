@@ -1,0 +1,73 @@
+# Every multiplexer, the coarse wavelengths it lights and the ports it carries.
+#
+# Unfiltered. The check compares a device against its own ports, so a filter
+# that dropped a multiplexer would drop the only side that knows what the ports
+# should have bound.
+#
+# **The inline fragments are required, not stylistic.** `ports` peers the
+# generic `OtnGenericPort`, and Infrahub cannot filter a relationship to a
+# generic by the kind of its peers, so the query cannot ask for "the mux client
+# ports of this device". It fetches every port on the sixteen multiplexers and
+# the check discriminates on `__typename`. Selecting `dwdm_channel` directly on
+# the union would fail on the monitor and the line port, which do not have it.
+#
+# `OtnMuxLinePort` is fetched with its name and nothing else. The check says
+# nothing about a line port binding no channel, which is correct by design, and
+# the fragment is here so a device with a line port and no client port can be
+# reported as the unit it is rather than as a device with no ports at all.
+#
+# `id` and `__typename` on the device, because `log_error` takes both and every
+# finding names the multiplexer the disagreement is about.
+query MuxChannelBinding {
+  OtnMuxDemux {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        cwdm_channels {
+          edges {
+            node {
+              center_wavelength_nm {
+                value
+              }
+            }
+          }
+        }
+        ports {
+          edges {
+            node {
+              __typename
+              ... on OtnMuxClientPort {
+                name {
+                  value
+                }
+                dwdm_channel {
+                  node {
+                    channel_number {
+                      value
+                    }
+                  }
+                }
+                cwdm_channel {
+                  node {
+                    center_wavelength_nm {
+                      value
+                    }
+                  }
+                }
+              }
+              ... on OtnMuxLinePort {
+                name {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
