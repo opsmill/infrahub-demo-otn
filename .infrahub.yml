@@ -109,6 +109,16 @@ queries:
   # reason above: it would land on all eight optical port kinds.
   - name: transceiver_mode_support
     file_path: "./queries/transceiver_mode_support.gql"
+  # Rooted on OtnFiberSpan and unfiltered, because the check has to say how many
+  # pumped spans it could not judge and a filter would leave that to silence.
+  # The pump half is one hop: raman_pumps is the inverse of OtnRamanPump.span
+  # and both sides are declared. The port half is the relationship this feature
+  # added; before it, no port kind had any edge to a span in either direction.
+  # Eight inline fragments, because terminating_ports peers OtnGenericPort and
+  # polish is declared on OtnOpticalPort, which only eight of the fourteen port
+  # kinds inherit.
+  - name: connector_polish
+    file_path: "./queries/connector_polish.gql"
 
 # Every `watch.files` list below this line is generated. Run
 # `uv run python scripts/generate_watch_lists.py` after any import changes under
@@ -156,7 +166,7 @@ generator_definitions:
 # whole file at sync. scripts/generate_watch_lists.py knows this and skips the
 # section.
 #
-# Thirteen checks, and one of the thirteen carries a name this file once recorded as
+# Fourteen checks, and one of the fourteen carries a name this file once recorded as
 # deleted. There was a monitor_completeness check here, and it asserted that a
 # monitor carried the readings its family reports and none it cannot take. Both
 # halves are now schema constraints: the readings are mandatory on each monitor
@@ -208,7 +218,7 @@ check_definitions:
   - name: diversity
     file_path: "./checks/diversity.py"
     class_name: DiversityCheck
-  # Global, and it is the sixth here rather than the fourth: none of the thirteen
+  # Global, and it is the sixth here rather than the fourth: none of the fourteen
   # entries in this section declares `targets`, including the two above that say
   # nothing about it. The reason for this one is the shared one worded for a
   # single node: a proposed change may touch one service while a different
@@ -325,6 +335,27 @@ check_definitions:
   - name: transceiver_mode_support
     file_path: "./checks/transceiver_mode_support.py"
     class_name: TransceiverModeSupportCheck
+  # Global, because a pump and the ports it endangers are three different
+  # records. A change that turns a pump on touches neither end of the fibre, and
+  # a change that re-terminates one end touches no pump, so a targeted check
+  # handed either one alone cannot see the other.
+  #
+  # No `query:` key, per the note at the top of this section. The class binds it
+  # with `query = "connector_polish"`.
+  #
+  # Nothing here could go in the schema: polish is an attribute on the port and
+  # raman_pumps is a relationship on the span, two hops apart, and Infrahub has
+  # no cross-relationship constraint. The schema does own the vocabulary, a
+  # Dropdown of four choices, so the check never asks whether a value is a
+  # polish at all.
+  #
+  # It reports a pumped span with an empty terminating_ports as unjudgeable
+  # rather than clean. An empty traversal and a correct span look the same from
+  # outside, and a green mark over the first is the failure this row exists to
+  # stop.
+  - name: connector_polish
+    file_path: "./checks/connector_polish.py"
+    class_name: ConnectorPolishCheck
 
 python_transforms:
   - name: budget_report

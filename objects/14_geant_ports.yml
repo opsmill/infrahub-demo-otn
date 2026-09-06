@@ -14,6 +14,11 @@
 #
 # A mux client port binds the one channel it carries and a mux line
 # port binds none, because it carries every channel the device lights.
+#
+# Polish is written on line and ROADM degree ports and on nothing
+# else. Those two kinds are what a fibre span terminates on, and the
+# polish check reads it there; a port that terminates no span has no
+# endface question to answer and leaves the attribute unset.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:
@@ -1146,6 +1151,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-FRA
       device: roadm-ams-01
       role: degree
@@ -1153,6 +1159,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-HAM
       device: roadm-ams-01
       role: degree
@@ -1160,6 +1167,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-LON
       device: roadm-ams-01
       role: degree
@@ -1167,6 +1175,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-CPH
       device: roadm-ber-01
       role: degree
@@ -1174,6 +1183,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-FRA
       device: roadm-ber-01
       role: degree
@@ -1181,6 +1191,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-HAM
       device: roadm-ber-01
       role: degree
@@ -1188,6 +1199,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-PRG
       device: roadm-ber-01
       role: degree
@@ -1195,6 +1207,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-AMS
       device: roadm-bru-01
       role: degree
@@ -1202,6 +1215,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-PAR
       device: roadm-bru-01
       role: degree
@@ -1209,6 +1223,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-BER
       device: roadm-cph-01
       role: degree
@@ -1216,6 +1231,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-HAM
       device: roadm-cph-01
       role: degree
@@ -1223,6 +1239,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-AMS
       device: roadm-fra-01
       role: degree
@@ -1230,6 +1247,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-BER
       device: roadm-fra-01
       role: degree
@@ -1237,6 +1255,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-GVA
       device: roadm-fra-01
       role: degree
@@ -1244,6 +1263,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-MIL
       device: roadm-fra-01
       role: degree
@@ -1251,6 +1271,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-PAR
       device: roadm-fra-01
       role: degree
@@ -1258,6 +1279,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-PRG
       device: roadm-fra-01
       role: degree
@@ -1265,6 +1287,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-FRA
       device: roadm-gva-01
       role: degree
@@ -1272,6 +1295,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-MIL
       device: roadm-gva-01
       role: degree
@@ -1279,6 +1303,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-AMS
       device: roadm-ham-01
       role: degree
@@ -1286,6 +1311,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-BER
       device: roadm-ham-01
       role: degree
@@ -1293,6 +1319,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-CPH
       device: roadm-ham-01
       role: degree
@@ -1300,6 +1327,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-AMS
       device: roadm-lon-01
       role: degree
@@ -1307,6 +1335,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-PAR
       device: roadm-lon-01
       role: degree
@@ -1314,6 +1343,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-PAR
       device: roadm-mad-01
       role: degree
@@ -1321,6 +1351,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-FRA
       device: roadm-mil-01
       role: degree
@@ -1328,6 +1359,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-GVA
       device: roadm-mil-01
       role: degree
@@ -1335,6 +1367,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-VIE
       device: roadm-mil-01
       role: degree
@@ -1342,6 +1375,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-BRU
       device: roadm-par-01
       role: degree
@@ -1349,6 +1383,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-FRA
       device: roadm-par-01
       role: degree
@@ -1356,6 +1391,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-LON
       device: roadm-par-01
       role: degree
@@ -1363,6 +1399,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-MAD
       device: roadm-par-01
       role: degree
@@ -1370,6 +1407,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-BER
       device: roadm-prg-01
       role: degree
@@ -1377,6 +1415,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-FRA
       device: roadm-prg-01
       role: degree
@@ -1384,6 +1423,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-VIE
       device: roadm-prg-01
       role: degree
@@ -1391,6 +1431,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-WAW
       device: roadm-prg-01
       role: degree
@@ -1398,6 +1439,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-MIL
       device: roadm-vie-01
       role: degree
@@ -1405,6 +1447,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-PRG
       device: roadm-vie-01
       role: degree
@@ -1412,6 +1455,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-WAW
       device: roadm-vie-01
       role: degree
@@ -1419,6 +1463,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-PRG
       device: roadm-waw-01
       role: degree
@@ -1426,6 +1471,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
     - name: DEG-VIE
       device: roadm-waw-01
       role: degree
@@ -1433,6 +1479,7 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+      polish: APC
 
 ---
 apiVersion: infrahub.app/v1
@@ -2322,6 +2369,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ams-01
         - AD-01
@@ -2333,6 +2381,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ams-01
         - AD-02
@@ -2344,6 +2393,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ams-01
         - AD-03
@@ -2355,6 +2405,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ams-01
         - AD-04
@@ -2366,6 +2417,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ams-01
         - AD-05
@@ -2377,6 +2429,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ams-01
         - AD-06
@@ -2388,6 +2441,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ams-01
         - AD-07
@@ -2399,6 +2453,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ams-01
         - AD-08
@@ -2409,6 +2464,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ber-01
         - AD-01
@@ -2420,6 +2476,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ber-01
         - AD-02
@@ -2431,6 +2488,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ber-01
         - AD-03
@@ -2442,6 +2500,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ber-01
         - AD-04
@@ -2453,6 +2512,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ber-01
         - AD-05
@@ -2464,6 +2524,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ber-01
         - AD-06
@@ -2474,6 +2535,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-bru-01
         - AD-01
@@ -2484,6 +2546,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-bru-01
         - AD-02
@@ -2494,6 +2557,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-bru-01
         - AD-03
@@ -2504,6 +2568,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-bru-01
         - AD-04
@@ -2514,6 +2579,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-cph-01
         - AD-01
@@ -2524,6 +2590,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-cph-01
         - AD-02
@@ -2534,6 +2601,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-cph-01
         - AD-03
@@ -2544,6 +2612,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-cph-01
         - AD-04
@@ -2554,6 +2623,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-01
@@ -2565,6 +2635,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-02
@@ -2576,6 +2647,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-03
@@ -2587,6 +2659,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-04
@@ -2598,6 +2671,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-05
@@ -2609,6 +2683,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-06
@@ -2620,6 +2695,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-07
@@ -2631,6 +2707,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-08
@@ -2642,6 +2719,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-09
@@ -2653,6 +2731,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-10
@@ -2664,6 +2743,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-11
@@ -2675,6 +2755,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-12
@@ -2686,6 +2767,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-13
@@ -2697,6 +2779,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-14
@@ -2708,6 +2791,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-15
@@ -2719,6 +2803,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-16
@@ -2730,6 +2815,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-17
@@ -2741,6 +2827,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-18
@@ -2752,6 +2839,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-19
@@ -2763,6 +2851,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-20
@@ -2774,6 +2863,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-21
@@ -2785,6 +2875,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-22
@@ -2796,6 +2887,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-23
@@ -2807,6 +2899,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-24
@@ -2818,6 +2911,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-25
@@ -2829,6 +2923,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-fra-01
         - AD-26
@@ -2839,6 +2934,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-gva-01
         - AD-01
@@ -2849,6 +2945,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-gva-01
         - AD-02
@@ -2859,6 +2956,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-gva-01
         - AD-03
@@ -2869,6 +2967,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-gva-01
         - AD-04
@@ -2879,6 +2978,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ham-01
         - AD-01
@@ -2889,6 +2989,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ham-01
         - AD-02
@@ -2899,6 +3000,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ham-01
         - AD-03
@@ -2909,6 +3011,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ham-01
         - AD-04
@@ -2919,6 +3022,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-lon-01
         - AD-01
@@ -2929,6 +3033,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-lon-01
         - AD-02
@@ -2939,6 +3044,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-lon-01
         - AD-03
@@ -2949,6 +3055,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-lon-01
         - AD-04
@@ -2959,6 +3066,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mad-01
         - AD-01
@@ -2969,6 +3077,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mad-01
         - AD-02
@@ -2979,6 +3088,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mad-01
         - AD-03
@@ -2989,6 +3099,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mad-01
         - AD-04
@@ -2999,6 +3110,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-01
@@ -3010,6 +3122,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-02
@@ -3021,6 +3134,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-03
@@ -3032,6 +3146,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-04
@@ -3043,6 +3158,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-05
@@ -3054,6 +3170,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-06
@@ -3065,6 +3182,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-07
@@ -3076,6 +3194,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-08
@@ -3087,6 +3206,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-09
@@ -3098,6 +3218,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-10
@@ -3109,6 +3230,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-11
@@ -3120,6 +3242,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-12
@@ -3131,6 +3254,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-13
@@ -3142,6 +3266,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-14
@@ -3153,6 +3278,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-15
@@ -3164,6 +3290,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-16
@@ -3175,6 +3302,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-17
@@ -3186,6 +3314,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-18
@@ -3197,6 +3326,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-19
@@ -3208,6 +3338,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-20
@@ -3219,6 +3350,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-21
@@ -3230,6 +3362,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-22
@@ -3241,6 +3374,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-23
@@ -3252,6 +3386,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-24
@@ -3263,6 +3398,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-25
@@ -3274,6 +3410,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-26
@@ -3285,6 +3422,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-27
@@ -3296,6 +3434,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-28
@@ -3307,6 +3446,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-29
@@ -3318,6 +3458,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-30
@@ -3329,6 +3470,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-31
@@ -3340,6 +3482,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-32
@@ -3351,6 +3494,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-33
@@ -3362,6 +3506,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-34
@@ -3373,6 +3518,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-35
@@ -3384,6 +3530,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-36
@@ -3395,6 +3542,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-37
@@ -3406,6 +3554,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-mil-01
         - AD-38
@@ -3416,6 +3565,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-par-01
         - AD-01
@@ -3427,6 +3577,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-par-01
         - AD-02
@@ -3438,6 +3589,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-par-01
         - AD-03
@@ -3449,6 +3601,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-par-01
         - AD-04
@@ -3459,6 +3612,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-prg-01
         - AD-01
@@ -3469,6 +3623,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-prg-01
         - AD-02
@@ -3479,6 +3634,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-prg-01
         - AD-03
@@ -3489,6 +3645,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-prg-01
         - AD-04
@@ -3499,6 +3656,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-vie-01
         - AD-01
@@ -3510,6 +3668,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-vie-01
         - AD-02
@@ -3521,6 +3680,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-vie-01
         - AD-03
@@ -3532,6 +3692,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-vie-01
         - AD-04
@@ -3542,6 +3703,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-waw-01
         - AD-01
@@ -3552,6 +3714,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-waw-01
         - AD-02
@@ -3562,6 +3725,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-waw-01
         - AD-03
@@ -3572,6 +3736,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-waw-01
         - AD-04
@@ -3582,6 +3747,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ams-01
         - AD-09
@@ -3593,6 +3759,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-bru-01
         - AD-05
@@ -3604,6 +3771,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ber-01
         - AD-07
@@ -3615,6 +3783,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-prg-01
         - AD-05
@@ -3626,6 +3795,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ham-01
         - AD-05
@@ -3637,6 +3807,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
       connected_to:
         - roadm-ber-01
         - AD-08

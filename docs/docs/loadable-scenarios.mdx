@@ -4,7 +4,7 @@ title: Loadable scenarios and the runbook
 
 # Loadable scenarios and the runbook
 
-Three pairs of scenarios and five singles, one task each, then the runbook that
+Three pairs of scenarios and six singles, one task each, then the runbook that
 walks the whole demo in narrative order, then how to put the default branch back.
 Each task makes its own branch, loads its own scenario input and runs its own
 check, so nothing here asks you for a branch name. Every number below is produced
@@ -566,6 +566,73 @@ it does: +10.890 dB on `oms-ams-bru`. The 400ZR fitted here would fail on
 chromatic dispersion rather than on power, over its 2400 ps/nm tolerance by
 1340 ps/nm with 8 dB of OSNR still in hand. That is the argument for oFEC and it
 belongs on [the link budget page](./link-budget.mdx), not in this check.
+
+## One loadable scenario for the connector polish
+
+The sixth single, and the one where nothing about the object changed. What
+changed is the glass it faces.
+
+```bash
+uv run invoke demo-connector-polish
+```
+
+**`demo/15_connector_polish.yml`, a blue jumper on pumped fibre.**
+`span-vie-mil-01` is the first span of the one section this network pumps, and
+its Vienna end is the only end of that section anyone can reach: spans 2 to 9
+terminate in huts. This file re-patches that end. `roadm-vie-01 DEG-MIL` comes
+off and `xpdr-vie-02 L2` goes on, a transponder patched straight onto the line
+past the ROADM. `L2` is the one dark line port at Vienna, so nothing carrying
+traffic moved.
+
+Its endface is UPC, as every line port in the dataset is. That is the right
+endface where a coloured line port normally sits, behind an add/drop stage
+inside a building, where return loss is a specification. On the far side of the
+ROADM it is a hazard: the nine pumps on this section put half a watt into the
+fibre and a flat endface sends about 50 dB of it back down the span.
+
+**The load succeeds**, and no constraint could have refused it. `polish` is an
+attribute on the port and `raman_pumps` is a relationship on the span, two hops
+apart, and Infrahub has no cross-relationship constraint.
+
+The check **fails**, with exactly one finding:
+
+```text
+xpdr-vie-02 L2 terminates span-vie-mil-01, which is Raman-pumped, and its
+endface is UPC. A pump puts half a watt into this fibre and a UPC endface
+reflects that back down it, so this connector has to be APC before the pump is
+turned up
+```
+
+The same run says what it judged:
+
+```text
+133 span(s) examined, 9 of them Raman-pumped, 9 judged against their terminating
+ports and 0 unjudgeable for naming none. An unjudgeable span is not a passing
+one, and a run reporting no findings over a pumped section it could not reach
+has seen nothing
+```
+
+**That last zero is the figure to read.** A span reaches its ports through
+`OtnFiberSpan.terminating_ports`, and a pumped span naming none is reported as
+unjudgeable rather than clean, because an empty relationship and two correct APC
+ends look identical from inside the check. The dataset generator populates all
+133 spans so the count reads zero, and a run where it does not is a run whose
+green result means nothing.
+
+**Negative result: the relationship had to be added before the check could be
+written.** No port kind had any edge to a fibre span or to an optical multiplex
+section in either direction. The nearest reachable ports were three hops away
+through the section and its ROADMs, and a ROADM carries one degree port per
+direction whose `connected_to` is null on every one of them, so the only thing
+naming the port facing a given span was the far site's shortname inside the
+port's name string. Parsing that is a naming convention doing a relationship's
+job, and the schema carries the edge instead.
+
+**Negative result: polish is judged on pumped glass and nowhere else.** The 124
+unpumped spans terminate on APC degree ports and the check says nothing about
+them, and it says nothing about the 126 line ports either, because none of them
+faces pumped fibre on the default branch. A flat endface is a normal, correct
+choice almost everywhere in this network.
 
 ## The runbook
 

@@ -158,6 +158,7 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC
     - name: L2
       device: oeo-fra-01
       role: line
@@ -165,3 +166,4 @@ spec:
       tx_power_mdbm: 1000
       rx_sensitivity_mdbm: -18000
       connector_type: LC
+      polish: UPC

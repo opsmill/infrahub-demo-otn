@@ -428,7 +428,7 @@ def test_each_map_transform_binds_its_own_query_and_not_the_other_one() -> None:
     assert bound == {name: name for name in MAP_ARTIFACTS}
 
 
-def test_the_pipeline_runs_thirteen_checks() -> None:
+def test_the_pipeline_runs_fourteen_checks() -> None:
     """Nine, and one of them carries a name that was deleted in `ef89265`.
 
     The deleted `monitor_completeness` asserted that a monitor carried the
@@ -462,6 +462,7 @@ def test_the_pipeline_runs_thirteen_checks() -> None:
         "carrier_termination",
         "channel_collision",
         "channel_count_consistency",
+        "connector_polish",
         "container_capacity",
         "diversity",
         "monitor_completeness",

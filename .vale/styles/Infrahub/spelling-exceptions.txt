@@ -62,6 +62,8 @@ deduplicate
 demultiplexes
 demux
 docstring
+endface
+endfaces
 enum
 enums
 flexgrid
@@ -91,6 +93,8 @@ regenerators
 ruff
 rumdl
 runbook
+shortname
+shortnames
 subcommand
 subcommands
 subprocess
@@ -102,6 +106,7 @@ transponders
 triaging
 unamplified
 unducted
+unjudgeable
 unpatched
 unprovisioned
 unpumped

@@ -93,6 +93,7 @@ CHECKS = (
     "attenuator_range",
     "transceiver_placement",
     "transceiver_mode_support",
+    "connector_polish",
 )
 
 DEMO_BRANCH = "demo"
@@ -111,6 +112,7 @@ MUX_BINDING_BRANCH = "mux-binding"
 ATTENUATOR_RANGE_BRANCH = "attenuator-range"
 TRANSCEIVER_PLACEMENT_BRANCH = "transceiver-placement"
 TRANSCEIVER_MODE_BRANCH = "transceiver-mode"
+CONNECTOR_POLISH_BRANCH = "connector-polish"
 
 DEMO_SERVICES = (
     "svc-ber-ams-400g",
@@ -240,6 +242,12 @@ SCENARIO_BRANCHES: tuple[ScenarioBranch, ...] = (
         branch=TRANSCEIVER_MODE_BRANCH,
         files=("demo/14_transceiver_mode_support.yml",),
         check="transceiver_mode_support",
+    ),
+    ScenarioBranch(
+        task="demo-connector-polish",
+        branch=CONNECTOR_POLISH_BRANCH,
+        files=("demo/15_connector_polish.yml",),
+        check="connector_polish",
     ),
 )
 
@@ -609,6 +617,7 @@ TASK_GROUPS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
             "demo-attenuator-range",
             "demo-transceiver-placement",
             "demo-transceiver-mode",
+            "demo-connector-polish",
             "demo-clean",
         ),
         (),
@@ -1941,6 +1950,34 @@ def demo_transceiver_mode(context: Context, branch: str = TRANSCEIVER_MODE_BRANC
         "  their line ports and forty skipped on integrated optics, which carry no\n"
         "  part number to compare. A run with no findings and forty-three skips would\n"
         "  have seen nothing, so the split is printed rather than left to silence."
+    )
+    _next_step("demo-connector-polish")
+
+
+@task
+def demo_connector_polish(context: Context, branch: str = CONNECTOR_POLISH_BRANCH) -> None:
+    """A blue jumper on Raman-pumped glass, and the check that refuses it.
+
+    Nothing about the port changed. A transponder is patched past the ROADM
+    straight onto the pumped line, so a UPC endface that was correct behind an
+    add/drop stage is now facing half a watt of pump light.
+    """
+    _banner("The endface that is right everywhere except here", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-connector-polish")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  One finding. xpdr-vie-02 L2 now terminates span-vie-mil-01, which nine\n"
+        "  pumps fire into, and its endface is UPC. Polish is an attribute on the\n"
+        "  port and the pump is a relationship on the span, two hops apart, so no\n"
+        "  write could have been refused for this.\n"
+        "  The same run says what it judged: 133 spans, nine of them pumped, nine\n"
+        "  judged and none unjudgeable. That last figure is the one to read. A\n"
+        "  pumped span naming no terminating port is reported as unjudgeable rather\n"
+        "  than clean, because an empty traversal and two correct APC ends look the\n"
+        "  same from outside the check."
     )
     _next_step("demo-clean")
 

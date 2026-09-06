@@ -276,6 +276,111 @@ def test_no_span_touching_a_customer_site_declares_an_oms() -> None:
     assert not offenders, "spans on a customer site declaring an oms: " + "; ".join(offenders)
 
 
+@cache
+def _kinds_inheriting(generic: str) -> tuple[str, ...]:
+    """Every concrete kind whose `inherit_from` names `generic`."""
+    return tuple(
+        str(entry["namespace"]) + str(entry["name"])
+        for path in sorted(SCHEMA_DIR.glob("*.yml"))
+        for entry in (yaml.safe_load(path.read_text()) or {}).get("nodes") or []
+        if generic in (entry.get("inherit_from") or [])
+    )
+
+
+@cache
+def _site_of_device() -> dict[str, str | None]:
+    """Device name -> its site shortname, or None for the mid-section huts."""
+    return {
+        str(device["name"]): (str(device["site"]) if device.get("site") is not None else None)
+        for kind in _kinds_inheriting("OtnGenericDevice")
+        for device in objects_of_kind(kind)
+    }
+
+
+@cache
+def _kind_of_port() -> dict[tuple[str, str], str]:
+    """(device, port name) -> the kind declaring it, which is the loader's key."""
+    return {
+        (str(port["device"]), str(port["name"])): kind
+        for kind in _kinds_inheriting("OtnGenericPort")
+        for port in objects_of_kind(kind)
+    }
+
+
+def test_every_span_names_the_ports_that_terminate_it() -> None:
+    """No span is left with an empty relationship, because empty is not clean.
+
+    `checks/connector_polish.py` reads this relationship and reports a pumped
+    span with nothing in it as unjudgeable rather than as a span with no fault.
+    That row exists so an unpopulated relationship cannot read as a pass, and
+    this test is what keeps the shipped dataset out of it.
+    """
+    spans = objects_of_kind("OtnFiberSpan")
+    assert len(spans) == 133
+    bare = [str(span["name"]) for span in spans if not (span.get("terminating_ports") or [])]
+    assert not bare, "spans naming no terminating port: " + "; ".join(bare)
+    pairs = sum(len(span["terminating_ports"]) for span in spans)
+    assert pairs == 266, f"two ends per span over 133 spans is 266 pairs, the dataset writes {pairs}"
+
+
+def test_every_terminating_port_is_racked_at_one_of_its_spans_two_sites() -> None:
+    """The one trust boundary `terminating_ports` opens, closed here.
+
+    The relationship is written by the generator and nothing else validates it.
+    An empty list is handled by the check; a wrong list is not, because the
+    check reads what it is given as authoritative and would report a confident
+    verdict about a port at the far side of the network. So every pair is
+    resolved back to a real port, and that port's device has to be racked at one
+    of the two sites the span runs between.
+    """
+    ports = _kind_of_port()
+    sites = _site_of_device()
+    offenders: list[str] = []
+    for span in objects_of_kind("OtnFiberSpan"):
+        ends = {str(span["site_a"]), str(span["site_b"])}
+        for entry in span.get("terminating_ports") or []:
+            device, port = str(entry[0]), str(entry[1])
+            if (device, port) not in ports:
+                offenders.append(f"{span['name']} names {device} {port}, which no object file declares")
+                continue
+            site = sites.get(device)
+            if site not in ends:
+                offenders.append(
+                    f"{span['name']} runs between {' and '.join(sorted(ends))} and names {device} {port}, "
+                    f"racked at {site}"
+                )
+    assert not offenders, "terminating ports at the wrong site: " + "; ".join(offenders)
+
+
+def test_every_line_and_roadm_degree_port_states_a_polish() -> None:
+    """The backfill's scope, read back from the files that carry it.
+
+    Those two kinds are what a span terminates on, so those two kinds are what
+    the polish check has to be able to read. Every other port kind may leave the
+    attribute unset, and the mux line ports at the two ends of the CWDM tail do.
+    """
+    choices = {
+        str(choice["name"])
+        for document in [yaml.safe_load((SCHEMA_DIR / "otn_base.yml").read_text())]
+        for generic in document.get("generics") or []
+        if str(generic["namespace"]) + str(generic["name"]) == "OtnOpticalPort"
+        for attribute in generic.get("attributes") or []
+        if attribute["name"] == "polish"
+        for choice in attribute["choices"]
+    }
+    assert choices == {"UPC", "APC", "PC", "none"}
+    for kind, expected in (("OtnLinePort", "UPC"), ("OtnRoadmDegreePort", "APC")):
+        stated = {
+            str(port["device"]) + " " + str(port["name"]): str(port.get("polish") or "")
+            for port in objects_of_kind(kind)
+        }
+        unset = sorted(name for name, value in stated.items() if not value)
+        assert not unset, f"{kind} without a polish: " + "; ".join(unset)
+        assert set(stated.values()) == {expected}, f"{kind} states {sorted(set(stated.values()))}"
+    assert len(objects_of_kind("OtnLinePort")) == 126
+    assert len(objects_of_kind("OtnRoadmDegreePort")) == 42
+
+
 def test_only_the_two_tail_multiplexers_light_a_cwdm_wavelength() -> None:
     """The lit-channel set is the tail and nothing else."""
     multiplexers = objects_of_kind("OtnMuxDemux")

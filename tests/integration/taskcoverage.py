@@ -345,6 +345,15 @@ COVERAGE: tuple[CoverageRecord, ...] = (
             "`check transceiver_mode_support` names the part number and the mode"
         ),
     ),
+    CoverageRecord(
+        task="demo-connector-polish",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`connector-polish` terminates the first pumped Vienna to Milan span on a UPC line port and "
+            "`check connector_polish` reports that one finding over nine pumped spans and none unjudgeable"
+        ),
+    ),
     # ------------------------------------------------------------------ #
     # Cleanup
     # ------------------------------------------------------------------ #

@@ -118,6 +118,7 @@ _DEFAULT: dict[str, Outcome] = {
     "attenuator_range": PASSES,
     "transceiver_placement": PASSES,
     "transceiver_mode_support": PASSES,
+    "connector_polish": PASSES,
 }
 """What a scenario that adds services and containers and nothing else looks like.
 
@@ -245,6 +246,19 @@ _quiet(
 )
 
 _quiet(
+    "15_connector_polish.yml",
+    connector_polish=Fails(
+        1,
+        "`span-vie-mil-01` is restated with `xpdr-vie-02 L2` on its Vienna end in place of the ROADM degree "
+        "port, which patches a transponder straight onto the one pumped section. Every line port in the "
+        "dataset is UPC and that is correct behind an add/drop stage; on pumped glass it reflects the pump. "
+        "One finding and not two: the Milan end is untouched and stays APC",
+    ),
+)
+"""The only file that puts a line port on pumped glass. No wavelength in the plan
+rides `oms-vie-mil`, so nothing in `objects/` reaches this state."""
+
+_quiet(
     "90_fra_mil_saturated.yml",
     provisionable=NeedsGenerator(
         1,
@@ -309,11 +323,11 @@ def test_the_expectation_table_is_exactly_the_product_of_the_two_directories() -
     )
 
 
-def test_the_sweep_covers_sixteen_scenarios_and_thirteen_checks() -> None:
+def test_the_sweep_covers_seventeen_scenarios_and_fourteen_checks() -> None:
     """The two numbers this module's docstring publishes, read back from the tree."""
-    assert len(SCENARIOS) == 16, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
-    assert len(CHECKS) == 13, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
-    assert len(CELLS) == 208
+    assert len(SCENARIOS) == 17, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
+    assert len(CHECKS) == 14, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
+    assert len(CELLS) == 238
 
 
 @pytest.mark.parametrize("check_name", CHECKS)
@@ -404,6 +418,7 @@ def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
         "attenuator_range",
         "transceiver_placement",
         "transceiver_mode_support",
+        "connector_polish",
     ):
         assert verdicts[quiet] == 0, f"{quiet} fails the shipped plant, which nothing else in the suite says"
 
@@ -593,3 +608,66 @@ def test_the_mode_check_says_how_many_wavelengths_it_judged_and_how_many_it_skip
     assert f"{len(carriers)} wavelength(s) examined" in summary[0]
     assert f"{judged} judged" in summary[0]
     assert f"{len(carriers) - judged} skipped" in summary[0]
+
+
+# ---------------------------------------------------------------------------
+# The two polish rows no file under demo/ reaches
+# ---------------------------------------------------------------------------
+
+
+def _pumped_spans(built: dict[str, Any]) -> list[dict[str, Any]]:
+    return [edge["node"] for edge in built["OtnFiberSpan"]["edges"] if edge["node"]["raman_pumps"]["edges"]]
+
+
+def test_a_pumped_span_naming_no_terminating_port_is_reported_and_never_passed() -> None:
+    """The row the whole relationship exists for, and the one a branch cannot show.
+
+    Every span in `objects/` names its two ends, which is what the generator is
+    for, so no scenario file can produce this state without unwriting the
+    dataset. The payload is the shipped one with the relationship emptied, which
+    is exactly what a check would see if the generator had never populated it.
+    An empty traversal and two correct APC ends look the same from inside the
+    check, so silence here would be a green mark over nothing.
+    """
+    built = copy.deepcopy(payload("connector_polish", None))
+    emptied = _pumped_spans(built)
+    assert len(emptied) == 9, f"the dataset now pumps {len(emptied)} spans"
+    for span in emptied:
+        span["terminating_ports"] = {"edges": []}
+
+    check = _check_class("connector_polish")(branch="scenario-sweep")
+    check.validate(built)
+    errors = [str(log["message"]) for log in check.logs if log["level"] == "ERROR"]
+    infos = [str(log["message"]) for log in check.logs if log["level"] == "INFO"]
+
+    assert not errors, f"an empty relationship is not a fault in the plant: {errors}"
+    unjudged = [message for message in infos if "names no terminating port" in message]
+    assert len(unjudged) == 9, f"nine pumped spans, {len(unjudged)} reported unjudgeable"
+    assert "span-vie-mil-01" in " ".join(unjudged)
+    summary = [message for message in infos if "span(s) examined" in message]
+    assert len(summary) == 1, summary
+    assert "0 judged" in summary[0] and "9 unjudgeable" in summary[0]
+
+
+def test_a_terminating_port_with_no_polish_on_pumped_glass_is_an_error() -> None:
+    """The second error row, which the shipped data and the branches both miss.
+
+    The backfill states a polish on every line and ROADM degree port, so a
+    pumped span in this dataset always has an answer to read. A port kind
+    outside that scope, or a port loaded before the attribute existed, arrives
+    with nothing, and nothing is not a pass: the record does not say whether the
+    connector reflects the pump.
+    """
+    built = copy.deepcopy(payload("connector_polish", None))
+    span = _pumped_spans(built)[0]
+    port = span["terminating_ports"]["edges"][0]["node"]
+    assert port["polish"] == {"value": "APC"}, port["polish"]
+    port["polish"] = {"value": None}
+
+    check = _check_class("connector_polish")(branch="scenario-sweep")
+    check.validate(built)
+    errors = [str(log["message"]) for log in check.logs if log["level"] == "ERROR"]
+
+    assert len(errors) == 1, f"one unstated endface gave {len(errors)} findings: {errors}"
+    assert "states no endface polish" in errors[0]
+    assert str(span["name"]["value"]) in errors[0]

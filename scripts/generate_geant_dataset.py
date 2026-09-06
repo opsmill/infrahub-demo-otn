@@ -154,6 +154,26 @@ SECTIONS: list[tuple[str, str, int]] = [
 MAX_SPAN_KM = 90
 """Amplifier spacing ceiling. A section takes the fewest spans that stay under it."""
 
+OUTSIDE_PLANT_POLISH = "APC"
+"""The endface every ROADM degree port carries.
+
+A degree port is the last connector before the outside plant, and outside plant
+is angled: an APC endface sends its reflection into the cladding instead of back
+up the fibre. That is what a Raman-pumped section needs, because a pump fires
+kilowatt-class light into glass a reflection would send straight back at the
+transponder.
+"""
+
+LINE_SIDE_POLISH = "UPC"
+"""The endface every line port carries.
+
+Coloured line ports are patched into a ROADM add/drop stage inside the building,
+where return loss is somebody's specification rather than a safety limit, and
+they ship with the blue ultra-physical-contact ferrule most vendors fit. It is
+the right endface where these ports actually sit and the wrong one on pumped
+glass, which is the whole of what `checks/connector_polish.py` decides.
+"""
+
 # --------------------------------------------------------------------------
 # Seed table 3: the twelve conduits.
 #
@@ -1574,6 +1594,7 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
                     tx_power_mdbm=0,
                     rx_sensitivity_mdbm=-20000,
                     connector_type="LC",
+                    polish=OUTSIDE_PLANT_POLISH,
                 )
             )
 
@@ -1617,6 +1638,7 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
                         tx_power_mdbm=1000,
                         rx_sensitivity_mdbm=-18000,
                         connector_type="LC",
+                        polish=LINE_SIDE_POLISH,
                         connected_to=[roadm, target],
                         **colour,
                     )
@@ -1661,6 +1683,7 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
                 tx_power_mdbm=1000,
                 rx_sensitivity_mdbm=-18000,
                 connector_type="LC",
+                polish=LINE_SIDE_POLISH,
                 connected_to=[roadm, target],
                 center_frequency_mhz=channel_to_frequency_mhz(channel),
             )
@@ -2133,6 +2156,29 @@ def build_raman_monitors() -> list[dict[str, Any]]:
     ]
 
 
+def span_terminating_ports(a: str, b: str) -> list[list[str]]:
+    """The ports the glass between sites `a` and `b` is mated into, one per end.
+
+    At a PoP that is the ROADM degree port facing the far site, and the near and
+    far shortnames are both in hand here, so nothing has to be read back out of
+    a port name. `monitors.far_site_of_degree` is the reverse trip and only a
+    check walking the graph needs it.
+
+    **Every span of a section gets the same pair, and that follows from the
+    model rather than from convenience.** A span already writes the section's
+    two endpoints as its own `site_a` and `site_b`, whichever position it holds
+    in the chain, so those two sites are where its ends are. The amplifier ports
+    between two consecutive spans sit in huts that are at no site at all, and a
+    port `tests/unit/test_geant_dataset.py` cannot tie back to `site_a` or
+    `site_b` is a port this relationship must not carry: the check that reads it
+    treats it as authoritative, so a wrong entry buys a confident wrong verdict.
+    """
+    return [
+        [f"roadm-{a}-01", degree_port_name(b)],
+        [f"roadm-{b}-01", degree_port_name(a)],
+    ]
+
+
 def build_spans() -> list[dict[str, Any]]:
     conduits = conduit_for_span()
     names = site_names()
@@ -2152,6 +2198,7 @@ def build_spans() -> list[dict[str, Any]]:
                 "fiber_type": FIBER_TYPE,
                 "site_a": a,
                 "site_b": b,
+                "terminating_ports": span_terminating_ports(a, b),
             }
             if record["name"] in conduits:
                 record["conduit"] = conduits[str(record["name"])]
@@ -2190,6 +2237,15 @@ def _cwdm_tail_span() -> dict[str, Any]:
         "fiber_type": FIBER_TYPE,
         "site_a": campus,
         "site_b": CWDM_TAIL_PEER,
+        # The tail terminates on the two passive filters and on nothing else.
+        # There is no ROADM at either end of it, so `span_terminating_ports`
+        # does not apply and the pair is named here. Neither port states a
+        # polish: the backfill covers line and degree ports, and a mux line
+        # port is outside it.
+        "terminating_ports": [
+            [f"mux-{campus}-01", "LINE"],
+            [f"mux-{CWDM_TAIL_PEER}-02", "LINE"],
+        ],
     }
 
 
@@ -2605,6 +2661,7 @@ def build_odu_switch_ports() -> list[dict[str, Any]]:
                     tx_power_mdbm=1000,
                     rx_sensitivity_mdbm=-18000,
                     connector_type="LC",
+                    polish=LINE_SIDE_POLISH,
                 )
             )
     return records
@@ -2724,6 +2781,11 @@ def generate(target: Path) -> dict[str, int]:
             "",
             "A mux client port binds the one channel it carries and a mux line",
             "port binds none, because it carries every channel the device lights.",
+            "",
+            "Polish is written on line and ROADM degree ports and on nothing",
+            "else. Those two kinds are what a fibre span terminates on, and the",
+            "polish check reads it there; a port that terminates no span has no",
+            "endface question to answer and leaves the attribute unset.",
         ],
         [
             _document(kind, ports[kind])
@@ -2757,6 +2819,13 @@ def generate(target: Path) -> dict[str, int]:
             "oms because it belongs to no section at all, and that absence is the",
             "only thing keeping a coarse link out of the budget engine, which",
             "would price it at a 1550 nm attenuation coefficient.",
+            "",
+            "Every span writes terminating_ports, and the loader resolves each",
+            "entry as a [device, port] pair. The ports load in 14, five files",
+            "earlier, because object load resolves a human-friendly ID at insert",
+            "time. An empty list here is not a clean span: the polish check",
+            "reports one as unjudgeable, because a traversal that returns",
+            "nothing and a span with no fault look the same from outside.",
         ],
         [
             _document("OtnFiberSpan", spans),
