@@ -59,7 +59,11 @@ nodes:
       # an `oms` on any span touching a site of `site_type: customer`. Budgeting
       # a coarse link needs a coefficient per wavelength band, which is a schema
       # change.
-      - name: attenuation_mdb_per_km
+      #
+      # Named for the coefficient it is, because the plain `attenuation` names
+      # now belong to the attenuators, which hold an attenuation rather than a
+      # rate.
+      - name: attenuation_coefficient_mdb_per_km
         kind: Number
         parameters:
           min_value: 150
@@ -67,15 +71,15 @@ nodes:
         optional: false
         description: Attenuation at 1550 nm in millidecibels per kilometre. 0.20 dB/km is 200. Wrong for CWDM.
         order_weight: 1500
-      - name: attenuation_display
+      - name: attenuation_coefficient_display
         kind: Text
         read_only: true
         computed_attribute:
           kind: Jinja2
           jinja2_template: >-
-            {% if attenuation_mdb_per_km__value is not none %}{{ attenuation_mdb_per_km__value / 1000 }} dB/km{% endif %}
+            {% if attenuation_coefficient_mdb_per_km__value is not none %}{{ attenuation_coefficient_mdb_per_km__value / 1000 }} dB/km{% endif %}
         optional: true
-        description: Attenuation in dB/km. Read-only, derived from attenuation_mdb_per_km.
+        description: Attenuation in dB/km. Read-only, derived from attenuation_coefficient_mdb_per_km.
         order_weight: 1510
       - name: dispersion_fs_per_nm_km
         kind: Number
@@ -364,6 +368,26 @@ nodes:
         identifier: otn_span__raman_pumps
         on_delete: no-action
         order_weight: 850
+      # The ports at each end of the glass. No port kind had any edge to a span
+      # or to a section in either direction, so the only thing naming the degree
+      # port that faces a given span was the far site's shortname inside the
+      # port's name string. Parsing that is a naming convention doing a
+      # relationship's job, which this repository has already shipped once and
+      # paid for.
+      #
+      # Declared on the span alone. The inverse would put the field on every
+      # port kind, and most ports terminate no span. Empty means unjudgeable
+      # rather than clean: on this model an empty list and a fault look the
+      # same from the outside.
+      - name: terminating_ports
+        peer: OtnGenericPort
+        label: Ports at the ends of this span
+        kind: Attribute
+        cardinality: many
+        optional: true
+        identifier: otn_span__terminating_ports
+        on_delete: no-action
+        order_weight: 950
 
   - name: OpticalMultiplexSection
     namespace: Otn

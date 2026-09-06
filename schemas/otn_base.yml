@@ -182,10 +182,10 @@ generics:
       # attribute restates the whole list, and the server accepts a restatement
       # that is one choice short without a word; the divergence surfaces only
       # when an object writes the missing value. The tenth choice, `odu_switch`,
-      # cost nine blocks: this one, the seven overrides in otn_devices.yml, the
-      # span's in otn_plant.yml, and the pinned list in
-      # `tests/unit/test_schema_contract.py`, which is the only thing that will
-      # tell you a block was missed.
+      # cost nine blocks when it landed and the list now lives in eleven: this
+      # one, the nine overrides in otn_devices.yml, and the span's in
+      # otn_plant.yml. The pinned list in `tests/unit/test_schema_contract.py`
+      # is the only thing that will tell you a block was missed.
       - name: element_class
         kind: Dropdown
         choices:
@@ -365,17 +365,85 @@ generics:
         optional: true
         description: Receiver sensitivity in dBm. Derived from rx_sensitivity_mdbm.
         order_weight: 1810
+      # A Dropdown rather than an enum, so a connector carries a label, a colour
+      # and a sentence saying what it is. The six original names are unchanged,
+      # so no loaded value is rewritten; MU, CS and splice are new.
+      #
+      # Changing the kind on this generic alone is refused with
+      # "connector_type inherited from OtnOpticalPort must be the same kind
+      # ["Dropdown", "Text"]", because the loaded schema has materialised the
+      # Text attribute onto every optical port kind. All six kinds that inherit
+      # this generic restate the list in otn_ports.yml, and a restatement one
+      # choice short is accepted in silence, exactly as with element_class.
+      #
+      # OtnCopperPort keeps its own connector_type as Text. No kind inherits
+      # both port generics, so the two do not collide.
       - name: connector_type
-        kind: Text
-        enum:
-          - LC
-          - SC
-          - MPO-12
-          - MPO-16
-          - FC
-          - E2000
+        kind: Dropdown
+        choices:
+          - name: LC
+            label: LC
+            description: Small-form duplex latch. What transponder and pluggable optics take.
+            color: "#2196f3"
+          - name: SC
+            label: SC
+            description: Push-pull square ferrule, common on older distribution frames.
+            color: "#4caf50"
+          - name: MPO-12
+            label: MPO-12
+            description: Twelve-fibre ribbon ferrule for parallel optics.
+            color: "#9c27b0"
+          - name: MPO-16
+            label: MPO-16
+            description: Sixteen-fibre ribbon ferrule for 400G parallel optics.
+            color: "#673ab7"
+          - name: FC
+            label: FC
+            description: Threaded ferrule. Still found on test sets and metro equipment.
+            color: "#ff9800"
+          - name: E2000
+            label: E2000
+            description: Shuttered push-pull connector, widespread on European carrier plant.
+            color: "#00bcd4"
+          - name: MU
+            label: MU
+            description: Miniature unibody connector, half the footprint of an SC.
+            color: "#8bc34a"
+          - name: CS
+            label: CS
+            description: Narrow-pitch duplex connector, used for QSFP-DD breakout.
+            color: "#e91e63"
+          - name: splice
+            label: Splice
+            description: Fusion splice rather than a mated pair. No connector loss and no polish.
+            color: "#9e9e9e"
         optional: true
         order_weight: 1900
+      # Return loss is a polish property, not a connector property: an LC comes
+      # in all three. Null on every port loaded before this attribute existed,
+      # which is what keeps the change non-destructive.
+      - name: polish
+        kind: Dropdown
+        choices:
+          - name: UPC
+            label: UPC
+            description: Ultra physical contact. Blue housing, about 50 dB return loss.
+            color: "#2196f3"
+          - name: APC
+            label: APC
+            description: Angled physical contact. Green housing, about 65 dB return loss.
+            color: "#4caf50"
+          - name: PC
+            label: PC
+            description: Physical contact. The oldest polish, about 35 dB return loss.
+            color: "#ff9800"
+          - name: none
+            label: None
+            description: No polished endface, such as a fusion splice.
+            color: "#9e9e9e"
+        optional: true
+        description: Endface polish. Mating an APC to a UPC costs about 0.5 dB and reflects.
+        order_weight: 1910
 
   - name: CopperPort
     namespace: Otn

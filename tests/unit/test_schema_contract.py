@@ -816,6 +816,10 @@ def test_every_element_class_override_restates_the_generic_choices() -> None:
         "OtnFiberSpan": "fiber_span",
         "OtnRamanPump": "raman_pump",
         "OtnOduSwitch": "odu_switch",
+        # Both attenuators default to the same choice. The kinds differ by the
+        # range one of them carries, not by what they are.
+        "OtnFixedAttenuator": "attenuator",
+        "OtnVariableAttenuator": "attenuator",
     }
 
     for kind, default in sorted(expected_defaults.items()):
