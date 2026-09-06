@@ -329,6 +329,15 @@ class TestInfrahub(TestInfrahubDockerClient):
         Filtering carriers by section name is what makes the one-sided
         carrier-to-section relationship enough: no inverse on the section kind
         is needed to answer "how full is this section".
+
+        `oms-ams-bru` used to be read here as a second empty section and is not
+        one any more: it carries the OpenZR+ 400G wavelength that terminates in
+        two routers rather than in a transponder. Its two siblings `oms-ber-prg`
+        and `oms-ham-ber` are read alongside it, because all three arrived
+        together and a change that dropped one of them would otherwise leave the
+        other two standing. `oms-ams-ham` takes over the empty-section role, so
+        the query still holds down the difference between a section with no
+        carrier and a section the filter failed to reach.
         """
         data = self.query(
             address,
@@ -336,13 +345,18 @@ class TestInfrahub(TestInfrahubDockerClient):
               direct: OtnOpticalCarrier(sections__name__value: "oms-fra-mil") { count }
               amsfra: OtnOpticalCarrier(sections__name__value: "oms-ams-fra") { count }
               geneva: OtnOpticalCarrier(sections__name__value: "oms-fra-gva") { count }
-              quiet:  OtnOpticalCarrier(sections__name__value: "oms-ams-bru") { count }
+              pluggable_ams_bru: OtnOpticalCarrier(sections__name__value: "oms-ams-bru") { count }
+              pluggable_ber_prg: OtnOpticalCarrier(sections__name__value: "oms-ber-prg") { count }
+              pluggable_ham_ber: OtnOpticalCarrier(sections__name__value: "oms-ham-ber") { count }
+              quiet:  OtnOpticalCarrier(sections__name__value: "oms-ams-ham") { count }
             }""",
         )
         assert data["direct"]["count"] == 40, "4,134,400 MHz of a 4,800,000 MHz C-band"
         assert data["amsfra"]["count"] == 7, "occupancy is uneven on purpose"
         assert data["geneva"]["count"] == 0, "the alternative route is empty, which is the point"
-        assert data["quiet"]["count"] == 0
+        for section in ("pluggable_ams_bru", "pluggable_ber_prg", "pluggable_ham_ber"):
+            assert data[section]["count"] == 1, f"{section} carries its one router-to-router OpenZR+ wavelength"
+        assert data["quiet"]["count"] == 0, "a section with no carrier answers zero, not null"
 
     def test_inline_amplifiers_have_no_site_and_endpoint_amplifiers_do(self, address: str) -> None:
         """An amplifier hut is not a PoP, and the optional site

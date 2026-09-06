@@ -65,12 +65,19 @@ spec:
     - serial: ZRP-AMS-01
       status: spare
       type: QDD-400G-ZRP
+      # Both references name their kind because `port` peers `OtnOpticalPort`,
+      # and that generic carries no identity keys: they live on
+      # `OtnGenericPort`, a sibling generic rather than a parent.
       port:
-        - rtr-ams-01
-        - 1/1/2
+        kind: OtnRouterPort
+        data:
+          device: rtr-ams-01
+          name: 1/1/2
     - serial: ZR-SPARE-01
       status: in_service
       type: QDD-400G-ZR
       port:
-        - rtr-ams-01
-        - 1/2/1
+        kind: OtnLinePort
+        data:
+          device: rtr-ams-01
+          name: 1/2/1

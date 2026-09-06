@@ -200,3 +200,68 @@ def test_a_scenario_that_adds_a_device_declares_it_before_its_ports() -> None:
                 assert order.index(device_kind) < order.index("OtnLinePort"), (
                     f"{file_name} declares its line ports before the {device_kind} they sit on"
                 )
+
+
+def _generics_without_identity_keys() -> dict[str, str]:
+    """Every generic in `schemas/` that declares no `human_friendly_id`, and its file.
+
+    This repository composes flat generics rather than nesting them, so a
+    generic can be missing identity keys while every kind that inherits it has
+    them. `OtnOpticalPort` is the one that is: `human_friendly_id` sits on the
+    sibling `OtnGenericPort`, and a relationship peering the optical half has
+    nothing to resolve a pair against.
+    """
+    from tests.unit.conftest import schema_files
+
+    found: dict[str, str] = {}
+    for path in schema_files():
+        document = yaml.safe_load(path.read_text()) or {}
+        for entry in document.get("generics") or []:
+            if not entry.get("human_friendly_id"):
+                found[str(entry["namespace"]) + str(entry["name"])] = path.name
+    return found
+
+
+def test_a_reference_to_a_generic_holding_no_identity_keys_names_its_concrete_kind() -> None:
+    """The shape the server refuses, and the one no other test here could see.
+
+    A bare `[device, name]` pair is looked up against the kind the relationship
+    names as its peer. When that peer is a generic with no `human_friendly_id`,
+    the server has nothing to look it up by and answers `Unable to lookup node
+    by HFID, schema '<generic>' does not have a HFID defined`. It takes the
+    whole batch with it, and when the batch is the repository import it takes
+    every check, generator and artifact definition with it too.
+
+    The walk above cannot find this. It resolves a pair against the concrete
+    kinds that inherit the generic, which is what the reference means and not
+    what the loader does, so a pair naming a real port passes offline and fails
+    on the server. This test reads the syntax rather than the target.
+    """
+    generics = _generics_without_identity_keys()
+    paths = [*object_files(), *(DEMO_DIR / name for name in scenario_files())]
+    complaints = []
+    for path in paths:
+        for document in _documents(path.read_text()):
+            spec = document.get("spec") or {}
+            kind = str(spec.get("kind") or "")
+            if kind not in schema():
+                continue
+            for record in spec.get("data") or []:
+                if not isinstance(record, dict):
+                    continue
+                for field in schema()[kind].relationships.values():
+                    if field.peer not in generics or field.name not in record:
+                        continue
+                    value = record[field.name]
+                    if value is None:
+                        continue
+                    items = value if isinstance(value, list) else [value]
+                    if all(_named_kind(item) is not None for item in items):
+                        continue
+                    complaints.append(
+                        f"{path.name}: {kind} {record.get('serial') or record.get('name')!r} names "
+                        f"{value!r} on `{field.name}`, whose peer {field.peer} declares no "
+                        f"human_friendly_id in {generics[field.peer]}. Give the reference its concrete "
+                        "kind: `{kind: OtnLinePort, data: {device: ..., name: ...}}`"
+                    )
+    assert not complaints, "\n".join(complaints)

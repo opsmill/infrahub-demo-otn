@@ -72,6 +72,13 @@ spec:
     - serial: ZRP-BRU-01
       status: in_service
       type: QDD-400G-ZRP
+      # The reference names its kind because `port` peers `OtnOpticalPort`, and
+      # that generic carries no identity keys: they live on `OtnGenericPort`, a
+      # sibling generic rather than a parent. Naming `OtnAmplifierPort` here is
+      # also the whole point of the scenario, so the file says out loud which
+      # kind of port the module is being put into.
       port:
-        - amp-ams-bru-08
-        - OUT
+        kind: OtnAmplifierPort
+        data:
+          device: amp-ams-bru-08
+          name: OUT
