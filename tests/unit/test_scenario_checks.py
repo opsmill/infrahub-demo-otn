@@ -225,8 +225,8 @@ _quiet(
     transceiver_placement=Fails(
         1,
         "`ZRP-BRU-01` is restated into `amp-ams-bru-08 OUT`, which is an amplifier port and holds no cage. "
-        "One finding and not two: the module moved rather than being copied, so no port ends up claimed by "
-        "two units and the duplicate half of the check stays silent",
+        "The port kind is the whole of what this check judges: two modules in one port is a write the "
+        "schema refuses, and `tests/unit/test_schema_contract.py` holds the edge that refuses it",
     ),
 )
 """The one scenario `transceiver_mode_support` answers with INFO rather than
@@ -537,7 +537,7 @@ def test_the_resolver_reads_every_kind_the_object_files_declare() -> None:
 
 
 # ---------------------------------------------------------------------------
-# The two rules a count of errors cannot see
+# The rules a count of errors cannot see
 # ---------------------------------------------------------------------------
 
 
@@ -555,31 +555,6 @@ def test_the_mixed_termination_row_is_reported_and_blocks_nothing() -> None:
     assert "oc-ch003-ams-bru" in mixed[0]
     assert "rtr-ams-01 1/2/1" in mixed[0] and "rtr-bru-01 1/2/1" in mixed[0]
     assert not _errors("transceiver_mode_support", "13_transceiver_placement.yml")
-
-
-def test_two_optics_in_one_port_are_refused_though_no_file_under_demo_holds_that() -> None:
-    """The half of `transceiver_placement` that no scenario reaches.
-
-    `demo/13_transceiver_placement.yml` demonstrates the port kind, which is one
-    of the two rules the check owns. The other is the duplicate, and it is the
-    one a uniqueness constraint would have taken had `port` been mandatory, so
-    leaving it to a branch nobody wrote is how it would quietly stop working.
-    The payload is the shipped one with a shelved unit re-pointed at an occupied
-    port, which is exactly the state the constraint cannot refuse.
-    """
-    built = copy.deepcopy(payload("transceiver_placement", None))
-    edges = built["OtnTransceiver"]["edges"]
-    fitted = next(edge for edge in edges if edge["node"]["port"]["node"])
-    shelved = next(edge for edge in edges if not edge["node"]["port"]["node"])
-    shelved["node"]["port"] = {"node": dict(fitted["node"]["port"]["node"])}
-
-    check = _check_class("transceiver_placement")(branch="scenario-sweep")
-    check.validate(built)
-    errors = [str(log["message"]) for log in check.logs if log["level"] == "ERROR"]
-
-    assert len(errors) == 1, f"one port claimed twice gave {len(errors)} findings: {errors}"
-    for serial in (fitted["node"]["serial"]["value"], shelved["node"]["serial"]["value"]):
-        assert serial in errors[0], f"the finding does not name {serial}: {errors[0]}"
 
 
 def test_the_mode_check_says_how_many_wavelengths_it_judged_and_how_many_it_skipped() -> None:

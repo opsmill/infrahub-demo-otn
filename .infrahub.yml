@@ -104,9 +104,9 @@ queries:
   - name: transceiver_placement
     file_path: "./queries/transceiver_placement.gql"
   # Two collections, carriers and transceivers, joined in Python on the port id.
-  # OtnTransceiver.port is declared on the transceiver alone, so a line port
-  # cannot be asked what is fitted in it, and the reverse edge is refused for the
-  # reason above: it would land on all eight optical port kinds.
+  # OtnLinePort now declares the inverse of OtnTransceiver.port, so a nested
+  # selection is available and this query has not been reshaped onto it: that is
+  # a change with its own payload shape and its own test, and it is not this one.
   - name: transceiver_mode_support
     file_path: "./queries/transceiver_mode_support.gql"
   # Rooted on OtnFiberSpan and unfiltered, because the check has to say how many
@@ -302,21 +302,20 @@ check_definitions:
   - name: attenuator_range
     file_path: "./checks/attenuator_range.py"
     class_name: AttenuatorRangeCheck
-  # Global, because an absence is not an edit and because the duplicate case is
-  # a property of a pair. A change that fits a module in a port another module
-  # already claims touches one of the two records, and a targeted check handed
-  # that one alone cannot see the other.
+  # Global, because an absence is not an edit. A change that moves a module into
+  # a port with no cage touches the module and not the port, and a targeted
+  # check bound to the edited objects reads the branch the same way either way.
   #
   # No `query:` key, per the note at the top of this section. The class binds it
   # with `query = "transceiver_placement"`.
   #
-  # It owns both halves, and the schema was tried on both. A uniqueness
-  # constraint on `port` is accepted only where the relationship is mandatory,
-  # and a mandatory port leaves a spare, an RMA and a decommissioned unit
-  # unmodellable. Restricting the port kind needs a reverse edge on
-  # OtnOpticalPort, and a relationship to a generic cannot be filtered by peer
-  # kind, so that edge would land on the five port kinds that never hold a
-  # module.
+  # It owns one half, the port kind, and the schema owns the other. Two modules
+  # in one port is refused at write time: OtnLinePort, OtnClientPort and
+  # OtnRouterPort each declare a cardinality-one transceiver on the
+  # otn_optical_port__transceiver identifier, so both ends of the edge are
+  # cardinality one. The port kind cannot follow it there, because
+  # OtnTransceiver.port peers a generic and a relationship to a generic cannot
+  # be filtered by peer kind.
   - name: transceiver_placement
     file_path: "./checks/transceiver_placement.py"
     class_name: TransceiverPlacementCheck

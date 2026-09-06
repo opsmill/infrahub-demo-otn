@@ -1269,3 +1269,66 @@ def test_no_port_kind_but_the_line_port_carries_a_carrier() -> None:
                     continue
                 names = {item["name"] for item in node.get("relationships") or []}
                 assert "carrier" not in names, f"{kind} declares a carrier relationship, only OtnLinePort may"
+
+
+def test_a_port_holds_one_module_because_both_ends_of_the_edge_are_cardinality_one() -> None:
+    """The rule `transceiver_placement` used to carry in Python.
+
+    `OtnTransceiver.port` and the `transceiver` on each caged port kind share the
+    `otn_optical_port__transceiver` identifier, so the two sides are one edge
+    rather than two phantom one-way links. Both ends are cardinality one, which
+    is what makes the second module in a port a write the server refuses:
+
+        Node 18d19871-0d7f-6758-306b-1188b66bb9eb has 2 peers for
+        otn_optical_port__transceiver, maximum of 1 allowed
+
+    Optional on both sides, so a spare, an RMA and a decommissioned unit stay
+    modellable and no loaded port needs a value. That optionality is why a
+    `uniqueness_constraints` on `port` was refused: Infrahub takes one only on a
+    mandatory relationship.
+    """
+    unit_side = _relationship("OtnTransceiver", "port")
+    assert unit_side["identifier"] == "otn_optical_port__transceiver"
+    assert unit_side["cardinality"] == "one"
+    assert unit_side["optional"] is True
+
+    for kind in ("OtnLinePort", "OtnClientPort", "OtnRouterPort"):
+        port_side = _relationship(kind, "transceiver")
+        assert port_side["peer"] == "OtnTransceiver"
+        assert port_side["identifier"] == "otn_optical_port__transceiver", (
+            f"{kind}.transceiver is on a different identifier from OtnTransceiver.port, so the two sides are "
+            f"two one-way links and neither end limits the other"
+        )
+        assert port_side["cardinality"] == "one", (
+            f"{kind}.transceiver is cardinality {port_side['cardinality']}, so the port would accept a second "
+            f"module and the rule this replaced would be enforced nowhere"
+        )
+        assert port_side["optional"] is True
+        assert port_side["kind"] == "Attribute"
+        assert port_side["on_delete"] == "no-action"
+
+
+def test_only_the_three_caged_port_kinds_carry_a_transceiver() -> None:
+    """Not on `OtnOpticalPort`, and not on the five kinds that hold no module.
+
+    The generic is inherited by all eight optical port kinds, five of which are
+    fixed interfaces on the equipment. A field they can never fill invites a null
+    check and lets a write record a pluggable in an amplifier port with the
+    schema's blessing. Declaring the edge on the three concrete kinds gives the
+    field to exactly the kinds that have a cage.
+    """
+    caged = {"OtnLinePort", "OtnClientPort", "OtnRouterPort"}
+    port_generics = ("OtnGenericPort", "OtnOpticalPort")
+    for _, document in _load_documents():
+        for group in ("generics", "nodes"):
+            for node in document.get(group) or []:
+                kind = f"{node['namespace']}{node['name']}"
+                if kind in caged:
+                    continue
+                inherited = set(node.get("inherit_from") or [])
+                if kind not in port_generics and not inherited & set(port_generics):
+                    continue
+                names = {item["name"] for item in node.get("relationships") or []}
+                assert "transceiver" not in names, (
+                    f"{kind} declares a transceiver relationship, and only the three port kinds with a cage may"
+                )

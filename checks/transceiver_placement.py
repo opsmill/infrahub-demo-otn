@@ -1,27 +1,23 @@
-"""A pluggable optic is in a port that can hold one, and no port holds two.
+"""A pluggable optic is in a port that can hold one.
 
 Reads every `OtnTransceiver` with the port it names. A module goes in a line, a
 client or a router port, because those are the kinds with a cage; an amplifier
 port, a ROADM degree or add/drop port and both multiplexer port kinds are fixed
-optical interfaces on the equipment and take no module. The second rule is
-plainer still: one cage holds one optic, so two units naming one port means one
-of the two records is stale.
+optical interfaces on the equipment and take no module.
 
-**The schema took neither half, and the check must not be narrowed on the
-assumption that it did.** Both were tried. `uniqueness_constraints: [["port"]]`
-is the native answer to a duplicate and Infrahub accepts it only where the
-relationship is mandatory: with `optional: true` the load is refused with
-"cannot use port relationship, relationship must be mandatory". Making `port`
-mandatory buys the constraint and costs the ability to hold an unfitted optic,
-which is a spare, an RMA and a decommissioned unit, and is most of what an optic
-inventory is for. The constraint is available and it is the wrong trade.
+**The schema took the other half, two modules in one port, and this check must
+not be widened back over it.** `OtnLinePort`, `OtnClientPort` and
+`OtnRouterPort` each declare a cardinality-one `transceiver` on the
+`otn_optical_port__transceiver` identifier, which is the identifier
+`OtnTransceiver.port` already used. Both ends of the edge are cardinality one,
+so the server refuses the second write: "has 2 peers for
+otn_optical_port__transceiver, maximum of 1 allowed". A check half that can
+never fail is worse than no check, because a green result reads as evidence.
 
-The port kind is the other half, and it is refused for a different reason. A
-reverse edge on `OtnOpticalPort` would let the schema carry the restriction,
-except that a relationship to a generic cannot be filtered by peer kind, so the
-field would land on all eight optical port kinds including the five that never
-hold a module. The edge is declared on the transceiver alone and this check is
-the only thing between a pluggable and an amplifier port.
+The port kind is what the schema cannot take, and it is all this check owns.
+`OtnTransceiver.port` peers the generic `OtnOpticalPort`, a relationship to a
+generic cannot be filtered by peer kind, and a module written into an amplifier
+port or a ROADM degree port is accepted.
 
 Silent about a transceiver with no port, and the count of them is reported as
 info. That unit is on a shelf, and a shelf is what the optional relationship
@@ -32,7 +28,6 @@ Silent about the cage. A part carries a `form_factor` and a port does not, so
 this check must not pretend to.
 """
 
-from collections.abc import Iterable
 from typing import Any
 
 from infrahub_sdk.checks import InfrahubCheck
@@ -57,7 +52,6 @@ class TransceiverPlacementCheck(InfrahubCheck):
     def validate(self, data: dict[str, Any]) -> None:
         examined = 0
         fitted = 0
-        occupants: dict[str, list[dict[str, Any]]] = {}
 
         for unit in nodes_of(data, TRANSCEIVER):
             examined += 1
@@ -65,14 +59,9 @@ class TransceiverPlacementCheck(InfrahubCheck):
             if port is None:
                 continue
             fitted += 1
-            occupants.setdefault(str(port.get("id") or ""), []).append(unit)
             kind = str(port.get("__typename") or "")
             if kind not in CAGED_PORT_KINDS:
                 self._wrong_kind(unit, port, kind)
-
-        for units in occupants.values():
-            if len(units) > 1:
-                self._shared_port(units)
 
         self._summarise(examined, fitted)
 
@@ -88,21 +77,6 @@ class TransceiverPlacementCheck(InfrahubCheck):
             object_type=str(unit.get("__typename", "")),
         )
 
-    def _shared_port(self, units: list[dict[str, Any]]) -> None:
-        """Two records claiming one cage."""
-        port = _port(units[0]) or {}
-        self.log_error(
-            message=(
-                f"{_where(port)} holds {_listed(sorted(_serial(unit) for unit in units))} at once. One cage "
-                f"takes one module, so at least one of these records is stale, and nothing on either of them "
-                f"says which. No uniqueness constraint can refuse this: Infrahub accepts one on the port "
-                f"relationship only where the relationship is mandatory, and a mandatory port leaves a spare "
-                f"unmodellable"
-            ),
-            object_id=str(units[0].get("id", "")),
-            object_type=str(units[0].get("__typename", "")),
-        )
-
     def _summarise(self, examined: int, fitted: int) -> None:
         """One INFO line stating what was judged and what was left alone."""
         if not examined:
@@ -112,8 +86,8 @@ class TransceiverPlacementCheck(InfrahubCheck):
             message=(
                 f"{examined} transceiver(s) examined, {fitted} of them fitted in a port and judged, "
                 f"{examined - fitted} on a shelf and not judged. An unfitted unit is a spare, an RMA or a "
-                f"decommissioned module, and holding one is why the port relationship is optional. That "
-                f"optionality is also why the duplicate rule is here rather than in the schema"
+                f"decommissioned module, and holding one is why the port relationship is optional. Two "
+                f"modules in one port is not judged here: the schema refuses that write"
             )
         )
 
@@ -144,11 +118,3 @@ def _part(unit: dict[str, Any]) -> str:
 
 def _serial(unit: dict[str, Any]) -> str:
     return str(unit.get("serial") or "an unserialled unit")
-
-
-def _listed(items: Iterable[str]) -> str:
-    """`a`, `a and b`, `a, b and c`. Formatting only."""
-    names = list(items)
-    if len(names) < 2:
-        return names[0] if names else "nothing"
-    return f"{', '.join(names[:-1])} and {names[-1]}"

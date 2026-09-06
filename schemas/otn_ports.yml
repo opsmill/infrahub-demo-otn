@@ -127,6 +127,30 @@ nodes:
             color: "#9e9e9e"
         optional: true
         order_weight: 1900
+    relationships:
+      # The module fitted in this port, and the inverse of OtnTransceiver.port.
+      # Both ends are cardinality one, so the edge is one to one: the server
+      # refuses the second write with "has 2 peers for
+      # otn_optical_port__transceiver, maximum of 1 allowed". That is the
+      # duplicate rule, and it is here rather than in a check because the schema
+      # refuses every write path and a check only reports on the next pipeline
+      # run.
+      #
+      # Declared on the three concrete kinds that have a cage and never on the
+      # OtnOpticalPort generic. The generic would hand the field to all eight
+      # optical port kinds, including the five that hold no module.
+      #
+      # Optional on both sides, so a spare, an RMA and a decommissioned unit are
+      # still modellable and no loaded port needs a value.
+      - name: transceiver
+        peer: OtnTransceiver
+        label: Module fitted in this port
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_optical_port__transceiver
+        on_delete: no-action
+        order_weight: 960
 
   - name: ClientPort
     namespace: Otn
@@ -179,6 +203,18 @@ nodes:
             color: "#9e9e9e"
         optional: true
         order_weight: 1900
+    relationships:
+      # The same one-to-one edge OtnRouterPort.transceiver documents, on the
+      # kind that takes a grey pluggable on the transponder side.
+      - name: transceiver
+        peer: OtnTransceiver
+        label: Module fitted in this port
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_optical_port__transceiver
+        on_delete: no-action
+        order_weight: 960
 
   - name: LinePort
     namespace: Otn
@@ -280,6 +316,17 @@ nodes:
         identifier: otn_carrier__line_ports
         on_delete: no-action
         order_weight: 850
+      # The same one-to-one edge OtnRouterPort.transceiver documents, on the
+      # kind that takes a coloured pluggable on the line side.
+      - name: transceiver
+        peer: OtnTransceiver
+        label: Module fitted in this port
+        kind: Attribute
+        cardinality: one
+        optional: true
+        identifier: otn_optical_port__transceiver
+        on_delete: no-action
+        order_weight: 960
 
   - name: RoadmAddDropPort
     namespace: Otn
@@ -890,13 +937,19 @@ nodes:
       # Optional, and therefore carrying no uniqueness constraint. Infrahub
       # refuses a constraint on an optional relationship, and making this one
       # mandatory would leave a spare, an RMA and a decommissioned unit
-      # unmodellable, which is most of what an optic inventory holds. The
-      # transceiver_placement check owns both the duplicate and the port kind
-      # that cannot take a pluggable.
+      # unmodellable, which is most of what an optic inventory holds.
       #
-      # No inverse on OtnOpticalPort. A relationship to a generic cannot be
-      # filtered by peer kind, so the reverse side would put a transceiver field
-      # on amplifier and degree ports that never hold one.
+      # The duplicate is refused anyway, by the inverse rather than by a
+      # constraint. OtnLinePort, OtnClientPort and OtnRouterPort each declare a
+      # cardinality-one `transceiver` on this identifier, so both ends of the
+      # edge are cardinality one and the second module in a port is refused at
+      # write time. The inverse is on those three concrete kinds and not on the
+      # OtnOpticalPort generic, which would have handed the field to the five
+      # port kinds that hold no module.
+      #
+      # The port kind stays with the transceiver_placement check. This peers the
+      # generic, and a relationship to a generic cannot be filtered by peer
+      # kind, so the schema accepts a module written into an amplifier port.
       - name: port
         peer: OtnOpticalPort
         label: Port this unit is fitted in

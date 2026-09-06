@@ -465,9 +465,8 @@ with nothing to plug a module into.
 runs into from another direction. `OtnTransceiver.port` peers the
 `OtnOpticalPort` generic, and a relationship to a generic cannot be filtered by
 the kind of its peers. So the schema can offer the field or withhold it, and it
-cannot say "any of these three kinds and none of the other five". Declaring the
-reverse edge on the port instead would put a transceiver field on amplifier and
-ROADM degree ports that never hold one.
+cannot say "any of these three kinds and none of the other five". The port kind
+is the one thing this check is left holding.
 
 The check **fails**, with exactly one finding:
 
@@ -483,18 +482,28 @@ The same run says what it judged:
 ```text
 9 transceiver(s) examined, 6 of them fitted in a port and judged, 3 on a shelf
 and not judged. An unfitted unit is a spare, an RMA or a decommissioned module,
-and holding one is why the port relationship is optional. That optionality is
-also why the duplicate rule is here rather than in the schema
+and holding one is why the port relationship is optional. Two modules in one
+port is not judged here: the schema refuses that write
 ```
 
-**The other half of this check has no branch, and the reason is measured.** A
-port holding two optics is what `uniqueness_constraints: [["port"]]` exists for,
-and Infrahub accepts that constraint only where the relationship is mandatory:
-with `optional: true` the schema load is refused outright. Making the port
-mandatory buys the constraint and costs the ability to hold an unfitted optic,
-which is three of the nine units here and most of what an optic inventory is
-for. The constraint is available and it is the wrong trade, so the duplicate
-rule sits in the check beside the port kind.
+**A port holding two optics has no branch, because the server refuses to build
+one.** `OtnLinePort`, `OtnClientPort` and `OtnRouterPort` each declare a
+cardinality-one `transceiver` on the same `otn_optical_port__transceiver`
+identifier `OtnTransceiver.port` uses, so both ends of the edge are cardinality
+one and the second module is rejected at write time:
+
+```text
+Node 18d19871-0d7f-6758-306b-1188b66bb9eb has 2 peers for
+otn_optical_port__transceiver, maximum of 1 allowed
+```
+
+That rule used to live in this check. `uniqueness_constraints: [["port"]]` was
+tried first and Infrahub accepts it only where the relationship is mandatory,
+and a mandatory port leaves a spare, an RMA and a decommissioned unit with
+nowhere to sit, which is three of the nine units here. The reverse edge buys the
+same refusal at no such cost, and it is declared on the three concrete kinds
+with a cage rather than on the `OtnOpticalPort` generic, which would have handed
+the field to the five kinds that hold no module.
 
 **A second check speaks on this branch and blocks nothing.** Pulling the module
 out of `rtr-bru-01 1/2/1` leaves `oc-ch003-ams-bru` with a pluggable at one end

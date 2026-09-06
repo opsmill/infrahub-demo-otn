@@ -13,9 +13,10 @@
 # reaches its port through a relationship peering the `OtnOpticalPort` generic,
 # and a relationship to a generic cannot be filtered by peer kind. So the schema
 # can offer the field or withhold it and cannot say "any of these three kinds
-# and none of the other five". The alternative, declaring the reverse edge on
-# the port, would put a transceiver field on amplifier and ROADM degree ports
-# that never hold one.
+# and none of the other five". The port kind is the one rule this check is left
+# holding: a second module in one port is refused by the server, because the
+# three concrete port kinds declare a cardinality-one `transceiver` on the same
+# identifier.
 #
 # The check **fails**, with exactly one finding:
 #
@@ -29,8 +30,8 @@
 #     9 transceiver(s) examined, 6 of them fitted in a port and judged, 3 on a
 #     shelf and not judged. An unfitted unit is a spare, an RMA or a
 #     decommissioned module, and holding one is why the port relationship is
-#     optional. That optionality is also why the duplicate rule is here rather
-#     than in the schema
+#     optional. Two modules in one port is not judged here: the schema refuses
+#     that write
 #
 # **A second check speaks on this branch, and it is the reason the module moved
 # rather than a spare being fitted somewhere wrong.** Pulling `ZRP-BRU-01` out

@@ -19,8 +19,11 @@
 # listed, including the five that cannot hold a module, because those five are
 # exactly the ones a finding has to name.
 #
-# `id` on the port as well as its name, because two records claiming one port
-# are compared on identity rather than on a formatted string.
+# No `id` on the port. It was here so two records claiming one port could be
+# compared on identity, and that comparison has moved into the schema: the three
+# concrete port kinds declare a cardinality-one `transceiver` on the
+# `otn_optical_port__transceiver` identifier, so the server refuses the second
+# module rather than the check reporting it afterwards.
 #
 # `id` and `__typename` on the transceiver, because `log_error` takes both and
 # every finding names the unit it is about.
@@ -45,7 +48,6 @@ query TransceiverPlacement {
         }
         port {
           node {
-            id
             __typename
             ... on OtnLinePort {
               name {
