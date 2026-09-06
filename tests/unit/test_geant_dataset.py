@@ -188,12 +188,14 @@ def test_the_inventory_the_installation_page_promises_is_what_loads() -> None:
         "OtnReceiverMonitor",
     )
     total = sum(len((document.get("spec") or {}).get("data") or []) for document in object_documents())
-    assert total == 2448, "the pages say the load is 2344 objects, and this is the figure that moved them"
+    assert total == 2452, "the pages say the load is 2344 objects, and this is the figure that moved them"
     assert sum(len(objects_of_kind(kind)) for kind in devices) == 441, "the pages say 441 devices"
     # The two mux port kinds are absent from this tuple and from
     # `LEDGER_PORT_KINDS` in tests/unit/test_doc_claims.py, which is its twin.
     # The 104 of them are in the object total above; the port figure moves when
-    # both tuples move together.
+    # both tuples move together. The two attenuator kinds are absent from the
+    # device tuple on the same terms: the four of them are in the object total
+    # and the device figure moves when this tuple and its twin move together.
     assert sum(len(objects_of_kind(kind)) for kind in ports) == 1490, "the pages say 1490 ports"
 
 

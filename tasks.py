@@ -90,6 +90,7 @@ CHECKS = (
     "monitor_completeness",
     "carrier_termination",
     "mux_channel_binding",
+    "attenuator_range",
 )
 
 DEMO_BRANCH = "demo"
@@ -105,6 +106,7 @@ OEO_CLOSED_BRANCH = "oeo-closed"
 DIVERSITY_BRANCH = "diversity-demo"
 MONITOR_GAP_BRANCH = "monitor-gap"
 MUX_BINDING_BRANCH = "mux-binding"
+ATTENUATOR_RANGE_BRANCH = "attenuator-range"
 
 DEMO_SERVICES = (
     "svc-ber-ams-400g",
@@ -216,6 +218,12 @@ SCENARIO_BRANCHES: tuple[ScenarioBranch, ...] = (
         branch=MUX_BINDING_BRANCH,
         files=("demo/11_mux_channel_binding.yml",),
         check="mux_channel_binding",
+    ),
+    ScenarioBranch(
+        task="demo-attenuator-range",
+        branch=ATTENUATOR_RANGE_BRANCH,
+        files=("demo/12_attenuator_range.yml",),
+        check="attenuator_range",
     ),
 )
 
@@ -582,6 +590,7 @@ TASK_GROUPS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
             "demo-diversity",
             "demo-monitor-gap",
             "demo-mux-binding",
+            "demo-attenuator-range",
             "demo-clean",
         ),
         (),
@@ -1834,6 +1843,32 @@ def demo_mux_binding(context: Context, branch: str = MUX_BINDING_BRANCH) -> None
         "  mux line port binds no channel by design, and a dense binding is compared\n"
         "  against nothing, because the graph holds no dense equivalent of\n"
         "  cwdm_channels. No other check moves on this branch."
+    )
+    _next_step("demo-attenuator-range")
+
+
+@task
+def demo_attenuator_range(context: Context, branch: str = ATTENUATOR_RANGE_BRANCH) -> None:
+    """A VOA asked for more attenuation than it has, and the check that says so.
+
+    The record loads, because the schema owns the absolute range and not the
+    per-device one: 24.0 dB is inside the 0 to 30 dB the attribute allows, and
+    "not more than this device's own maximum" is a sibling attribute's value
+    that no cross-attribute constraint can reach.
+    """
+    _banner("The attenuator dialled past its own maximum", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-attenuator-range")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  One finding. voa-mil-01 is set to 24.000 dB and can produce 20.000 dB,\n"
+        "  so the device sits at its stop and the plant delivers 4.000 dB more power\n"
+        "  than the record claims. The same run says what it judged: both variable\n"
+        "  attenuators, neither of them at exactly its maximum, which would pass\n"
+        "  because the bound is inclusive. The two fixed pads are not judged and\n"
+        "  have no range to judge. No other check moves on this branch."
     )
     _next_step("demo-clean")
 

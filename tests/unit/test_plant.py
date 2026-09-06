@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 
 from infrahub_demo_otn import plant
+from infrahub_demo_otn.budget import flatten_path
 from infrahub_demo_otn.plant import (
     build_span,
     carriers_from_graphql,
@@ -855,3 +856,89 @@ def test_a_carrier_can_be_excluded_from_its_own_occupancy() -> None:
     excluded = plant.occupancy_from_graphql(payload, exclude={"oc-svc-ber-ams-400g"})
     assert "oms-ham-ber" not in excluded
     assert [item.channel for item in excluded["oms-fra-mil"]] == [2]
+
+
+# ---------------------------------------------------------------------------
+# Attenuators on a path
+# ---------------------------------------------------------------------------
+
+ATTENUATOR_CASES = (
+    ("OtnFixedAttenuator", "pad-ams-01", 0, 5_000),
+    ("OtnVariableAttenuator", "voa-mil-01", 1_000, 3_000),
+)
+"""Both kinds, with the figures the shipped dataset racks them at.
+
+A pad carries its whole loss in `attenuation_mdb` and leaves the inherited
+`insertion_loss_mdb` at zero; a VOA costs a decibel of its own before it is
+dialled anywhere. The two rows are the two shapes the sum has to handle.
+"""
+
+
+def attenuator_node(kind: str, name: str, insertion_loss_mdb: int, attenuation_mdb: int) -> dict[str, Any]:
+    """One attenuator in the shape a query returns it.
+
+    `max_attenuation_mdb` is on the variable row and only there, because the
+    fixed kind has no such attribute. It is present so this test would catch the
+    engine reaching for it: range is not loss, and a sum that included it would
+    charge a device for travel it is not using.
+    """
+    node: dict[str, Any] = {
+        "__typename": kind,
+        "name": {"value": name},
+        "insertion_loss_mdb": {"value": insertion_loss_mdb},
+        "attenuation_mdb": {"value": attenuation_mdb},
+    }
+    if kind == "OtnVariableAttenuator":
+        node["max_attenuation_mdb"] = {"value": 20_000}
+    return node
+
+
+@pytest.mark.parametrize(("kind", "name", "insertion_loss_mdb", "attenuation_mdb"), ATTENUATOR_CASES)
+def test_an_attenuator_hop_costs_its_insertion_loss_plus_its_setting_and_no_more(
+    kind: str, name: str, insertion_loss_mdb: int, attenuation_mdb: int
+) -> None:
+    """The one element whose hop costs more than the device does.
+
+    Asserted as an equality against the sum rather than as "more than the
+    insertion loss", because the failure worth catching is a third term: the
+    variable kind's `max_attenuation_mdb` is range and not loss, and nothing may
+    fold it in. The pad row is the other half of the same claim, where the
+    device's own loss is zero and the setting is the whole figure.
+    """
+    node = plant.build_node(unwrap(attenuator_node(kind, name, insertion_loss_mdb, attenuation_mdb)))
+
+    assert node.name == name
+    assert node.insertion_loss_mdb == insertion_loss_mdb
+    assert node.attenuation_mdb == attenuation_mdb
+    assert node.loss_mdb == insertion_loss_mdb + attenuation_mdb
+
+
+@pytest.mark.parametrize(("kind", "name", "insertion_loss_mdb", "attenuation_mdb"), ATTENUATOR_CASES)
+def test_a_path_through_an_attenuator_charges_the_sum_once_and_nothing_else(
+    kind: str, name: str, insertion_loss_mdb: int, attenuation_mdb: int
+) -> None:
+    """The same claim at path level, which is where a second charge would show.
+
+    One section is flattened twice: once with an ordinary 7.0 dB ROADM at its
+    head and once with the attenuator there instead. Every other element is
+    identical, so the difference between the two path losses is exactly what
+    swapping the head node did, and it has to be the attenuator's own sum less
+    the ROADM's. Summing the flattened path rather than reading one hop is what
+    makes this an assertion about charging once.
+    """
+
+    def path_loss(head: dict[str, Any]) -> int:
+        section = plant.build_section(
+            name="oms-fra-mil",
+            head=unwrap(head),
+            tail=unwrap(roadm_node("roadm-fra-01")),
+            spans=[(unwrap(span_node("span-a", 1, 70_000)), unwrap(FIBER))],
+            amplifiers_a2b=[unwrap(amplifier_node("amp-t-01", 1)), unwrap(amplifier_node("amp-t-03", 2))],
+            amplifiers_b2a=[unwrap(amplifier_node("amp-t-02", 1)), unwrap(amplifier_node("amp-t-04", 2))],
+        )
+        elements = flatten_path([section], str(unwrap(head)["name"]))
+        return sum(element.loss_mdb for element in elements)
+
+    swapped = path_loss(attenuator_node(kind, name, insertion_loss_mdb, attenuation_mdb))
+    plain = path_loss(roadm_node("roadm-mil-01"))
+    assert swapped - plain == insertion_loss_mdb + attenuation_mdb - 7_000

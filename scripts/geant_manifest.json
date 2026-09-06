@@ -8,6 +8,7 @@
   "OtnContainer": 40,
   "OtnFacility": 6,
   "OtnFiberSpan": 133,
+  "OtnFixedAttenuator": 2,
   "OtnLinePort": 120,
   "OtnMuxClientPort": 88,
   "OtnMuxDemux": 16,
@@ -28,5 +29,6 @@
   "OtnRouterPort": 40,
   "OtnSite": 15,
   "OtnTransponder": 59,
-  "OtnTributaryPort": 8
+  "OtnTributaryPort": 8,
+  "OtnVariableAttenuator": 2
 }

@@ -159,7 +159,7 @@ def merged(file_name: str | None = None) -> View:
 def scenario_files() -> tuple[str, ...]:
     """Every file under `demo/`, discovered rather than listed.
 
-    Listed is how a thirteenth scenario ships unswept.
+    Listed is how a fourteenth scenario ships unswept.
     """
     return tuple(sorted(path.name for path in DEMO_DIR.glob("*.yml")))
 

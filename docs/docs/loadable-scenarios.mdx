@@ -4,7 +4,7 @@ title: Loadable scenarios and the runbook
 
 # Loadable scenarios and the runbook
 
-Three pairs of scenarios and two singles, one task each, then the runbook that
+Three pairs of scenarios and three singles, one task each, then the runbook that
 walks the whole demo in narrative order, then how to put the default branch back.
 Each task makes its own branch, loads its own scenario input and runs its own
 check, so nothing here asks you for a branch name. Every number below is produced
@@ -384,6 +384,66 @@ lights no wavelength on its own, carries no service and changes no channel
 count, so `channel_count_consistency`, `container_capacity`, `diversity`,
 `provisionable` and `carrier_termination` all read the branch exactly as they
 read the default one.
+
+## One loadable scenario for the attenuator range
+
+The third single, and the smallest question on this page: two numbers on one
+device, and the comparison between them that no schema constraint can make.
+
+```bash
+uv run invoke demo-attenuator-range
+```
+
+**`demo/12_attenuator_range.yml`, a VOA asked for more than it has.**
+`voa-mil-01` is a 20.0 dB variable attenuator on the add stage at Milan, and the
+file restates it at 24.0 dB. Every other field is the figure the dataset already
+ships, so the setting is the only difference between this record and the racked
+device.
+
+**The load succeeds**, and the split is the point. `attenuation_mdb` carries
+`min_value: 0` and `max_value: 30000`, so the schema refuses a physically
+impossible figure at write time, from an object file, the API, the UI or a hand
+edit during a demo. 24,000 is inside that. What the schema cannot say is "not
+more than this device's own maximum", because that bound is a sibling
+attribute's value and Infrahub has no cross-attribute constraint. The schema
+takes the half it can and the check takes the one comparison left over.
+
+The check **fails**, with exactly one finding:
+
+```text
+voa-mil-01 is set to 24.000 dB and can produce 20.000 dB. The device will sit at
+its stop instead, so the plant delivers 4.000 dB more power than this record
+says it does and every budget computed from it is optimistic by that much
+```
+
+The same run says what it judged:
+
+```text
+2 variable attenuator(s) judged against their own maximum, 0 of them dialled to
+exactly that maximum and passing, because the bound is inclusive. Fixed pads are
+not judged here and carry no range to judge: the absolute 0 to 30 dB limit is a
+schema constraint on both kinds and is refused at write time
+```
+
+**The bound is inclusive.** A VOA sitting exactly at its maximum is at the end
+of its travel and is still a setting the device can hold, so equality passes.
+The demo dials past the stop rather than to it, because a scenario that turned
+on an off-by-one would be about the check's arithmetic rather than about the
+network.
+
+**Negative result: the fixed pads cannot be judged at all.** The two pads at the
+ends of the CWDM tail have no `max_attenuation_mdb`, and that is the whole
+reason the attenuator is two kinds rather than one: a pad with a range is not a
+value to validate, it is a field that should not exist. The check reports that it
+did not judge them rather than counting them as passes, because a green result
+over something nobody looked at reads as evidence.
+
+**Negative result: no other check moves on this branch.** An attenuator lights
+no wavelength, carries no service, holds no channel and has no ports, so
+`osnr_margin`, `channel_count_consistency`, `container_capacity`, `diversity`,
+`provisionable`, `carrier_termination` and `mux_channel_binding` all read the
+branch exactly as they read the default one. The one figure it would move is a
+link budget, and no optical path in this dataset runs through an attenuator yet.
 
 ## The runbook
 

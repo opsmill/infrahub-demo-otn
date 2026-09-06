@@ -155,7 +155,7 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         task="check",
         tier="stack",
         invocations=("--name units_import", ""),
-        postcondition="the named form reports that one check; the bare form names all ten in `CHECKS`",
+        postcondition="the named form reports that one check; the bare form names all eleven in `CHECKS`",
     ),
     # ------------------------------------------------------------------ #
     # Tests
@@ -316,6 +316,15 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         invocations=("",),
         postcondition=(
             "`mux-binding` holds both broken client ports and `check mux_channel_binding` reports one finding for each"
+        ),
+    ),
+    CoverageRecord(
+        task="demo-attenuator-range",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`attenuator-range` holds voa-mil-01 at 24 dB against a 20 dB maximum and "
+            "`check attenuator_range` reports that one finding"
         ),
     ),
     # ------------------------------------------------------------------ #

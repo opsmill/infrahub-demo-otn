@@ -89,6 +89,12 @@ queries:
   # generic and cannot be filtered by the kind of its peers.
   - name: mux_channel_binding
     file_path: "./queries/mux_channel_binding.gql"
+  # Rooted on OtnVariableAttenuator alone. The fixed kind is not queried because
+  # it has no max_attenuation_mdb to read: the two kinds were split so the field
+  # would not exist where it means nothing, and a query cannot select a field a
+  # kind does not have.
+  - name: attenuator_range
+    file_path: "./queries/attenuator_range.gql"
 
 # Every `watch.files` list below this line is generated. Run
 # `uv run python scripts/generate_watch_lists.py` after any import changes under
@@ -136,7 +142,7 @@ generator_definitions:
 # whole file at sync. scripts/generate_watch_lists.py knows this and skips the
 # section.
 #
-# Ten checks, and one of the ten carries a name this file once recorded as
+# Eleven checks, and one of the eleven carries a name this file once recorded as
 # deleted. There was a monitor_completeness check here, and it asserted that a
 # monitor carried the readings its family reports and none it cannot take. Both
 # halves are now schema constraints: the readings are mandatory on each monitor
@@ -188,7 +194,7 @@ check_definitions:
   - name: diversity
     file_path: "./checks/diversity.py"
     class_name: DiversityCheck
-  # Global, and it is the sixth here rather than the fourth: none of the ten
+  # Global, and it is the sixth here rather than the fourth: none of the eleven
   # entries in this section declares `targets`, including the two above that say
   # nothing about it. The reason for this one is the shared one worded for a
   # single node: a proposed change may touch one service while a different
@@ -257,6 +263,21 @@ check_definitions:
   - name: mux_channel_binding
     file_path: "./checks/mux_channel_binding.py"
     class_name: MuxChannelBindingCheck
+  # Global, and this one for a plainer reason than the rest: the whole question
+  # is two fields of one node, so there is no pair to miss and no absence to
+  # notice. It is global because none of the entries in this section declares
+  # `targets`, and a targeted variant would buy nothing here.
+  #
+  # No `query:` key, per the note at the top of this section. The class binds it
+  # with `query = "attenuator_range"`.
+  #
+  # It owns exactly one half. The absolute 0 to 30 dB range is `min_value` and
+  # `max_value` on the attribute and is refused at write time; "not more than
+  # this device's own maximum" is a sibling attribute's value and Infrahub has
+  # no cross-attribute constraint, so that comparison is all this check does.
+  - name: attenuator_range
+    file_path: "./checks/attenuator_range.py"
+    class_name: AttenuatorRangeCheck
 
 python_transforms:
   - name: budget_report

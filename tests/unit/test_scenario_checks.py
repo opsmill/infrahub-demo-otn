@@ -114,6 +114,7 @@ _DEFAULT: dict[str, Outcome] = {
     "monitor_completeness": PASSES,
     "carrier_termination": PASSES,
     "mux_channel_binding": PASSES,
+    "attenuator_range": PASSES,
 }
 """What a scenario that adds services and containers and nothing else looks like.
 
@@ -206,6 +207,16 @@ _quiet(
 )
 
 _quiet(
+    "12_attenuator_range.yml",
+    attenuator_range=Fails(
+        1,
+        "`voa-mil-01` is restated at 24.0 dB against the 20.0 dB it can produce, which is the whole of the "
+        "file. One finding and not two: the other shipped VOA is untouched, and the two fixed pads carry no "
+        "range for the check to hold them against",
+    ),
+)
+
+_quiet(
     "90_fra_mil_saturated.yml",
     provisionable=NeedsGenerator(
         1,
@@ -262,11 +273,11 @@ def test_the_expectation_table_is_exactly_the_product_of_the_two_directories() -
     )
 
 
-def test_the_sweep_covers_thirteen_scenarios_and_ten_checks() -> None:
+def test_the_sweep_covers_fourteen_scenarios_and_eleven_checks() -> None:
     """The two numbers this module's docstring publishes, read back from the tree."""
-    assert len(SCENARIOS) == 13, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
-    assert len(CHECKS) == 10, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
-    assert len(CELLS) == 130
+    assert len(SCENARIOS) == 14, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
+    assert len(CHECKS) == 11, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
+    assert len(CELLS) == 154
 
 
 @pytest.mark.parametrize("check_name", CHECKS)
@@ -338,7 +349,7 @@ def test_a_needs_generator_cell_names_a_check_that_reads_a_generator_relationshi
 
 
 def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
-    """The default branch, run through all ten, against what the tree already asserts."""
+    """The default branch, run through all eleven, against what the tree already asserts."""
     verdicts = {name: len(_errors(name, None)) for name in CHECKS}
     with_services = {name: len(_errors(name, "00_services.yml")) for name in CHECKS}
     assert verdicts == with_services, (
@@ -354,6 +365,7 @@ def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
         "channel_collision",
         "carrier_termination",
         "mux_channel_binding",
+        "attenuator_range",
     ):
         assert verdicts[quiet] == 0, f"{quiet} fails the shipped plant, which nothing else in the suite says"
 

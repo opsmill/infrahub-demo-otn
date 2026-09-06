@@ -659,7 +659,17 @@ def test_a_default_a_page_states_is_the_default_the_task_carries() -> None:
 # What the pipeline registers
 # ---------------------------------------------------------------------------
 
-COUNTS = {"three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+COUNTS = {
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+}
 """The window of spellings the check-count patterns below accept.
 
 Wide enough that adding a check produces a failure naming the old word, rather

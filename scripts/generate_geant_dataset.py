@@ -326,6 +326,49 @@ CWDM_TAIL_MODEL = "M-CWDM4"
 """A four-channel thin-film filter, not the 40-channel AWG the PoPs carry."""
 
 # --------------------------------------------------------------------------
+# Seed table 6a: where the attenuators go, and why those four places.
+#
+# **The two VOAs sit on the add stage at Frankfurt and Milan.** A variable pad
+# is for trimming one channel's power where many transponders are combined into
+# one ROADM, and those two sites are where that combining is heaviest: every one
+# of the 40 carriers crosses `oms-fra-mil`, 37 wavelengths terminate at Milan
+# and 25 at Frankfurt, so no third site is close. A VOA anywhere else would be
+# an adjustment nobody makes.
+#
+# **The two pads sit at the ends of the CWDM tail.** A fixed pad has no range to
+# dial, so it belongs where the loss is known and stays put. 18.4 km with no
+# amplifier and a thin-film filter at each end is the one link modelled here
+# short enough to hand the receiver at the far end more power than it wants, and
+# a pad is what a metro build fits there rather than a VOA nobody re-dials.
+#
+# Neither kind is on an optical path in this dataset. Both would reach one
+# through `OtnPathHop.element` the way a fibre span does, and the budget engine
+# already adds `attenuation_mdb` to the inherited `insertion_loss_mdb` when it
+# meets either.
+# --------------------------------------------------------------------------
+VOA_SITES = ("fra", "mil")
+"""The two hub sites, by measurement rather than by preference."""
+
+VOA_ATTENUATION_MDB = 3000
+"""3.0 dB dialled in, well inside the range below.
+
+`attenuator_range` compares this against the maximum beside it, so a shipped
+setting at the top of the range would leave the check nothing to be right about
+on the default branch.
+"""
+
+VOA_MAX_ATTENUATION_MDB = 20000
+"""20.0 dB of range, which is an ordinary MEMS VOA and under the 30.0 dB the
+schema refuses outright."""
+
+FIXED_PAD_ATTENUATION_MDB = 5000
+"""5.0 dB, and `insertion_loss_mdb` stays 0 beside it.
+
+A pad's own loss beyond its rating is negligible, so a second figure here would
+be the same fact written twice and the budget engine would charge it twice.
+"""
+
+# --------------------------------------------------------------------------
 # Seed table 7: fixed values that are the same everywhere.
 # --------------------------------------------------------------------------
 FIBER_TYPE = "G.652.D"
@@ -356,6 +399,12 @@ DEVICE_PROFILE: dict[str, dict[str, Any]] = {
     # still applies to the incoming segment, which is why `budget.py`'s
     # `RegeneratorInput` leaves it out of any term spanning both segments.
     "OtnOduSwitch": {"insertion_loss_mdb": 0, "role": "core", "model": "X-ODU8"},
+    # A VOA's own optics cost about a decibel before it is dialled anywhere, and
+    # `attenuation_mdb` is what is added on top. A pad stays at zero here and
+    # carries its whole figure in `attenuation_mdb`, because its rating is its
+    # loss and splitting one number across two fields charges it twice.
+    "OtnVariableAttenuator": {"insertion_loss_mdb": 1000, "role": "passive", "model": "V-VOA20"},
+    "OtnFixedAttenuator": {"insertion_loss_mdb": 0, "role": "passive", "model": "F-PAD5"},
     # No insertion loss, no vendor and no model: all three live on
     # OtnOpticalElement, which OtnRouter does not inherit because light
     # terminates at a router. One inheritance left off, three attributes gone
@@ -1249,6 +1298,9 @@ def build_devices() -> dict[str, list[dict[str, Any]]]:
 
     devices["OtnMuxDemux"].extend(_cwdm_tail_multiplexers())
 
+    for kind, records in _attenuators().items():
+        devices[kind].extend(records)
+
     # Two chains per section, one per direction of travel, N+1 amplifiers each.
     # An amplifier hut is bidirectional and this model gives each direction its
     # own object, so the hut at position 3 of a nine-span section is two records
@@ -1269,6 +1321,35 @@ def build_devices() -> dict[str, list[dict[str, Any]]]:
     devices["OtnRamanPump"].extend(build_raman_pumps())
 
     return {kind: sorted(records, key=lambda record: str(record["name"])) for kind, records in devices.items()}
+
+
+def _attenuators() -> dict[str, list[dict[str, Any]]]:
+    """The four attenuators, each racked where seed table 6a says and why.
+
+    A VOA at each hub ROADM, where many transponders are combined and one
+    channel's power is the thing an operator actually trims. A fixed pad at each
+    end of the CWDM tail, where the link is short, unamplified and will not move,
+    so a rated pad is the right part and a dialled one would be a knob nobody
+    turns.
+
+    Neither kind gets ports. Both hold none by design and reach a path through
+    `OtnPathHop.element`, which is the same way `OtnFiberSpan` does it.
+    """
+    campus = CWDM_TAIL_SITE[1]
+    variable = []
+    for site in VOA_SITES:
+        record = _device(f"voa-{site}-01", "OtnVariableAttenuator", site)
+        record["attenuation_mdb"] = VOA_ATTENUATION_MDB
+        record["max_attenuation_mdb"] = VOA_MAX_ATTENUATION_MDB
+        variable.append(record)
+
+    fixed = []
+    for site in (campus, CWDM_TAIL_PEER):
+        record = _device(f"pad-{site}-01", "OtnFixedAttenuator", site)
+        record["attenuation_mdb"] = FIXED_PAD_ATTENUATION_MDB
+        fixed.append(record)
+
+    return {"OtnVariableAttenuator": variable, "OtnFixedAttenuator": fixed}
 
 
 def _cwdm_tail_multiplexers() -> list[dict[str, Any]]:
@@ -2357,6 +2438,26 @@ def generate(target: Path) -> dict[str, int]:
                 "Sixteen, not fourteen. The two extra are the coarse thin-film",
                 "filters at the ends of the CWDM tail, and they are the only devices",
                 "in this file that light a CWDM wavelength.",
+            ],
+            "OtnFixedAttenuator": [
+                "One pad at each end of the CWDM tail. 18.4 km with no amplifier is",
+                "the one link here short enough to overload the receiver at the far",
+                "end, and the loss a pad has to take is known and will not move, so",
+                "a rated part is what gets fitted rather than a knob nobody turns.",
+                "",
+                "attenuation_mdb carries the whole figure and insertion_loss_mdb",
+                "stays 0: a pad's own loss beyond its rating is negligible, and the",
+                "budget engine adds the two together.",
+            ],
+            "OtnVariableAttenuator": [
+                "One VOA on the add stage at each hub ROADM. Every one of the 40",
+                "carriers crosses oms-fra-mil, so 37 wavelengths terminate at Milan",
+                "and 25 at Frankfurt and no third site is close. Those are the two",
+                "places many transponders are combined and one channel's power is",
+                "worth trimming.",
+                "",
+                "max_attenuation_mdb is range, not loss. Nothing in the budget",
+                "reads it; checks/attenuator_range.py holds the setting against it.",
             ],
         },
     )
