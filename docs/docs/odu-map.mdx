@@ -56,9 +56,11 @@ uv run invoke load-repository   # if the stack has no repository yet
 
   Frankfurt's copy of `odu-map`, off a branch carrying
   `demo/05_odu_mixed_fill.yml`, so all five bands are on one picture. The default
-  branch shows only two of them: `odu4` on five sections and `no-odu` on sixteen.
-  The measured split here is `odu4` 2, `odu2` 1, `odu0` 1, `full` 1 and `no-odu`
-  16. Every figure in the panel was checked against the containers on the
+  branch shows only two of them: `odu4` on eight sections and `no-odu` on
+  thirteen. The measured split in this picture is `odu4` 2, `odu2` 1, `odu0` 1,
+  `full` 1 and `no-odu` 16, three sections greyer than a copy taken today: it was
+  rendered before the three router-to-router OpenZR+ wavelengths joined the
+  dataset. Every figure in the panel was checked against the containers on the
   branch rather than taken from the drawing.
 
   </figcaption>
@@ -140,13 +142,13 @@ it.
 
 ## `no-odu` does not mean empty and available
 
-On a clean `main` the grey band covers **16 of the 21 sections**, and most of the
+On a clean `main` the grey band covers **13 of the 21 sections**, and most of the
 map is grey. That is the honest picture and not a broken render.
 
-The 16 are sections with **no wavelength at all**, not sections whose wavelengths
+The 13 are sections with **no wavelength at all**, not sections whose wavelengths
 are unlit. Every pre-provisioned carrier in the dataset arrives carrying an empty
-line container, so a section with a carrier is lit. The 40 wavelengths in
-`objects/17_geant_carriers.yml` cover five sections and nothing else:
+line container, so a section with a carrier is lit. The 43 wavelengths in
+`objects/17_geant_carriers.yml` cover eight sections and nothing else:
 
 | Section | Lit carriers | Committed over offered | Band |
 | --- | --- | --- | --- |
@@ -155,9 +157,12 @@ line container, so a section with a carrier is lit. The 40 wavelengths in
 | `oms-ber-fra` | 5 | 0 / 1600 | Green |
 | `oms-par-fra` | 3 | 0 / 960 | Green |
 | `oms-vie-mil` | 3 | 0 / 240 | Green |
+| `oms-ams-bru` | 1 | 0 / 320 | Green |
+| `oms-ber-prg` | 1 | 0 / 320 | Green |
+| `oms-ham-ber` | 1 | 0 / 320 | Green |
 
-The other sixteen have no carrier, so they have no slot figure, so they are grey.
-The band split on `main` is `odu4` 5 and `no-odu` 16, and
+The other thirteen have no carrier, so they have no slot figure, so they are grey.
+The band split on `main` is `odu4` 8 and `no-odu` 13, and
 `tests/unit/test_odudraw.py` asserts that pair against the shipped dataset.
 
 ## The panel

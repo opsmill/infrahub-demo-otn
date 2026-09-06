@@ -71,14 +71,16 @@ number and the page move together.
 OPTICAL_ELEMENT_KINDS = (
     "OtnAmplifier",
     "OtnFiberSpan",
+    "OtnFixedAttenuator",
     "OtnMuxDemux",
     "OtnOduSwitch",
     "OtnPatchPanel",
     "OtnRamanPump",
     "OtnRoadm",
     "OtnTransponder",
+    "OtnVariableAttenuator",
 )
-"""The eight kinds that inherit `OtnOpticalElement`.
+"""The ten kinds that inherit `OtnOpticalElement`.
 
 Pinned identically in `test_schema_contract.py`, which asserts the list against
 the schema. Repeated here rather than imported so a failure in that module and a
@@ -155,8 +157,14 @@ LEDGER_DEVICE_KINDS = (
     "OtnPatchPanel",
     "OtnRamanPump",
     "OtnOduSwitch",
+    "OtnFixedAttenuator",
+    "OtnVariableAttenuator",
 )
-"""What `installation-setup.mdx` means by a device: everything a rack holds."""
+"""What `installation-setup.mdx` means by a device: everything a rack holds.
+
+An attenuator is racked, so both kinds are here. A pad in a patch field and a
+VOA in a shelf are inventory a planner counts, and the page counts them.
+"""
 
 LEDGER_PORT_KINDS = (
     "OtnRouterPort",
@@ -165,6 +173,8 @@ LEDGER_PORT_KINDS = (
     "OtnRoadmAddDropPort",
     "OtnRoadmDegreePort",
     "OtnAmplifierPort",
+    "OtnMuxClientPort",
+    "OtnMuxLinePort",
     "OtnTributaryPort",
     "OtnAmplifierMonitor",
     "OtnRoadmDegreeMonitor",
@@ -176,6 +186,10 @@ LEDGER_PORT_KINDS = (
 
 A monitor is a port on the modelled device and is counted as one on the page, so
 it is counted as one here.
+
+Neither transceiver kind is here. A pluggable sits **in** a port and is not one,
+so counting it would count the same interface twice: once as the cage on the
+device and once as the module in the cage.
 """
 
 SWEPT_PAGES: tuple[Path, ...] = (*sorted(DOC_DIR.glob("*.mdx")), REPO_ROOT / "README.md", REPO_ROOT / "CLAUDE.md")
@@ -272,8 +286,8 @@ def facts() -> dict[str, int]:
         #
         # `objects` is the exception and has to be. It is the whole load, and the
         # ledger covers the generated seed only: the catalogs, the modes and the
-        # client signals are hand-written files it never sees. 2344 against the
-        # ledger's 2204 is those files, not a disagreement.
+        # client signals are hand-written files it never sees. 2484 against the
+        # ledger's 2339 is those files, not a disagreement.
         "objects": sum(len((document.get("spec") or {}).get("data") or []) for document in object_documents()),
         "optical-elements": sum(MANIFEST[kind] for kind in OPTICAL_ELEMENT_KINDS),
         "sites": MANIFEST["OtnSite"],
@@ -283,6 +297,10 @@ def facts() -> dict[str, int]:
         "ports": sum(MANIFEST[kind] for kind in LEDGER_PORT_KINDS),
         "wavelengths": MANIFEST["OtnOpticalCarrier"],
         # What the schema is.
+        "kinds": sum(
+            len(parsed.get("generics") or []) + len(parsed.get("nodes") or [])
+            for parsed in (yaml.safe_load(path.read_text()) for path in sorted(SCHEMA_DIR.glob("*.yml")))
+        ),
         "device-kinds": sum(
             1 for node in devices.get("nodes", []) if "OtnGenericDevice" in (node.get("inherit_from") or [])
         ),
@@ -671,6 +689,8 @@ COUNTS = {
     "eleven": 11,
     "twelve": 12,
     "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
 }
 """The window of spellings the check-count patterns below accept.
 
@@ -873,6 +893,39 @@ def test_no_page_anywhere_states_a_check_count_that_is_not_the_register() -> Non
             offenders.append(f"{path.name}:{line} says {match.group(1)} where the register holds {registered}")
 
     assert not offenders, "check counts that disagree with .infrahub.yml: " + "; ".join(offenders)
+
+
+KIND_COUNT_SHAPE = r"\b(\d+) kinds\b"
+"""The noun phrase that carries the size of the schema where no marker can go.
+
+Two pages state it and neither can hold a `data-fact` span. `developer-guide.mdx`
+prints it inside the layout tree, and a span in a fenced block is rendered to the
+reader rather than read by Docusaurus. `README.md` states it before anyone has
+cloned the repository, which is the trade the check and task sweeps already make.
+
+`schema-reference.mdx` carries the marker, so the fact itself is stated as a fact
+somewhere and this sweep only has to hold the two copies of it.
+"""
+
+
+def test_no_page_states_a_kind_count_that_is_not_the_schema() -> None:
+    """The size of the schema, held on the pages that cannot mark it up."""
+    expected = facts()["kinds"]
+    offenders = []
+    matched = 0
+
+    for path in SWEPT_PAGES:
+        if not path.exists():
+            continue
+        text = path.read_text()
+        for match in re.finditer(KIND_COUNT_SHAPE, text):
+            matched += 1
+            if int(match.group(1)) != expected:
+                line = text[: match.start()].count("\n") + 1
+                offenders.append(f"{path.name}:{line} says {match.group(1)} kinds, the schema declares {expected}")
+
+    assert matched, "no page states a kind count, so this test asserted nothing"
+    assert not offenders, "kind counts that disagree with schemas/: " + "; ".join(offenders)
 
 
 TASK_COUNT_SHAPES = (

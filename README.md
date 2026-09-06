@@ -209,19 +209,21 @@ which spends the one wide block, and all ten fit nowhere.
 
 ## What's included
 
-- **Schemas.** 44 kinds across eight files: sites, the EuroHPC facilities on
+- **Schemas.** 50 kinds across eight files: sites, the EuroHPC facilities on
   them and a location hierarchy,
   conduits, fiber spans and optical multiplex sections, ROADMs, amplifiers,
-  transponders, mux/demux, patch panels and O-E-O regenerators, seven port
-  kinds, the DWDM frequency grid and the CWDM wavelength plan, optical modes,
+  transponders, mux/demux, patch panels, O-E-O regenerators and fixed and
+  variable attenuators, nine port kinds, pluggable transceivers and the parts
+  they come from, the DWDM frequency grid and the CWDM wavelength plan, optical modes,
   client signals, diversity groups, and the service, carrier, path and container
   model.
 - **Dataset.** A European research core, generated from a seed and guarded by
   a regenerate-and-diff test: 15 sites of which 14 are PoPs, 12 conduits, 133
   fiber spans across 21 optical multiplex sections, 306 amplifiers, 14 ROADMs,
-  59 transponders, 20 routers, three O-E-O devices at the two hub sites,
-  1488 ports, and 40 wavelengths holding 4,134,400 MHz of the 4,800,000 MHz the
-  C-band gives the busiest section.
+  59 transponders, 20 routers, three O-E-O devices at the two hub sites, four
+  attenuators, nine pluggable transceivers, 1606 ports, and 43 wavelengths, the
+  40 on the busiest section holding 4,134,400 MHz of the 4,800,000 MHz the
+  C-band gives it.
 - **Catalogs.** The fixed 50 GHz C-band grid at all 96 channels, the coarse
   18-wavelength plan beside it, 10 optical modes from DP-QPSK 32GBd 100G to
   DP-64QAM 64GBd 600G including the ZR pluggables, 11 client signals, and 3
@@ -239,8 +241,8 @@ which spends the one wide block, and all ten fit nowhere.
 - **Checks.** Shared-package import, channel collision, OSNR margin, container
   capacity, declared diversity, the provisionable gate, channel count
   consistency, monitor completeness, carrier termination, multiplexer channel
-  binding, attenuator range, transceiver placement and transceiver mode
-  support.
+  binding, attenuator range, transceiver placement, transceiver mode support
+  and connector polish on Raman-pumped spans.
 - **Reports.** Service trace, impact, capacity, reach, AI latency, SRLG
   exposure, link budget and monitor drift, each with its own GraphQL query, plus
   the two rendered maps.

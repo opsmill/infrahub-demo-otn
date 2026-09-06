@@ -542,7 +542,7 @@ def _ensure_dataset(context: Context, branch: str, files: tuple[str, ...] = ()) 
 
     The stack check stays a refusal because a stack that is not answering is the
     one precondition a task cannot satisfy for itself. Everything after it is
-    narrated: a task that silently spends a minute loading 2344 objects looks
+    narrated: a task that silently spends a minute loading 2484 objects looks
     hung.
     """
     _require_stack()
@@ -1121,7 +1121,7 @@ def load(context: Context, branch: str = "main") -> None:
     load_schema(context, branch)
     console.print("[cyan]2/3[/cyan] menu")
     load_menu(context, branch)
-    console.print("[cyan]3/3[/cyan] objects, about a minute for 2344 of them")
+    console.print("[cyan]3/3[/cyan] objects, about a minute for 2484 of them")
     load_objects(context, branch)
     console.print(f"[green]ok[/green] loaded onto {branch}")
 

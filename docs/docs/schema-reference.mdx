@@ -4,8 +4,8 @@ title: Schema reference
 
 # Schema reference
 
-The OTN schema is forty-four kinds across eight files in `schemas/`. Eight of
-them are generics and thirty-six are concrete nodes.
+The OTN schema is <span data-fact="kinds">50</span> kinds across eight files in `schemas/`. Eight
+of them are generics and 42 are concrete nodes.
 
 Four of those files define the equipment layer: the generics, the port kinds,
 the device kinds, and the site. They are the subject here. The plant, container,
@@ -21,8 +21,8 @@ shaped the way it is, and why every physical quantity is an integer.
 | File | Holds |
 | --- | --- |
 | `schemas/otn_base.yml` | The five OTN generics |
-| `schemas/otn_ports.yml` | The port kinds, two generics and twelve nodes |
-| `schemas/otn_devices.yml` | The <span data-fact="device-kinds">eight</span> device kinds |
+| `schemas/otn_ports.yml` | The port kinds, two generics and sixteen nodes |
+| `schemas/otn_devices.yml` | The <span data-fact="device-kinds">ten</span> device kinds |
 | `schemas/location.yml` | `LocationGeneric`, vendored, `OtnSite` and `OtnFacility` |
 
 Infrahub loads every file in the directory into one schema, so the split has no
@@ -38,7 +38,7 @@ apart on purpose.
 - **`OtnOpticalElement`** is anything light passes through and loses power in.
   It has an insertion loss, a vendor, a model, and an element class.
 
-Eight device kinds inherit `OtnGenericDevice`. Seven of those eight also inherit
+Ten device kinds inherit `OtnGenericDevice`. Nine of those ten also inherit
 `OtnOpticalElement`, and one kind inherits `OtnOpticalElement` alone. There is
 no edge between the two generics:
 
@@ -51,7 +51,9 @@ OtnAmplifier
 OtnMuxDemux
 OtnPatchPanel
 OtnRamanPump
-OtnOduSwitch"]
+OtnOduSwitch
+OtnFixedAttenuator
+OtnVariableAttenuator"]
   oe(["OtnOpticalElement"]) --> both
   oe --> fs["OtnFiberSpan"]
 ```
@@ -61,7 +63,7 @@ tidier and would be wrong in both directions.
 
 **It would be wrong about the router.** Light terminates at a router. A router
 has no insertion loss, so a query for everything that attenuates light must
-return seven kinds, not eight. Put the router under a combined chain and the
+return nine kinds, not ten. Put the router under a combined chain and the
 optical budget starts counting a loss that does not exist.
 
 **It would be wrong about the fiber span.** `OtnFiberSpan` contributes the
@@ -783,7 +785,7 @@ are two entries side by side, so an engineer opening the catalog finds both. The
 alternative is reaching a wavelength plan by first opening a multiplexer, which
 is a route nobody guesses.
 
-Devices opens on the generic kind, so one click gives all <span data-fact="device-kinds">eight</span> device kinds.
+Devices opens on the generic kind, so one click gives all <span data-fact="device-kinds">ten</span> device kinds.
 
 The sidebar names no port kind and no individual device kind, because the object
 pages already reach them. A site page lists the devices at the site; a device
