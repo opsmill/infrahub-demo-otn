@@ -156,7 +156,8 @@ class TestTasksAgainstAStack(TestInfrahubDockerClient):
         """Run a GraphQL document and fail on `errors`, whatever the status code.
 
         Every read here happens while a task is writing, so `transport` waits out
-        a 429 rather than asserting on it.
+        a busy server rather than asserting on it: a 5xx itself, a 429 through
+        the SDK's rate limit handler.
         """
         return transport.graphql(address, document, branch, token=TOKEN)
 

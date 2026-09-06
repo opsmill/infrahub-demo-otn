@@ -8,14 +8,14 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11, <3.15"
 dependencies = [
-    "infrahub-sdk[all,ctl]==1.23.1",
+    "infrahub-sdk[all,ctl]>=1.23.1",
     "invoke>=2.2.1,<4.0.0",
     "rich>=13.9.4",
 ]
 
 [dependency-groups]
 dev = [
-    "infrahub-testcontainers==1.11.0",
+    "infrahub-testcontainers>=1.11.0",
     "mypy>=1.19.1",
     "pytest>=9.0.0",
     "pytest-asyncio>=1.3.0",
@@ -39,7 +39,15 @@ asyncio_mode = "auto"
 # and catches a design-claim regression in under a second, so `pytest tests/unit`
 # must not so much as import the testcontainers plugin. CI selects the
 # integration layer explicitly by path.
-markers = ["integration: needs a live Infrahub via infrahub-testcontainers"]
+markers = [
+  "integration: needs a live Infrahub via infrahub-testcontainers",
+  "core: runs on every pull request, not only when the demo's own logic changes",
+]
+# `--strict-markers` so a typo in a marker name fails collection rather than
+# silently selecting nothing. `invoke test-integration --tier=core` is a `-m`
+# expression, and pytest exits 5 when `-m` matches nothing, which reads as a
+# broken tier rather than a passing one.
+addopts = "--strict-markers"
 
 [tool.ruff]
 line-length = 120
