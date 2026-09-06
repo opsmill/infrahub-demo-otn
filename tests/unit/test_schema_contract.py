@@ -107,8 +107,9 @@ EXPECTED_DISPLAY_ATTRIBUTES = frozenset(
         "center_frequency_display",
         "tx_power_display",
         "rx_sensitivity_display",
-        # Plant and the optics catalog.
-        "attenuation_display",
+        # Plant and the optics catalog. The fiber type renders a coefficient,
+        # per kilometre; the two attenuators below render a loss.
+        "attenuation_coefficient_display",
         "dispersion_display",
         "length_display",
         "required_osnr_display",
@@ -121,6 +122,10 @@ EXPECTED_DISPLAY_ATTRIBUTES = frozenset(
         "gain_display",
         # The Raman pump. Also _mdb, so the pin map below covers it too.
         "on_off_gain_display",
+        # The attenuators. Both kinds declare the loss they insert; only the
+        # variable one has a top of range to render.
+        "attenuation_display",
+        "max_attenuation_display",
         # Services, paths and hops: six on the service and the path, four on the
         # hop. Three of the ten render nanoseconds, which is the only use of the
         # `_ns` entry in the pin map below.
@@ -136,9 +141,26 @@ EXPECTED_DISPLAY_ATTRIBUTES = frozenset(
         "cumulative_delay_display",
     }
 )
-"""Twenty-four declarations, twenty-three names. `center_frequency_display` is
-declared on both `OtnOpticalPort` and `OtnFrequencyGrid`; the set is over names,
-and check 13 below is what keeps the two renderings identical."""
+"""One entry per `_display` name. Several names are declared on more than one
+kind, so this set is smaller than the number of declarations; which names those
+are is `REPEATED_DISPLAY_NAMES` below, read back out of the schema rather than
+counted here."""
+
+REPEATED_DISPLAY_NAMES = frozenset(
+    {
+        "center_frequency_display",
+        "measured_gain_display",
+        "attenuation_display",
+    }
+)
+"""The `_display` names more than one kind declares.
+
+Pinned rather than counted, because the count was written into the docstring
+above and went stale twice without anything failing: `measured_gain_display`
+was never in it, and `attenuation_display` moved off the fiber type onto both
+attenuators. `test_the_display_attributes_are_exactly_the_expected_set` derives
+this set from the schema and compares, so the note cannot drift again. Check 13
+below is what keeps each repeated name's renderings identical."""
 
 SUFFIX_DIVISORS: dict[str, dict[str, int]] = {
     "_mdb": {"MDB_PER_DB": MDB_PER_DB},
@@ -329,23 +351,25 @@ def test_no_monitor_kind_carries_a_discriminator() -> None:
     assert not offenders, "monitor kinds carrying a discriminator: " + "; ".join(offenders)
 
 
-def test_the_schema_ships_the_forty_four_kinds_the_installation_page_promises() -> None:
-    """`installation-setup.mdx` tells a reader the schema load gives them 44
+def test_the_schema_ships_the_fifty_kinds_the_installation_page_promises() -> None:
+    """`installation-setup.mdx` tells a reader the schema load gives them 50
     empty kinds, and that is the first number the demo puts on screen. Eight
-    generics and 36 nodes. A kind added without the page being updated fails
+    generics and 42 nodes. A kind added without the page being updated fails
     here rather than on the reader's screen.
 
     `provisioning-scenarios.mdx`, `developer-guide.mdx`, `schema-reference.mdx`
     and `README.md` print the same total, so all five move together. It was 41 until
     `OtnOduSwitch` made the O-E-O device a kind of its own, 42 until
     `OtnDiversityGroup` made a diversity requirement an object instead of a
-    string on the service, and 43 until `OtnFacility` made a EuroHPC facility an
-    edge instead of the text after a prefix in a tag name.
+    string on the service, 43 until `OtnFacility` made a EuroHPC facility an
+    edge instead of the text after a prefix in a tag name, and 44 until the two
+    mux port kinds, the two attenuators and the two transceiver kinds landed
+    together.
     """
     generics = [entry for _, document in _load_documents() for entry in document.get("generics") or []]
     nodes = [entry for _, document in _load_documents() for entry in document.get("nodes") or []]
-    assert (len(generics), len(nodes)) == (8, 36), (
-        f"{len(generics)} generics and {len(nodes)} nodes, the page says 8 and 36"
+    assert (len(generics), len(nodes)) == (8, 42), (
+        f"{len(generics)} generics and {len(nodes)} nodes, the page says 8 and 42"
     )
 
 
@@ -386,10 +410,29 @@ def test_unit_suffixed_attributes_are_numbers() -> None:
 def test_the_display_attributes_are_exactly_the_expected_set() -> None:
     """A paired `_display` is added only where an operator reads the number.
     Dropping one loses the only readable rendering of that quantity; adding an
-    unexpected one means a scaled integer was given a display nobody needs."""
-    found = {attribute["name"] for _, _, attribute in _all_attributes() if str(attribute["name"]).endswith("_display")}
+    unexpected one means a scaled integer was given a display nobody needs.
+
+    Which names are declared twice is asserted too, because a display moved from
+    one kind to another leaves the set of names unchanged and is exactly the
+    edit check 13 has to hear about.
+    """
+    declarations = [
+        (kind, str(attribute["name"]))
+        for _, kind, attribute in _all_attributes()
+        if str(attribute["name"]).endswith("_display")
+    ]
+    found = {name for _, name in declarations}
     assert found == EXPECTED_DISPLAY_ATTRIBUTES, (
         f"expected {sorted(EXPECTED_DISPLAY_ATTRIBUTES)}, found {sorted(found)}"
+    )
+
+    kinds_per_name: dict[str, set[str]] = {}
+    for kind, name in declarations:
+        kinds_per_name.setdefault(name, set()).add(kind)
+    repeated = {name: kinds for name, kinds in kinds_per_name.items() if len(kinds) > 1}
+    assert set(repeated) == REPEATED_DISPLAY_NAMES, (
+        "the set of _display names declared on more than one kind moved: "
+        + "; ".join(f"{name} on {sorted(kinds)}" for name, kinds in sorted(repeated.items()))
     )
 
 
@@ -497,6 +540,8 @@ def test_the_declared_divisor_pin_map_agrees_with_the_schema() -> None:
         "rx_sensitivity_display": "MDB_PER_DB",
         "center_frequency_display": "MHZ_PER_THZ",
         "attenuation_display": "MDB_PER_DB",
+        "attenuation_coefficient_display": "MDB_PER_DB",
+        "max_attenuation_display": "MDB_PER_DB",
         "dispersion_display": "FS_PER_PS",
         "length_display": "M_PER_KM",
         "required_osnr_display": "MDB_PER_DB",
@@ -757,14 +802,31 @@ def test_the_g652_fiber_type_matches_the_units_default() -> None:
     assert fiber_types["G.652.D"]["group_index_milli"] == GROUP_INDEX_G652_MILLI
 
 
-def test_every_element_class_override_restates_the_generic_choices() -> None:
+def _generic_dropdowns() -> dict[str, dict[str, dict[str, Any]]]:
+    """Every Dropdown declared on a generic, as {generic: {name: attribute}}."""
+    declared: dict[str, dict[str, dict[str, Any]]] = {}
+    for _, document in _load_documents():
+        for entry in document.get("generics") or []:
+            kind = f"{entry.get('namespace', '')}{entry.get('name', '')}"
+            declared[kind] = {
+                str(attribute["name"]): attribute
+                for attribute in entry.get("attributes") or []
+                if attribute.get("kind") == "Dropdown"
+            }
+    return declared
+
+
+def test_every_restated_dropdown_repeats_every_choice_of_its_generic() -> None:
     """The one duplication in `schemas/`, held to its source, and the only guard.
 
-    `element_class` is declared on `OtnOpticalElement` and overridden on each of
-    the seven concrete kinds that inherit it, so each can carry a
-    `default_value` matching its own class. Overriding an inherited Dropdown
-    requires the full `choices` list, so the ten choices are written nine
-    times.
+    The rule, stated once for every Dropdown rather than once per attribute:
+    **a kind that restates an inherited Dropdown restates every choice of it.**
+    Restating is optional. `element_class` is restated so each device can carry
+    the `default_value` its own class needs, and `connector_type` is restated
+    because Infrahub refuses to change an attribute's kind on a generic
+    underneath kinds that have already materialised it. A kind that restates
+    neither, as the two mux port kinds do, inherits the list and is right. What
+    is never right is a restatement that is one choice short.
 
     The server catches only half of getting that wrong, which is why this test
     is load-bearing rather than belt and braces. Omitting the `choices` key
@@ -780,9 +842,46 @@ def test_every_element_class_override_restates_the_generic_choices() -> None:
     looking at, and this test is the only thing that will say so. Weakening it
     removes the guard entirely.
 
-    The default is checked too. It has to be one of the choices, and it has to
-    be the class the kind actually is, which is the whole reason the override
-    exists.
+    Nothing here counts restatements. A seventh port kind restating
+    `connector_type`, or a new generic Dropdown restated for the first time,
+    joins the loop and is checked; only a restatement that drifts fails.
+    """
+    inherited_dropdowns = _generic_dropdowns()
+    checked: list[str] = []
+    offenders: list[str] = []
+    for path, document in _load_documents():
+        for entry in document.get("nodes") or []:
+            kind = f"{entry.get('namespace', '')}{entry.get('name', '')}"
+            for parent in entry.get("inherit_from") or []:
+                for attribute in entry.get("attributes") or []:
+                    name = str(attribute.get("name", ""))
+                    generic_attribute = (inherited_dropdowns.get(parent) or {}).get(name)
+                    if generic_attribute is None:
+                        continue
+                    checked.append(f"{kind}.{name}")
+                    if attribute.get("kind") != "Dropdown":
+                        offenders.append(
+                            f"{kind}.{name} in {path.name} restates {parent}.{name} as "
+                            f"kind {attribute.get('kind')}, and a Dropdown cannot change kind underneath a generic"
+                        )
+                    elif attribute.get("choices") != generic_attribute.get("choices"):
+                        offenders.append(
+                            f"{kind}.{name} in {path.name} restates a different choice list from {parent}. "
+                            "A short list loads without complaint and fails only when an object writes the "
+                            "missing value, so the full list has to be repeated and kept in step here."
+                        )
+    assert not offenders, "; ".join(offenders)
+    assert checked, "no kind restates an inherited Dropdown, so this test asserted nothing"
+
+
+def test_every_element_class_override_declares_the_class_its_kind_is() -> None:
+    """The half of the override that is not the choice list.
+
+    The choices are held to the generic by the test above. This one pins the
+    generic's own list, which that comparison reads at runtime and so cannot
+    catch a choice deleted everywhere at once, and it pins each kind's
+    `default_value`: it has to be one of the choices, and it has to be the class
+    the kind actually is, which is the whole reason the override exists.
     """
     attributes = _attributes_by_kind()
     generic = next(
@@ -792,7 +891,7 @@ def test_every_element_class_override_restates_the_generic_choices() -> None:
     assert generic is not None, "OtnOpticalElement no longer declares element_class"
     expected = generic.get("choices")
     assert expected, "OtnOpticalElement.element_class declares no choices"
-    # Pinned. The comparison below reads the generic at runtime, so a choice
+    # Pinned. The restatement test reads the generic at runtime, so a choice
     # deleted from the generic and from every override would pass it silently.
     assert [str(choice.get("name")) for choice in expected] == [
         "transponder",
@@ -828,11 +927,6 @@ def test_every_element_class_override_restates_the_generic_choices() -> None:
             None,
         )
         assert override is not None, f"{kind} no longer overrides element_class, so it has no default"
-        assert override.get("choices") == expected, (
-            f"{kind}.element_class restates a different choice list from OtnOpticalElement. "
-            "A short list loads without complaint and fails only when an object writes the "
-            "missing value, so the full list has to be repeated and kept in step here."
-        )
         assert override.get("default_value") == default, (
             f"{kind}.element_class defaults to {override.get('default_value')!r}, expected {default!r}"
         )
@@ -890,15 +984,23 @@ def test_a_running_total_is_capped_no_lower_than_the_total_it_accumulates(hop_na
 # Every kind inheriting OtnOpticalElement. OtnRouter is deliberately absent:
 # light terminates at a router, so a router contributes no insertion loss and a
 # query against the generic must not return one.
+#
+# The two mux port kinds and the two transceiver kinds are absent for a
+# different reason. A port is not an element light passes through, it is where
+# an element ends, and a pluggable optic is a part fitted into a port. Both
+# would make the budget charge a loss the mux or the transponder already
+# charges.
 OPTICAL_ELEMENT_KINDS = (
     "OtnAmplifier",
     "OtnFiberSpan",
+    "OtnFixedAttenuator",
     "OtnMuxDemux",
     "OtnOduSwitch",
     "OtnPatchPanel",
     "OtnRamanPump",
     "OtnRoadm",
     "OtnTransponder",
+    "OtnVariableAttenuator",
 )
 
 

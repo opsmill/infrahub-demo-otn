@@ -26,7 +26,7 @@ from tests.unit.conftest import REPO_ROOT, schema_files
 MENU_FILE = REPO_ROOT / "menus" / "otn.yml"
 
 MAX_TOP_LEVEL = 5
-MAX_LEAVES = 13
+MAX_LEAVES = 15
 
 PORT_KINDS = {
     "OtnRouterPort",
@@ -36,6 +36,8 @@ PORT_KINDS = {
     "OtnRoadmDegreePort",
     "OtnAmplifierPort",
     "OtnTributaryPort",
+    "OtnMuxClientPort",
+    "OtnMuxLinePort",
 }
 DEVICE_KINDS = {
     "OtnRouter",
@@ -46,11 +48,14 @@ DEVICE_KINDS = {
     "OtnPatchPanel",
     "OtnRamanPump",
     "OtnOduSwitch",
+    "OtnFixedAttenuator",
+    "OtnVariableAttenuator",
 }
 """Reached from a site page and a device page. A sidebar entry for either is a
 second route to a place the operator was already going to arrive at.
 `OtnRamanPump` is reached from its span as well, through `raman_pumps`, and
-`OtnOduSwitch` from its wavelength, through `odu_switches`."""
+`OtnOduSwitch` from its wavelength, through `odu_switches`. Both attenuators are
+devices in their own right, so they arrive with the rest of a site's devices."""
 
 CORE_KINDS = {"CoreArtifact", "CoreGeneratorGroup", "CoreStandardGroup", "CoreProposedChange"}
 """Kinds Infrahub ships. They are not in `schemas/` and are still valid `kind:`

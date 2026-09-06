@@ -73,8 +73,15 @@ OPTICAL_ELEMENT_KINDS = (
     "OtnPatchPanel",
     "OtnRamanPump",
     "OtnOduSwitch",
+    "OtnFixedAttenuator",
+    "OtnVariableAttenuator",
 )
 """Every kind inheriting OtnOpticalElement. `OtnRouter` is deliberately absent.
+
+So are the two mux port kinds and the two transceiver kinds: a port is where an
+element ends rather than an element, and a pluggable optic is a part fitted into
+a port, so counting either would charge a loss the mux or the transponder has
+already charged.
 
 Two assertions read this tuple and both are exact: one compares it against the
 set of kinds the live generic returns, and one compares the live
