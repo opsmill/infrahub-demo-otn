@@ -6,23 +6,21 @@
 # **What this demonstrates.** `span-vie-mil-01` is the first span of the one
 # section this network pumps, and its Vienna end is the only end of that section
 # an engineer can reach: spans 2 to 9 terminate in huts. This file re-patches
-# that end. `roadm-vie-01 DEG-MIL` comes off and `xpdr-vie-02 L2` goes on, which
-# is a transponder patched straight onto the line as an alien wavelength, past
-# the ROADM. `L2` is the one dark line port at Vienna, so nothing that was
-# carrying traffic moved.
+# that end. `roadm-vie-01 DEG-MIL` comes off and `xpdr-vie-02 L2` goes on, a
+# transponder patched straight onto the line past the ROADM. `L2` is the one dark
+# line port at Vienna, so nothing carrying traffic moved.
 #
-# The transponder's endface is UPC. Every line port in the dataset is, because a
+# The transponder's endface is UPC, as every line port in the dataset is: a
 # coloured line port normally sits behind an add/drop stage inside a building,
 # where a flat endface is a specification rather than a hazard. On the far side
-# of the ROADM it is a hazard: the nine pumps on this section put half a watt
-# into the fibre and a UPC endface sends about 50 dB of that straight back down
-# it. Nothing about the port changed. What changed is the glass it faces.
+# of the ROADM it is a hazard, because the nine pumps on this section put half a
+# watt into the fibre and a UPC endface sends about 50 dB of that straight back
+# down it. Nothing about the port changed. What changed is the glass it faces.
 #
 # **The load is expected to succeed, and that is the point.** `polish` is an
-# attribute on the port and `raman_pumps` is a relationship on the span, two
-# hops apart, and Infrahub has no cross-relationship constraint. No write can be
-# refused because a port at the far end of a relationship chain carries the
-# wrong value, so this one is a check or it is nothing.
+# attribute on the port and `raman_pumps` is a relationship on the span, two hops
+# apart, and Infrahub has no cross-relationship constraint, so this one is a
+# check or it is nothing.
 #
 # The check **fails**, with exactly one finding:
 #
@@ -40,25 +38,20 @@
 #
 # That zero is the second half of the scenario. A span whose `terminating_ports`
 # is empty is reported as unjudgeable rather than clean, because an empty
-# relationship and two correct APC ends look identical from outside the check.
-# The generator populates all 133 spans so the count reads zero here, and
-# `tests/unit/test_scenario_checks.py` builds the emptied payload the demo
-# branches do not reach.
+# relationship and two correct APC ends look identical. The generator populates
+# all 133 spans, so `tests/unit/test_scenario_checks.py` builds the emptied
+# payload instead.
 #
-# **The record is restated whole rather than patched.** Every other field is
-# what `objects/15_geant_spans.yml` already ships, so the only difference
-# between this span and the generated one is which port terminates its Vienna
-# end, and a reader can see that without opening the generated file. The Milan
+# The record is restated whole rather than patched, so the only difference from
+# `objects/15_geant_spans.yml` is which port terminates its Vienna end. The Milan
 # end is unchanged and stays APC, which is why there is one finding and not two.
 #
-# Not in `objects/`. `objects/1*.yml` is generated,
-# `tests/unit/test_geant_dataset.py` regenerates it and diffs, and a hand edit
-# there fails on the next run. It would also put the finding on the default
-# branch, where every branch cut from it would inherit a red check and nobody
+# Not in `objects/`: that tree is generated and a hand edit there fails on the
+# next run. It would also put the finding on the default branch, where nobody
 # would ever see the check go green.
 #
-# Loaded onto its own branch by `uv run invoke demo-connector-polish`. `demo/` is
-# not listed under `objects:` in `.infrahub.yml`, so git sync never reaches it.
+# Loaded onto its own branch by `uv run invoke demo-connector-polish`; `demo/` is
+# not listed under `objects:` in `.infrahub.yml`.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:

@@ -7,18 +7,15 @@
 # What a part supports is the whole point of the catalog. A 400ZR module and an
 # OpenZR+ module are the same cage, the same constellation and the same line
 # rate; they differ in FEC and therefore in reach, and nothing on the outside of
-# the module says which one is in your hand. So the mode list here is the only
-# fact that separates them, and it is what transceiver_mode_support judges a
-# carrier against.
+# the module says which one is in your hand. The mode list here is the only fact
+# that separates them, and it is what transceiver_mode_support judges a carrier
+# against.
 #
-# OpenZR+ is one optic with three rungs, not three optics. A ZR+ part lists the
-# 400G, 300G and 200G modes because that is what OpenZR+ means: the same module
-# steps down the constellation to buy reach. A 400ZR part lists 400ZR and
-# nothing else, and an 800ZR part lists 800ZR.
+# OpenZR+ is one optic with three rungs, not three optics: the same module steps
+# down the constellation to buy reach. A 400ZR part lists 400ZR and nothing else.
 #
-# Part numbers are the MSA and OIF designations the industry writes, cage first
-# and mode last. The vendor stays Generic for the reason scripts/generate_geant_
-# dataset.py gives for every other device here: attaching a real supplier to
+# Part numbers are the MSA and OIF designations, cage first and mode last. The
+# vendor stays Generic, as everywhere else here: attaching a real supplier to
 # stated figures would credit numbers that supplier never published.
 apiVersion: infrahub.app/v1
 kind: Object

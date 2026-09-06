@@ -5,18 +5,14 @@
 #
 # **What this demonstrates.** `ZRP-BRU-01` is the OpenZR+ module in the Brussels
 # router's line port. This file moves it into `amp-ams-bru-08 OUT`, the booster
-# port at the Brussels end of the same section, which is the port an operator
-# points at when asked where the wavelength leaves the site. It is also a fixed
-# optical interface on an EDFA and has no cage to take a module.
+# port at the Brussels end of the same section, which is a fixed optical
+# interface on an EDFA with no cage to take a module.
 #
 # **The load is expected to succeed, and that is the point.** `OtnTransceiver`
 # reaches its port through a relationship peering the `OtnOpticalPort` generic,
-# and a relationship to a generic cannot be filtered by peer kind. So the schema
-# can offer the field or withhold it and cannot say "any of these three kinds
-# and none of the other five". The port kind is the one rule this check is left
-# holding: a second module in one port is refused by the server, because the
-# three concrete port kinds declare a cardinality-one `transceiver` on the same
-# identifier.
+# and a relationship to a generic cannot be filtered by peer kind, so the port
+# kind is the one rule this check is left holding. A second module in one port is
+# refused by the server, as `checks/transceiver_placement.py` records.
 #
 # The check **fails**, with exactly one finding:
 #
@@ -33,37 +29,25 @@
 #     optional. Two modules in one port is not judged here: the schema refuses
 #     that write
 #
-# **A second check speaks on this branch, and it is the reason the module moved
-# rather than a spare being fitted somewhere wrong.** Pulling `ZRP-BRU-01` out
-# of `rtr-bru-01 1/2/1` leaves `oc-ch003-ams-bru` with a pluggable at Amsterdam
-# and nothing at Brussels, so `transceiver_mode_support` reports the mixed
-# termination as INFO and blocks nothing:
+# A second check speaks on this branch. Pulling `ZRP-BRU-01` out of
+# `rtr-bru-01 1/2/1` leaves `oc-ch003-ams-bru` with a pluggable at Amsterdam and
+# nothing at Brussels, so `transceiver_mode_support` reports the mixed
+# termination as INFO and blocks nothing. That row exists in no other state of
+# the data: the three router wavelengths ship with both ends fitted and the forty
+# transponder wavelengths with neither.
 #
-#     oc-ch003-ams-bru is terminated by a pluggable at rtr-ams-01 1/2/1 and by
-#     integrated optics at rtr-bru-01 1/2/1. The fitted end is judged against
-#     its own part and the other end carries no part number to judge, which is a
-#     mixed termination rather than a fault
-#
-# That row exists in no other state of the data: the three router wavelengths
-# ship with both ends fitted and the forty transponder wavelengths with neither.
-#
-# **The record is restated whole rather than patched.** Every other field is
-# what `objects/14a_geant_transceivers.yml` already ships, so the only
-# difference between this unit and the racked one is the port, and a reader can
-# see that without opening the generated file. An object load cannot clear a
+# The record is restated whole rather than patched, so the only difference from
+# `objects/14a_geant_transceivers.yml` is the port. An object load cannot clear a
 # relationship either: `port: null` is refused by the loader with "doesn't have
 # the right format one / NoneType", so a module leaves a cage by naming a
 # different port and never by naming none.
 #
-# Not in `objects/`. `objects/1*.yml` is generated,
-# `tests/unit/test_geant_dataset.py` regenerates it and diffs, and a hand edit
-# there fails on the next run. It would also put the finding on the default
-# branch, where every branch cut from it would inherit a red check and nobody
+# Not in `objects/`: that tree is generated and a hand edit there fails on the
+# next run. It would also put the finding on the default branch, where nobody
 # would ever see the check go green.
 #
-# Loaded onto its own branch by `uv run invoke demo-transceiver-placement`.
-# `demo/` is not listed under `objects:` in `.infrahub.yml`, so git sync never
-# reaches it.
+# Loaded onto its own branch by `uv run invoke demo-transceiver-placement`;
+# `demo/` is not listed under `objects:` in `.infrahub.yml`.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:
@@ -74,9 +58,7 @@ spec:
       type: QDD-400G-ZRP
       # The reference names its kind because `port` peers `OtnOpticalPort`, and
       # that generic carries no identity keys: they live on `OtnGenericPort`, a
-      # sibling generic rather than a parent. Naming `OtnAmplifierPort` here is
-      # also the whole point of the scenario, so the file says out loud which
-      # kind of port the module is being put into.
+      # sibling generic rather than a parent.
       port:
         kind: OtnAmplifierPort
         data:

@@ -2,20 +2,19 @@
 
 Reads `attenuation_mdb` and `max_attenuation_mdb` off every
 `OtnVariableAttenuator` and fails where the setting is the larger of the two.
-The bound is inclusive: a VOA sitting exactly at its maximum is at the end of
-its travel and still a setting the device can hold, so equality passes.
+The bound is inclusive: a VOA sitting exactly at its maximum is still a setting
+the device can hold, so equality passes.
 
 **The schema already owns the absolute range, and this check must not be
 widened back over it.** `min_value: 0` and `max_value: 30000` on
-`attenuation_mdb` refuse a physically impossible figure at write time, from an
-object file, the API, the UI or a hand edit during a demo. What the schema
-cannot say is "not more than this device's own maximum", because that bound is
-a sibling attribute's value and Infrahub has no cross-attribute constraint.
-That one comparison is the whole of what is left here.
+`attenuation_mdb` refuse a physically impossible figure at write time, from
+every direction. What the schema cannot say is "not more than this device's own
+maximum", because that bound is a sibling attribute's value and Infrahub has no
+cross-attribute constraint. That one comparison is all that is left here.
 
-Silent about `OtnFixedAttenuator`, and the query does not fetch it. A pad has
-no maximum to be past: the two kinds were split so the field would not exist
-where it means nothing, which removed half of this check before it was written.
+Silent about `OtnFixedAttenuator`, and the query does not fetch it: a pad has no
+maximum to be past, and the two kinds were split so the field would not exist
+where it means nothing.
 
 Silent about the loss an attenuator contributes, which is
 `insertion_loss_mdb + attenuation_mdb` and is the budget engine's business.

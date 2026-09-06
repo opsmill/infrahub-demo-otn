@@ -4,21 +4,17 @@
 # Scenario input: a variable attenuator dialled past the end of its travel.
 #
 # **What this demonstrates.** `voa-mil-01` is a 20.0 dB VOA and this file asks it
-# for 24.0 dB. Every bound the schema carries is respected: `attenuation_mdb`
-# runs from 0 to 30000 millidecibels and 24000 is inside that, so the write is
-# accepted and the record reads as ordinary. What it is not inside is this
-# device's own `max_attenuation_mdb`, and no schema constraint can say so,
-# because that bound is a sibling attribute's value and Infrahub has no
+# for 24.0 dB. `attenuation_mdb` runs from 0 to 30000 millidecibels and 24000 is
+# inside that, so the write is accepted. What it is not inside is this device's
+# own `max_attenuation_mdb`, a sibling attribute's value, and Infrahub has no
 # cross-attribute constraint.
 #
-# **The load is expected to succeed, and that is the point.** The schema takes
-# the half it can and refuses the physically impossible figure. The half left
-# over is one comparison between two fields of one node, and that is the whole
-# of what `checks/attenuator_range.py` does.
+# **The load is expected to succeed, and that is the point.** The schema refuses
+# the physically impossible figure. The half left over is one comparison between
+# two fields of one node, and that is the whole of `checks/attenuator_range.py`.
 #
-# Milan rather than Frankfurt because Milan is the busier add stage: 37 of the
-# 40 wavelengths terminate there against 25 at Frankfurt, so it is the VOA an
-# operator is most likely to be re-dialling when the number goes past the stop.
+# Milan rather than Frankfurt because Milan is the busier add stage: 37 of the 40
+# wavelengths terminate there against 25 at Frankfurt.
 #
 # The check **fails**, with exactly one finding:
 #
@@ -35,19 +31,15 @@
 #     absolute 0 to 30 dB limit is a schema constraint on both kinds and is
 #     refused at write time
 #
-# **The record is restated whole rather than patched.** Every other field is the
-# figure `objects/13_geant_devices.yml` already ships, so the only difference
-# between this attenuator and the racked one is the setting, and a reader can
-# see that without opening the generated file.
+# The record is restated whole rather than patched, so the only difference from
+# `objects/13_geant_devices.yml` is the setting.
 #
-# Not in `objects/`. `objects/1*.yml` is generated,
-# `tests/unit/test_geant_dataset.py` regenerates it and diffs, and a hand edit
-# there fails on the next run. It would also put the finding on the default
-# branch, where every branch cut from it would inherit a red check and nobody
+# Not in `objects/`: that tree is generated and a hand edit there fails on the
+# next run. It would also put the finding on the default branch, where nobody
 # would ever see the check go green.
 #
-# Loaded onto its own branch by `uv run invoke demo-attenuator-range`. `demo/` is
-# not listed under `objects:` in `.infrahub.yml`, so git sync never reaches it.
+# Loaded onto its own branch by `uv run invoke demo-attenuator-range`; `demo/` is
+# not listed under `objects:` in `.infrahub.yml`.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:

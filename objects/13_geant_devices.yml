@@ -2559,12 +2559,10 @@ spec:
   kind: OtnFixedAttenuator
   # One pad at each end of the CWDM tail. 18.4 km with no amplifier is
   # the one link here short enough to overload the receiver at the far
-  # end, and the loss a pad has to take is known and will not move, so
-  # a rated part is what gets fitted rather than a knob nobody turns.
+  # end, and the loss a pad takes is known and will not move.
   #
   # attenuation_mdb carries the whole figure and insertion_loss_mdb
-  # stays 0: a pad's own loss beyond its rating is negligible, and the
-  # budget engine adds the two together.
+  # stays 0; the budget engine adds the two together.
   data:
     - name: pad-ams-01
       role: passive
@@ -3314,9 +3312,7 @@ spec:
   kind: OtnVariableAttenuator
   # One VOA on the add stage at each hub ROADM. Every one of the 40
   # carriers crosses oms-fra-mil, so 37 wavelengths terminate at Milan
-  # and 25 at Frankfurt and no third site is close. Those are the two
-  # places many transponders are combined and one channel's power is
-  # worth trimming.
+  # and 25 at Frankfurt and no third site is close.
   #
   # max_attenuation_mdb is range, not loss. Nothing in the budget
   # reads it; checks/attenuator_range.py holds the setting against it.

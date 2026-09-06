@@ -5,33 +5,28 @@ holds those ports to APC wherever a pump is present. A Raman pump fires half a
 watt of light backwards up the fibre it is spliced into. A flat endface returns
 about 50 dB of that into the span it came from; an angled one sends the
 reflection into the cladding instead. On pumped glass that difference decides
-whether the section runs or oscillates, which is why the rule is absolute here
-and silent everywhere else.
+whether the section runs or oscillates.
 
 **A span whose `terminating_ports` is empty is reported and never passed.** An
 empty relationship and a span with two correct APC ends produce the same
-silence, and a check that reads the second out of the first is worse than no
-check: it puts a green mark on a traversal that returned nothing. The finding is
-INFO rather than an error because an unpopulated relationship is a gap in the
-data and not a fault in the plant, and it says which span it could not judge.
+silence, so reading the second out of the first puts a green mark on a traversal
+that returned nothing. The finding is INFO, because an unpopulated relationship
+is a gap in the data and not a fault in the plant.
 
 **Only APC passes, and that includes `none`.** UPC and PC are flat endfaces and
-reflect. `none` means no polished endface at all, which is the right answer for
-a fusion splice and a contradiction on a port a span is recorded as terminating
-on: a termination is a mated connector, so a port claiming both is a record that
-disagrees with itself rather than a clean one.
+reflect. `none` means no polished endface at all, which is right for a fusion
+splice and a contradiction on a port a span terminates on: a termination is a
+mated connector, so a port claiming both disagrees with itself.
 
 **The schema could not take any of this.** `polish` is an attribute on the port
 and `raman_pumps` is a relationship on the span, two hops apart, and Infrahub
-has no cross-relationship constraint: no write can be refused because a port at
-the far end of a relationship chain has the wrong value. What the schema does
-own is the vocabulary, a Dropdown of four choices, so this check never has to
-ask whether a value is a polish at all.
+has no cross-relationship constraint. What the schema does own is the
+vocabulary, a Dropdown of four choices, so this check never has to ask whether a
+value is a polish at all.
 
 Silent about every port that terminates no pumped span, which is all but a
-handful of them. Polish matters on a pumped section and is a preference
-elsewhere, so the backfill covers line and ROADM degree ports and every other
-port kind may leave the attribute unset without this check saying anything.
+handful: the backfill covers line and ROADM degree ports and every other port
+kind may leave the attribute unset.
 
 Silent about how much gain a pump contributes and whether the section closes.
 That is `checks/osnr_margin.py` and the budget engine behind it.

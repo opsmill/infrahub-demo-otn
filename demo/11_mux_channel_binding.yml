@@ -5,23 +5,19 @@
 # channels.
 #
 # **What this demonstrates.** `OtnMuxClientPort` reaches a channel through two
-# optional relationships, `dwdm_channel` to the dense grid and `cwdm_channel` to
-# the coarse plan, and the schema cannot say "exactly one of these two". The two
-# plans are separate kinds and Infrahub has no cross-relationship constraint, so
-# the schema can make one relationship mandatory or leave both optional. Both
-# records below load, and the load succeeding is the point.
+# optional relationships, `dwdm_channel` and `cwdm_channel`, and the schema
+# cannot say "exactly one of these two": the two plans are separate kinds and
+# Infrahub has no cross-relationship constraint. Both records below load, and the
+# load succeeding is the point.
 #
 # `CH094` on `mux-fra-01` binds nothing. Frankfurt lights 25 dense channels and
-# 94 is not one of them, so this is the port an engineer racked ahead of the
-# patch and never came back to.
+# 94 is not one of them.
 #
-# `CH1531-2` on `mux-ams-02` binds both. It names dense channel 94 and the
-# coarse 1531 nm the device already lights, which is the mistake a coarse filter
-# invites: 1531 is the one wavelength of the four inside the erbium window, and
-# a dense channel patched onto its slot looks plausible until something reads
-# the two bindings together. The coarse half names a wavelength the device does
-# list, so the finding is the double binding alone and not a second complaint
-# about an unlisted wavelength.
+# `CH1531-2` on `mux-ams-02` binds both. It names dense channel 94 and the coarse
+# 1531 nm the device already lights, which is the mistake a coarse filter
+# invites: 1531 is the one wavelength of the four inside the erbium window. The
+# coarse half names a wavelength the device does list, so the finding is the
+# double binding alone.
 #
 # `checks/mux_channel_binding.py` is what notices. On a branch holding this file
 # it fails with exactly two findings, one per port, and the same run states what
@@ -29,14 +25,12 @@
 # skipped, and 14 devices whose dense bindings are compared against nothing
 # because the graph holds no dense equivalent of `cwdm_channels`.
 #
-# Neither port is in `objects/`. `objects/1*.yml` is generated,
-# `tests/unit/test_geant_dataset.py` regenerates it and diffs, and a hand-added
-# port there fails on the next run. It would also put the finding on the default
-# branch, where every branch cut from it would inherit a red check and nobody
-# would ever see the check go green.
+# Neither port is in `objects/`: that tree is generated and a hand-added port
+# there fails on the next run. It would also put the finding on the default
+# branch, where nobody would ever see the check go green.
 #
-# Loaded onto its own branch by `uv run invoke demo-mux-binding`. `demo/` is not
-# listed under `objects:` in `.infrahub.yml`, so git sync never reaches it.
+# Loaded onto its own branch by `uv run invoke demo-mux-binding`; `demo/` is not
+# listed under `objects:` in `.infrahub.yml`.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:

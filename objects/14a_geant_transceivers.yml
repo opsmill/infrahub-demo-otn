@@ -9,15 +9,13 @@
 # Numbered to load straight after 14_geant_ports.yml, because a fitted
 # unit names the port it sits in and the loader resolves that reference
 # at insert time. The reference carries its concrete kind, because the
-# port relationship peers a generic that holds no identity keys and a
-# bare pair cannot be looked up against it.
+# port relationship peers a generic that holds no identity keys.
 #
-# A unit with no port is a spare or an RMA. That is why the port
-# relationship is optional, and it is why no uniqueness constraint can
-# hold one port to one optic: the constraint is available on a mandatory
-# relationship only. The duplicate is refused anyway, by the
-# cardinality-one inverse the three port kinds that hold a module
-# declare. checks/transceiver_placement.py keeps only the port-kind rule.
+# A unit with no port is a spare or an RMA, which is why the port
+# relationship is optional and why no uniqueness constraint can hold
+# one port to one optic: the constraint is available on a mandatory
+# relationship only. The duplicate is refused by the cardinality-one
+# inverse the three port kinds that hold a module declare.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:
@@ -26,9 +24,8 @@ spec:
   # OpenZR+ rungs, so a carrier that later drops to 300G or 200G is
   # still supported by the optic already fitted.
   #
-  # The 400ZR spare is the interesting one. Same cage, same
-  # constellation, same 400G, and 120 km of cFEC reach against 1000 km
-  # of oFEC. Nothing on the outside of the module says which it is.
+  # The 400ZR spare is the interesting one: same cage, same
+  # constellation, same 400G, 120 km of cFEC against 1000 km of oFEC.
   data:
     - serial: ZRP-AMS-01
       status: in_service

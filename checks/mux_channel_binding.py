@@ -8,23 +8,21 @@ bindings claim a dense and a coarse wavelength on one filter slot.
 The schema could take neither half. `OtnMuxClientPort` reaches a channel through
 two optional relationships, `dwdm_channel` to `OtnFrequencyGrid` and
 `cwdm_channel` to `OtnCwdmChannel`, because the dense and coarse plans are
-separate kinds and Infrahub has no cross-relationship constraint. The schema can
-make one relationship mandatory or leave both optional; it cannot say "exactly
-one of these two". A shared channel generic would buy the constraint and reopen
-the decision that keeps `OtnOpticalCarrier.channel` peering the dense grid
-alone, migrating every loaded channel to do it.
+separate kinds and Infrahub has no cross-relationship constraint. It can make one
+relationship mandatory or leave both optional; it cannot say "exactly one of
+these two". A shared channel generic would buy the constraint and reopen the
+decision that keeps `OtnOpticalCarrier.channel` peering the dense grid alone.
 
 The device side is the other half. A coarse multiplexer lists the wavelengths it
-lights on `cwdm_channels`, so its client ports and that list are two records
-inside Infrahub that must agree: a listed wavelength with no port is a channel
-the device claims and cannot reach, and a port naming a wavelength the device
-does not list is a filter slot for light that never arrives.
+lights on `cwdm_channels`, so its client ports and that list must agree: a listed
+wavelength with no port is a channel the device claims and cannot reach, and a
+port naming a wavelength the device does not list is a filter slot for light that
+never arrives.
 
 Silent about dense bindings against any device-side list, because there is no
-dense equivalent of `cwdm_channels` to compare them with, and the count of
-multiplexers in that position is reported as info. Silent about a mux line port
-binding nothing, which is correct by design: it carries every channel the device
-lights.
+dense equivalent of `cwdm_channels`, and the count of multiplexers in that
+position is reported as info. Silent about a mux line port binding nothing: it
+carries every channel the device lights.
 """
 
 from collections.abc import Iterable

@@ -12,8 +12,8 @@
 # is rejected before the write.
 #
 # The last three run router to router on an OpenZR+ pluggable, on the
-# three shortest sections, and they are the only wavelengths here that
-# terminate on something other than a transponder.
+# three shortest sections, and are the only ones here not terminating
+# on a transponder.
 #
 # Each wavelength names the two line ports terminating it. The edge is
 # written here and not on the port, because 14_geant_ports.yml loads

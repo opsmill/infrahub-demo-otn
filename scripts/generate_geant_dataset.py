@@ -74,8 +74,7 @@ MANIFEST = Path(__file__).resolve().parent / "geant_manifest.json"
 OPTICAL_MODES = OBJECT_DIR / "03_optical_modes.yml"
 
 # The parts catalog, hand-maintained input on the same terms. It holds what each
-# pluggable part supports, which is the only thing separating a 400ZR module from
-# an OpenZR+ one, and this script reads it rather than restating a mode list.
+# pluggable supports, so this script reads it rather than restating a mode list.
 TRANSCEIVER_TYPES = OBJECT_DIR / "06_transceiver_types.yml"
 
 # The fibre catalog, hand-maintained input on the same terms. It holds the
@@ -302,29 +301,23 @@ Both are stated figures rather than vendor ones, in the manner of
 # --------------------------------------------------------------------------
 # Seed table 5b: the coloured pluggables.
 #
-# Three wavelengths that never touch a transponder. A coherent pluggable goes
-# into the router itself and terminates the line there, which is what an NREN
-# builds where the reach a transponder buys is reach nobody needs.
+# Three wavelengths that never touch a transponder: a coherent pluggable goes
+# into the router and terminates the line there.
 #
-# **Why these three sections.** They are the three shortest in `SECTIONS`:
-# `oms-ams-bru` at 220 km, `oms-ber-prg` and `oms-ham-ber` at 330 km each. All
-# three carried no light at all before this table existed.
+# The three sections are the shortest in `SECTIONS`, `oms-ams-bru` at 220 km and
+# `oms-ber-prg` and `oms-ham-ber` at 330 km each, and all three carried no light
+# before this table existed.
 #
-# **Why OpenZR+ and not 400ZR.** 400ZR and 800ZR are 120 km cFEC parts and reach
-# none of the 21 sections. That negative result is about cFEC rather than about
-# pluggables: OpenZR+ carries oFEC, its 400G rung is a 1000 km mode, and
-# `budget.evaluate_path` over the committed plant closes all three of these
-# sections at 400G with 10.890 dB, 7.747 dB and 7.747 dB of OSNR margin. No
-# carrier had to drop to the 300G or the 200G rung. The same three sections
-# refuse 400ZR on dispersion, by 1340 and 3210 ps/nm, so the swap the demo
-# branch makes later is refused on physics and not on a rule.
+# OpenZR+ rather than 400ZR, because 400ZR and 800ZR are 120 km cFEC parts and
+# reach none of the 21 sections. OpenZR+ carries oFEC, its 400G rung is a 1000 km
+# mode, and `budget.evaluate_path` over the committed plant closes all three at
+# 400G with 10.890 dB, 7.747 dB and 7.747 dB of OSNR margin. The same three
+# sections refuse 400ZR on dispersion, by 1340 and 3210 ps/nm, so the swap the
+# demo branch makes later is refused on physics and not on a rule.
 #
-# **Why channels 3, 4 and 6.** 56 of the 96 dense channels hold no anchor. The
-# lowest is channel 1 and `units.anchor_fits_band` refuses it for a 75,354 MHz
-# carrier, because the interval would run below the modelled band edge. Channels
-# 2 and 5 are anchors already. 3, 4 and 6 are the three lowest that both fit the
-# band and hold nothing, and the three sections share no fibre with each other
-# or with the forty, so nothing here can overlap anything.
+# Channels 3, 4 and 6 are the three lowest that both fit the band and hold
+# nothing: `units.anchor_fits_band` refuses channel 1 for a 75,354 MHz carrier,
+# and 2 and 5 are anchors already.
 # --------------------------------------------------------------------------
 PLUGGABLE_PLAN: list[tuple[str, str, int, str]] = [
     ("ams", "bru", 3, "OpenZR+ 400G"),
@@ -429,23 +422,19 @@ CWDM_TAIL_MODEL = "M-CWDM4"
 # --------------------------------------------------------------------------
 # Seed table 6a: where the attenuators go, and why those four places.
 #
-# **The two VOAs sit on the add stage at Frankfurt and Milan.** A variable pad
-# is for trimming one channel's power where many transponders are combined into
-# one ROADM, and those two sites are where that combining is heaviest: every one
-# of the 40 carriers crosses `oms-fra-mil`, 37 wavelengths terminate at Milan
-# and 25 at Frankfurt, so no third site is close. A VOA anywhere else would be
-# an adjustment nobody makes.
+# The two VOAs sit on the add stage at Frankfurt and Milan, where the combining
+# is heaviest: every one of the 40 carriers crosses `oms-fra-mil`, 37 wavelengths
+# terminate at Milan and 25 at Frankfurt, and no third site is close. A VOA
+# anywhere else would be an adjustment nobody makes.
 #
-# **The two pads sit at the ends of the CWDM tail.** A fixed pad has no range to
-# dial, so it belongs where the loss is known and stays put. 18.4 km with no
-# amplifier and a thin-film filter at each end is the one link modelled here
-# short enough to hand the receiver at the far end more power than it wants, and
-# a pad is what a metro build fits there rather than a VOA nobody re-dials.
+# The two pads sit at the ends of the CWDM tail, where the loss is known and
+# stays put. 18.4 km with no amplifier and a thin-film filter at each end is the
+# one link modelled here short enough to hand the far receiver more power than it
+# wants.
 #
 # Neither kind is on an optical path in this dataset. Both would reach one
 # through `OtnPathHop.element` the way a fibre span does, and the budget engine
-# already adds `attenuation_mdb` to the inherited `insertion_loss_mdb` when it
-# meets either.
+# already adds `attenuation_mdb` to the inherited `insertion_loss_mdb`.
 # --------------------------------------------------------------------------
 VOA_SITES = ("fra", "mil")
 """The two hub sites, by measurement rather than by preference."""
@@ -500,10 +489,10 @@ DEVICE_PROFILE: dict[str, dict[str, Any]] = {
     # still applies to the incoming segment, which is why `budget.py`'s
     # `RegeneratorInput` leaves it out of any term spanning both segments.
     "OtnOduSwitch": {"insertion_loss_mdb": 0, "role": "core", "model": "X-ODU8"},
-    # A VOA's own optics cost about a decibel before it is dialled anywhere, and
-    # `attenuation_mdb` is what is added on top. A pad stays at zero here and
-    # carries its whole figure in `attenuation_mdb`, because its rating is its
-    # loss and splitting one number across two fields charges it twice.
+    # A VOA's own optics cost about a decibel before it is dialled, and
+    # `attenuation_mdb` is added on top. A pad stays at zero and carries its whole
+    # figure there: its rating is its loss, and splitting one number across two
+    # fields charges it twice.
     "OtnVariableAttenuator": {"insertion_loss_mdb": 1000, "role": "passive", "model": "V-VOA20"},
     "OtnFixedAttenuator": {"insertion_loss_mdb": 0, "role": "passive", "model": "F-PAD5"},
     # No insertion loss, no vendor and no model: all three live on
@@ -914,8 +903,7 @@ def carrier_plan_fit_report() -> str:
             cursor += 1
 
     # The coloured pluggables occupy spectrum too, on three sections the plan
-    # above leaves empty. Left out, this report would say those three carry no
-    # wavelength while the dataset says they carry one each.
+    # above leaves empty. Left out, this report would say those three carry none.
     for a, b, channel, mode in PLUGGABLE_PLAN:
         lower, upper = carrier_interval_mhz(channel_to_frequency_mhz(channel), bauds[mode])
         intervals.setdefault(section_key(a, b), []).append((lower, upper))
@@ -1673,13 +1661,11 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
     # line port on the site's router with an add/drop port racked for it, so a
     # wavelength terminating in a router patches into the ROADM the way one
     # terminating in a transponder does. Without the add/drop the router would
-    # hold a lit port facing nothing, which is a hole in the plant rather than a
-    # detail left out.
+    # hold a lit port facing nothing.
     #
-    # The line port carries the same launch power and receiver sensitivity as a
-    # transponder's. A coherent pluggable is a smaller transponder, and stating
-    # different figures here would say the demo knows something about ZR+ optics
-    # that the mode catalog does not already hold.
+    # The line port carries a transponder's launch power and receiver
+    # sensitivity: a coherent pluggable is a smaller transponder, and different
+    # figures would claim knowledge of ZR+ optics the mode catalog does not hold.
     for site, router, port, channel in pluggable_terminations():
         roadm = f"roadm-{site}-01"
         add_drop_used[site] += 1
@@ -1713,16 +1699,13 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
         ports["OtnAmplifierPort"].append(_port("OUT", name, role, tx_power_mdbm=17000, connector_type="LC"))
 
     # One line port per multiplexer, and one client port per channel the device
-    # actually lights. A coarse filter lights the wavelengths its own
-    # `cwdm_channels` names; a dense AWG lights the distinct channels that a
-    # carrier terminates at its site, which is the same figure its monitor
-    # reports. Forty client ports per dense unit would be 560 ports standing for
-    # wavelengths that do not exist, and eight of the fourteen sites terminate
-    # nothing at all.
+    # actually lights: a coarse filter lights the wavelengths its own
+    # `cwdm_channels` names, a dense AWG the distinct channels a carrier
+    # terminates at its site. Forty client ports per dense unit would be 560 ports
+    # standing for wavelengths that do not exist.
     #
-    # Neither kind carries a power figure. A passive filter transmits nothing
-    # and has no receiver, so tx_power_mdbm and rx_sensitivity_mdbm stay unset
-    # rather than carrying a launch level copied off a transponder.
+    # Neither kind carries a power figure. A passive filter transmits nothing and
+    # has no receiver, so tx_power_mdbm and rx_sensitivity_mdbm stay unset.
     dense = dense_channels_by_site()
     for mux in build_devices()["OtnMuxDemux"]:
         name = str(mux["name"])
@@ -2068,9 +2051,8 @@ def build_monitoring_ports(ports: dict[str, list[dict[str, Any]]]) -> dict[str, 
         )
 
     carriers = build_carriers()
-    # Every wavelength, not only the forty on transponders. A degree monitor
-    # reports the light crossing the fibre it faces, and the three coloured
-    # pluggables are light. `channel_count_consistency` compares this reading
+    # Every wavelength, not only the forty on transponders: the three coloured
+    # pluggables are light too. `channel_count_consistency` compares this reading
     # against the carriers riding the section, so a degree that left them out
     # would be refused on data that is correct.
     on_section = channels_by_section(carriers + build_pluggable_carriers(), [section_key(a, b) for a, b, _ in SECTIONS])
@@ -2249,11 +2231,10 @@ def _cwdm_tail_span() -> dict[str, Any]:
         "fiber_type": FIBER_TYPE,
         "site_a": campus,
         "site_b": CWDM_TAIL_PEER,
-        # The tail terminates on the two passive filters and on nothing else.
-        # There is no ROADM at either end of it, so `span_terminating_ports`
-        # does not apply and the pair is named here. Neither port states a
-        # polish: the backfill covers line and degree ports, and a mux line
-        # port is outside it.
+        # The tail terminates on the two passive filters and on nothing else, so
+        # `span_terminating_ports` does not apply and the pair is named here.
+        # Neither port states a polish: the backfill covers line and degree
+        # ports, and a mux line port is outside it.
         "terminating_ports": [
             [f"mux-{campus}-01", "LINE"],
             [f"mux-{CWDM_TAIL_PEER}-02", "LINE"],
@@ -2487,9 +2468,8 @@ def build_pluggable_carriers() -> list[dict[str, Any]]:
             {
                 "name": f"oc-ch{channel:03d}-{a}-{b}",
                 "description": f"{names[a]} to {names[b]} on channel {channel}, router to router.",
-                # Quoted, for the same reason the forty are: the human-friendly
-                # identifier is a Number attribute and a bare integer is rejected
-                # before the write.
+                # Quoted, like the forty: the human-friendly identifier is a
+                # Number attribute and a bare integer is rejected before the write.
                 "channel": str(channel),
                 "optical_mode": mode,
                 "sections": [section_key(a, b)],
@@ -2758,19 +2738,15 @@ def generate(target: Path) -> dict[str, int]:
             "OtnFixedAttenuator": [
                 "One pad at each end of the CWDM tail. 18.4 km with no amplifier is",
                 "the one link here short enough to overload the receiver at the far",
-                "end, and the loss a pad has to take is known and will not move, so",
-                "a rated part is what gets fitted rather than a knob nobody turns.",
+                "end, and the loss a pad takes is known and will not move.",
                 "",
                 "attenuation_mdb carries the whole figure and insertion_loss_mdb",
-                "stays 0: a pad's own loss beyond its rating is negligible, and the",
-                "budget engine adds the two together.",
+                "stays 0; the budget engine adds the two together.",
             ],
             "OtnVariableAttenuator": [
                 "One VOA on the add stage at each hub ROADM. Every one of the 40",
                 "carriers crosses oms-fra-mil, so 37 wavelengths terminate at Milan",
-                "and 25 at Frankfurt and no third site is close. Those are the two",
-                "places many transponders are combined and one channel's power is",
-                "worth trimming.",
+                "and 25 at Frankfurt and no third site is close.",
                 "",
                 "max_attenuation_mdb is range, not loss. Nothing in the budget",
                 "reads it; checks/attenuator_range.py holds the setting against it.",
@@ -2886,8 +2862,8 @@ def generate(target: Path) -> dict[str, int]:
             "is rejected before the write.",
             "",
             "The last three run router to router on an OpenZR+ pluggable, on the",
-            "three shortest sections, and they are the only wavelengths here that",
-            "terminate on something other than a transponder.",
+            "three shortest sections, and are the only ones here not terminating",
+            "on a transponder.",
             "",
             "Each wavelength names the two line ports terminating it. The edge is",
             "written here and not on the port, because 14_geant_ports.yml loads",
@@ -2906,15 +2882,13 @@ def generate(target: Path) -> dict[str, int]:
             "Numbered to load straight after 14_geant_ports.yml, because a fitted",
             "unit names the port it sits in and the loader resolves that reference",
             "at insert time. The reference carries its concrete kind, because the",
-            "port relationship peers a generic that holds no identity keys and a",
-            "bare pair cannot be looked up against it.",
+            "port relationship peers a generic that holds no identity keys.",
             "",
-            "A unit with no port is a spare or an RMA. That is why the port",
-            "relationship is optional, and it is why no uniqueness constraint can",
-            "hold one port to one optic: the constraint is available on a mandatory",
-            "relationship only. The duplicate is refused anyway, by the",
-            "cardinality-one inverse the three port kinds that hold a module",
-            "declare. checks/transceiver_placement.py keeps only the port-kind rule.",
+            "A unit with no port is a spare or an RMA, which is why the port",
+            "relationship is optional and why no uniqueness constraint can hold",
+            "one port to one optic: the constraint is available on a mandatory",
+            "relationship only. The duplicate is refused by the cardinality-one",
+            "inverse the three port kinds that hold a module declare.",
         ],
         [_document("OtnTransceiver", transceivers)],
         {
@@ -2923,9 +2897,8 @@ def generate(target: Path) -> dict[str, int]:
                 "OpenZR+ rungs, so a carrier that later drops to 300G or 200G is",
                 "still supported by the optic already fitted.",
                 "",
-                "The 400ZR spare is the interesting one. Same cage, same",
-                "constellation, same 400G, and 120 km of cFEC reach against 1000 km",
-                "of oFEC. Nothing on the outside of the module says which it is.",
+                "The 400ZR spare is the interesting one: same cage, same",
+                "constellation, same 400G, 120 km of cFEC against 1000 km of oFEC.",
             ],
         },
     )

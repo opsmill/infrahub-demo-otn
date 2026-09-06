@@ -182,10 +182,10 @@ generics:
       # attribute restates the whole list, and the server accepts a restatement
       # that is one choice short without a word; the divergence surfaces only
       # when an object writes the missing value. The tenth choice, `odu_switch`,
-      # cost nine blocks when it landed and the list now lives in eleven: this
-      # one, the nine overrides in otn_devices.yml, and the span's in
-      # otn_plant.yml. The pinned list in `tests/unit/test_schema_contract.py`
-      # is the only thing that will tell you a block was missed.
+      # cost nine blocks and the list now lives in eleven: this one, the nine
+      # overrides in otn_devices.yml, and the span's in otn_plant.yml. The pinned
+      # list in `tests/unit/test_schema_contract.py` is the only thing that will
+      # tell you a block was missed.
       - name: element_class
         kind: Dropdown
         choices:
@@ -366,18 +366,18 @@ generics:
         description: Receiver sensitivity in dBm. Derived from rx_sensitivity_mdbm.
         order_weight: 1810
       # A Dropdown rather than an enum, so a connector carries a label, a colour
-      # and a sentence saying what it is. The six original names are unchanged,
-      # so no loaded value is rewritten; MU, CS and splice are new.
+      # and a sentence. The six original names are unchanged, so no loaded value
+      # is rewritten; MU, CS and splice are new.
       #
       # Changing the kind on this generic alone is refused with
       # "connector_type inherited from OtnOpticalPort must be the same kind
-      # ["Dropdown", "Text"]", because the loaded schema has materialised the
-      # Text attribute onto every optical port kind. All six kinds that inherit
-      # this generic restate the list in otn_ports.yml, and a restatement one
-      # choice short is accepted in silence, exactly as with element_class.
+      # ["Dropdown", "Text"]", because the loaded schema has materialised the Text
+      # attribute onto every optical port kind. All six kinds that inherit this
+      # generic restate the list in otn_ports.yml, and a restatement one choice
+      # short is accepted in silence.
       #
-      # OtnCopperPort keeps its own connector_type as Text. No kind inherits
-      # both port generics, so the two do not collide.
+      # OtnCopperPort keeps its own connector_type as Text; no kind inherits both
+      # port generics.
       - name: connector_type
         kind: Dropdown
         choices:

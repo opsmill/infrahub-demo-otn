@@ -5,18 +5,17 @@
 # the equipment they hang off, plus the two kinds that inventory the pluggable
 # optics fitted into them.
 #
-# A traffic port declares its inherit_from, the channel or carrier it binds if
-# it binds one, and nothing else. Restating anything further would let it drift
-# from the generic and break the premise that one query against OtnGenericPort
-# returns every port kind with the same shape.
+# A traffic port declares its inherit_from, the channel or carrier it binds if it
+# binds one, and nothing else. Anything further drifts from the generic and
+# breaks the premise that one query against OtnGenericPort returns every port
+# kind with the same shape.
 #
 # The one exception is connector_type. OtnOpticalPort turned it into a Dropdown,
 # and Infrahub refuses to change an attribute's kind on a generic underneath the
 # kinds that already inherit it, so the six optical port kinds that predate the
-# change restate the full nine-choice list. The two mux kinds are new and need
-# no restatement. A restatement one choice short is accepted in silence, the
-# same trap element_class carries in otn_devices.yml, and
-# tests/unit/test_schema_contract.py is the only thing that catches it.
+# change restate the full nine-choice list. A restatement one choice short is
+# accepted in silence, and tests/unit/test_schema_contract.py is the only thing
+# that catches it.
 version: "1.0"
 
 # Two flat generics. Generics cannot inherit generics in Infrahub, so the
@@ -132,16 +131,14 @@ nodes:
       # Both ends are cardinality one, so the edge is one to one: the server
       # refuses the second write with "has 2 peers for
       # otn_optical_port__transceiver, maximum of 1 allowed". That is the
-      # duplicate rule, and it is here rather than in a check because the schema
-      # refuses every write path and a check only reports on the next pipeline
-      # run.
+      # duplicate rule, carried by the schema rather than by a check.
       #
       # Declared on the three concrete kinds that have a cage and never on the
-      # OtnOpticalPort generic. The generic would hand the field to all eight
-      # optical port kinds, including the five that hold no module.
+      # OtnOpticalPort generic, which would hand the field to all eight optical
+      # port kinds including the five that hold no module.
       #
-      # Optional on both sides, so a spare, an RMA and a decommissioned unit are
-      # still modellable and no loaded port needs a value.
+      # Optional on both sides, so a spare, an RMA and a decommissioned unit stay
+      # modellable.
       - name: transceiver
         peer: OtnTransceiver
         label: Module fitted in this port
@@ -204,8 +201,8 @@ nodes:
         optional: true
         order_weight: 1900
     relationships:
-      # The same one-to-one edge OtnRouterPort.transceiver documents, on the
-      # kind that takes a grey pluggable on the transponder side.
+      # The one-to-one edge OtnRouterPort.transceiver documents, here on the kind
+      # that takes a grey pluggable on the transponder side.
       - name: transceiver
         peer: OtnTransceiver
         label: Module fitted in this port
@@ -316,8 +313,8 @@ nodes:
         identifier: otn_carrier__line_ports
         on_delete: no-action
         order_weight: 850
-      # The same one-to-one edge OtnRouterPort.transceiver documents, on the
-      # kind that takes a coloured pluggable on the line side.
+      # The one-to-one edge OtnRouterPort.transceiver documents, here on the kind
+      # that takes a coloured pluggable on the line side.
       - name: transceiver
         peer: OtnTransceiver
         label: Module fitted in this port
@@ -484,10 +481,9 @@ nodes:
         optional: true
         order_weight: 1900
 
-  # One multiplexer channel and the common side it shares. Both take the two
-  # flat generics and neither declares an insertion loss: the loss belongs to
-  # the device and the budget engine already reads it from the path hop's
-  # element, so a second per-port figure would only invite double counting.
+  # One multiplexer channel and the common side it shares. Neither declares an
+  # insertion loss: the loss belongs to the device and the budget engine reads it
+  # from the path hop's element, so a second per-port figure would double count.
   - name: MuxClientPort
     namespace: Otn
     description: One channel of a multiplexer. The side facing the transponder or router that lights it.
@@ -497,14 +493,12 @@ nodes:
     inherit_from:
       - OtnGenericPort
       - OtnOpticalPort
-    # Two optional edges, not one mandatory edge to a channel generic shared
-    # over the dense and coarse plans. The two grid kinds were kept apart
-    # deliberately, and Infrahub has no cross-relationship constraint, so the
-    # schema cannot say "exactly one of these two". mux_channel_binding owns
-    # both the neither case and the both case.
+    # Two optional edges, not one mandatory edge to a shared channel generic. The
+    # dense and coarse grid kinds were kept apart, and Infrahub has no
+    # cross-relationship constraint, so the schema cannot say "exactly one of
+    # these two". mux_channel_binding owns the neither case and the both case.
     #
-    # Neither cascades: deleting a channel must not delete the port that named
-    # it.
+    # Neither cascades: deleting a channel must not delete the port that named it.
     relationships:
       - name: dwdm_channel
         peer: OtnFrequencyGrid
@@ -793,10 +787,9 @@ nodes:
         order_weight: 1560
 
   # The catalog entry and the physical unit. Neither inherits anything: a part
-  # number is not racked and is not something light passes through, and a
-  # pluggable is a part fitted into a port rather than a port itself. They live
-  # in this file beside the ports they plug into, so the schema file count does
-  # not move.
+  # number is not racked and a pluggable is fitted into a port rather than being
+  # one. They live beside the ports they plug into, so the file count does not
+  # move.
   - name: TransceiverType
     namespace: Otn
     description: A pluggable optic part number and what it can be made to do.
@@ -934,22 +927,19 @@ nodes:
         identifier: otn_transceiver_type__units
         on_delete: no-action
         order_weight: 900
-      # Optional, and therefore carrying no uniqueness constraint. Infrahub
+      # Optional, and therefore carrying no uniqueness constraint: Infrahub
       # refuses a constraint on an optional relationship, and making this one
       # mandatory would leave a spare, an RMA and a decommissioned unit
-      # unmodellable, which is most of what an optic inventory holds.
+      # unmodellable.
       #
       # The duplicate is refused anyway, by the inverse rather than by a
       # constraint. OtnLinePort, OtnClientPort and OtnRouterPort each declare a
-      # cardinality-one `transceiver` on this identifier, so both ends of the
-      # edge are cardinality one and the second module in a port is refused at
-      # write time. The inverse is on those three concrete kinds and not on the
-      # OtnOpticalPort generic, which would have handed the field to the five
-      # port kinds that hold no module.
+      # cardinality-one `transceiver` on this identifier, so both ends are
+      # cardinality one and the second module in a port is refused at write time.
       #
       # The port kind stays with the transceiver_placement check. This peers the
-      # generic, and a relationship to a generic cannot be filtered by peer
-      # kind, so the schema accepts a module written into an amplifier port.
+      # generic, and a relationship to a generic cannot be filtered by peer kind,
+      # so the schema accepts a module written into an amplifier port.
       - name: port
         peer: OtnOpticalPort
         label: Port this unit is fitted in

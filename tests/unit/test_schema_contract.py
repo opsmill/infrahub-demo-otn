@@ -985,11 +985,10 @@ def test_a_running_total_is_capped_no_lower_than_the_total_it_accumulates(hop_na
 # light terminates at a router, so a router contributes no insertion loss and a
 # query against the generic must not return one.
 #
-# The two mux port kinds and the two transceiver kinds are absent for a
-# different reason. A port is not an element light passes through, it is where
-# an element ends, and a pluggable optic is a part fitted into a port. Both
-# would make the budget charge a loss the mux or the transponder already
-# charges.
+# The two mux port kinds and the two transceiver kinds are absent for a different
+# reason: a port is where an element ends rather than an element light passes
+# through, and a pluggable optic is a part fitted into a port. Either would make
+# the budget charge a loss the mux or the transponder already charges.
 OPTICAL_ELEMENT_KINDS = (
     "OtnAmplifier",
     "OtnFiberSpan",

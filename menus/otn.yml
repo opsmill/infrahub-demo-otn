@@ -24,12 +24,10 @@
 # Navigation is not one entry per kind. A site page already lists its devices
 # and a device page already lists its ports.
 #
-#   Eight device kinds        OtnSite.devices, and the one Devices entry below.
-#                             Both attenuators are devices and arrive with the
-#                             rest of them
-#   Nine port kinds           OtnGenericDevice.ports, a Component relationship.
-#                             The two mux port kinds hang off their mux like
-#                             every other port hangs off its device
+#   Eight device kinds        OtnSite.devices, and the one Devices entry below;
+#                             both attenuators arrive with the rest
+#   Nine port kinds           OtnGenericDevice.ports, a Component relationship;
+#                             the two mux port kinds hang off their mux
 #   Optical elements          OtnPathHop.element; the five device kinds and the
 #                             span each have their own route
 #   Optical paths             OtnService.optical_path. Every path has exactly
@@ -127,10 +125,9 @@ spec:
             icon: mdi:pipe
             order_weight: 1300
 
-          # The only kind here that no other page reaches. A pluggable optic is
-          # fitted into a port through a one-sided relationship, so a port page
-          # does not list it, and a spare on a shelf is fitted into nothing at
-          # all. Without this entry the optics inventory is invisible.
+          # The only kind here that no other page reaches. A pluggable is fitted
+          # into a port through a one-sided relationship, so a port page does not
+          # list it, and a spare on a shelf is fitted into nothing at all.
           - namespace: Otn
             name: OtnTransceivers
             label: Transceivers
@@ -176,9 +173,8 @@ spec:
             icon: mdi:cable-data
             order_weight: 1200
 
-          # Part numbers, beside the fiber types. A transceiver unit reaches its
-          # own part in one click, but the catalog is read on its own too: it is
-          # what says which modes a part can run before any unit exists.
+          # Part numbers, beside the fiber types. The catalog is read on its own
+          # too: it says which modes a part can run before any unit exists.
           - namespace: Otn
             name: OtnTransceiverTypes
             label: Transceiver types

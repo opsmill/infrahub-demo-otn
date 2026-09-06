@@ -10,12 +10,8 @@ point, `pytest-infrahub-performance-test`. Its `pytest_sessionstart` builds a
 host profile, and that path reaches `psutil.cpu_freq()` with no guard around it
 (`plugin.py` -> `performance_test.py::get_system_stats` -> `host.py`). On Apple
 Silicon the call raises, and because a `pytest_sessionstart` failure is an
-INTERNALERROR the whole run dies before collection.
-
-That includes `tests/unit`, which needs no Docker and no Infrahub: the plugin
-loads whenever the package is installed, and `infrahub-testcontainers` is in the
-dev group, so every contributor on an arm64 Mac gets nothing from `invoke
-test-unit` but a traceback. Upstream already treats the reading as optional --
+INTERNALERROR the whole run dies before collection, `tests/unit` included even
+though it needs no Docker. Upstream already treats the reading as optional --
 `host.py` stores it as `cpu_freq.current if cpu_freq else None` -- so the intent
 was nullable and only the call site was missed. Remove this once that is fixed
 upstream.
@@ -24,8 +20,7 @@ Catching `Exception` is deliberate rather than lazy. The failure observed here i
 `SystemError: <built-in function cpu_freq> returned a result with an exception
 set`, and `SystemError` inherits from `Exception` directly, not from
 `RuntimeError` or `OSError`. A tuple naming the plausible-looking errors -- which
-is what `infrahub-solution-ai-dc` has -- does not catch it. All three frequency
-fields are cosmetic telemetry, so no reading here is worth an INTERNALERROR.
+is what `infrahub-solution-ai-dc` has -- does not catch it.
 """
 
 from __future__ import annotations

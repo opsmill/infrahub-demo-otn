@@ -3,16 +3,14 @@
 Reads every `OtnTransceiver` with the port it names. A module goes in a line, a
 client or a router port, because those are the kinds with a cage; an amplifier
 port, a ROADM degree or add/drop port and both multiplexer port kinds are fixed
-optical interfaces on the equipment and take no module.
+optical interfaces and take no module.
 
 **The schema took the other half, two modules in one port, and this check must
 not be widened back over it.** `OtnLinePort`, `OtnClientPort` and
 `OtnRouterPort` each declare a cardinality-one `transceiver` on the
-`otn_optical_port__transceiver` identifier, which is the identifier
-`OtnTransceiver.port` already used. Both ends of the edge are cardinality one,
-so the server refuses the second write: "has 2 peers for
-otn_optical_port__transceiver, maximum of 1 allowed". A check half that can
-never fail is worse than no check, because a green result reads as evidence.
+`otn_optical_port__transceiver` identifier, the one `OtnTransceiver.port`
+already used, so both ends are cardinality one and the server refuses the second
+write: "has 2 peers for otn_optical_port__transceiver, maximum of 1 allowed".
 
 The port kind is what the schema cannot take, and it is all this check owns.
 `OtnTransceiver.port` peers the generic `OtnOpticalPort`, a relationship to a
@@ -20,12 +18,10 @@ generic cannot be filtered by peer kind, and a module written into an amplifier
 port or a ROADM degree port is accepted.
 
 Silent about a transceiver with no port, and the count of them is reported as
-info. That unit is on a shelf, and a shelf is what the optional relationship
-exists to model.
+info: that unit is on a shelf, which is what the optional relationship models.
 
 Silent about the cage. A part carries a `form_factor` and a port does not, so
-"a QSFP-DD module in a QSFP-DD cage" is a comparison this model cannot make and
-this check must not pretend to.
+"a QSFP-DD module in a QSFP-DD cage" is a comparison this model cannot make.
 """
 
 from typing import Any

@@ -2,35 +2,28 @@
 
 Reads every `OtnOpticalCarrier`, the mode it runs and the line ports terminating
 it, and holds each pluggable fitted at one of those ports against its own part's
-`supported_modes`. A part that does not list the mode cannot run it, and the
-wavelength is planned on an optic that will not light it.
+`supported_modes`. A part that does not list the mode cannot run it.
 
 **The one fact that separates two modules.** A 400ZR and an OpenZR+ 400G part
 are the same QSFP-DD cage, the same DP-16QAM constellation and the same 400G
 line rate. They differ in forward error correction, cFEC against oFEC, and
 therefore in reach, 120 km against 1000 km. Nothing on the outside of either
-module says which one is in your hand, so a finding here names the part number
-and the mode: there is nothing else to name.
+module says which one is in your hand, so a finding names the part number and
+the mode.
 
 **The schema took none of this, and could not.** `supported_modes` is a
 cardinality-many relationship on the part and the mode is a cardinality-one
-relationship on the carrier, two hops apart through a port. No attribute
-constraint reaches across two nodes, and Infrahub has no cross-relationship
-constraint, so "the mode this carrier runs is in the list that part supports" is
-not something a write can be refused for.
+relationship on the carrier, two hops apart through a port, and Infrahub has no
+cross-relationship constraint.
 
 **Silent about a carrier whose line ports hold no pluggable, and the number of
-them is reported as info.** That is a transponder with integrated optics: the
-laser is on the line card and there is no part number to compare anything
-against. On the shipped dataset that is the forty transponder wavelengths, and
-the check judges the three that run OpenZR+ pluggables straight out of a router.
-A run reporting no findings and forty-three skips would have seen nothing, and
-that has to be visible in the summary rather than read as a pass.
+them is reported as info.** That is a transponder with integrated optics: no
+part number to compare anything against. On the shipped dataset that is the
+forty transponder wavelengths against the three run straight out of a router,
+and a run reporting no findings and forty-three skips has seen nothing.
 
-Reports one end fitted and the other not as info rather than as an error. A
-wavelength with a pluggable at one end and integrated optics at the other is
-unusual and is not wrong, and the two ends are judged on their own terms either
-way.
+Reports one end fitted and the other not as info rather than as an error. That
+is unusual and is not wrong, and the two ends are judged on their own terms.
 
 Silent about reach, dispersion and OSNR. Whether the mode closes over the plant
 is what `checks/osnr_margin.py` decides; this check asks only whether the part

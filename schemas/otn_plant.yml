@@ -368,17 +368,14 @@ nodes:
         identifier: otn_span__raman_pumps
         on_delete: no-action
         order_weight: 850
-      # The ports at each end of the glass. No port kind had any edge to a span
-      # or to a section in either direction, so the only thing naming the degree
-      # port that faces a given span was the far site's shortname inside the
-      # port's name string. Parsing that is a naming convention doing a
-      # relationship's job, which this repository has already shipped once and
-      # paid for.
+      # The ports at each end of the glass. No port kind had any edge to a span or
+      # a section in either direction, so the only thing naming the degree port
+      # facing a given span was the far site's shortname inside the port's name
+      # string, a naming convention doing a relationship's job.
       #
-      # Declared on the span alone. The inverse would put the field on every
-      # port kind, and most ports terminate no span. Empty means unjudgeable
-      # rather than clean: on this model an empty list and a fault look the
-      # same from the outside.
+      # Declared on the span alone: the inverse would put the field on every port
+      # kind and most ports terminate no span. Empty means unjudgeable rather than
+      # clean, because an empty list and a fault look the same from outside.
       - name: terminating_ports
         peer: OtnGenericPort
         label: Ports at the ends of this span

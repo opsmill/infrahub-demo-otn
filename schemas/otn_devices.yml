@@ -569,11 +569,9 @@ nodes:
     # nothing mechanically and is simply untrue in the data, which is the whole
     # argument for paying for the tenth choice instead.
     attributes:
-      # The choice cost nine blocks when it landed and the list now lives in
-      # eleven: the generic in otn_base.yml, the eight other overrides here, this
-      # one, and the span's in otn_plant.yml. A block missed is a dropdown
-      # offering different options depending on the kind you look at, and the
-      # server accepts that in silence.
+      # The list now lives in eleven blocks, enumerated in otn_base.yml. A block
+      # missed is a dropdown offering different options depending on the kind you
+      # look at, and the server accepts that in silence.
       - name: element_class
         kind: Dropdown
         default_value: odu_switch
@@ -683,19 +681,18 @@ nodes:
         on_delete: no-action
         order_weight: 1900
 
-  # Two attenuator kinds rather than one carrying an attenuator_type Dropdown
-  # and an optional range. That is the split the five monitor kinds already
-  # argue for: a pad with a maximum is not a value to validate, it is a field
-  # that should not exist, and with two kinds it does not exist.
+  # Two attenuator kinds rather than one carrying an attenuator_type Dropdown and
+  # an optional range. That is the split the five monitor kinds already argue
+  # for: a pad with a maximum is a field that should not exist, and with two
+  # kinds it does not.
   #
   # Neither kind declares ports. Both inherit `ports` from OtnGenericDevice and
   # hold none, and both reach a path through OtnPathHop.element the way
   # OtnFiberSpan does.
   #
   # The budget engine adds attenuation_mdb to the inherited insertion_loss_mdb
-  # itself. No summed total is stored: a single number could not say which half
-  # is the device and which is the setting, and those are the two questions an
-  # attenuator exists to answer.
+  # itself. No summed total is stored: one number could not say which half is the
+  # device and which is the setting.
   - name: FixedAttenuator
     namespace: Otn
     description: A pad. One fixed amount of loss, patched into a link that arrives too hot.
@@ -831,8 +828,7 @@ nodes:
         order_weight: 1910
       # The absolute ceiling is on the attribute, so the schema refuses a
       # physically impossible figure at write time. It cannot refuse a setting
-      # past this device's own maximum, because that bound is a sibling
-      # attribute's value and Infrahub has no cross-attribute constraint, so
+      # past this device's own maximum, a sibling attribute's value, so
       # attenuator_range owns that half and only that half.
       - name: max_attenuation_mdb
         kind: Number
