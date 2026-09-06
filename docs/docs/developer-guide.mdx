@@ -183,6 +183,29 @@ uv run invoke load-repository        # if the stack has no repository yet
 # save them as docs/docs/media/network-map.svg and docs/docs/media/odu-map.svg
 ```
 
+#### The screenshots on the quick start
+
+`docs/docs/media/quickstart-*.png` are captures of the web interface against a
+loaded stack. They go stale when the thing they show changes: `quickstart-blocked.png`
+lists every validator the pipeline runs, so it moves whenever a check is added.
+
+There is no interactive step. Drive a headless browser over the DevTools protocol
+and write a lossless PNG:
+
+```bash
+# 1. put the scenario on the stack, then open a proposed change from its branch
+uv run invoke demo-regenerator
+
+# 2. capture at 1512 wide, the width the other figures use, with the viewport
+#    tall enough to hold the whole list. The rows sit in an inner scroll
+#    container, so a viewport-sized capture silently cuts the bottom off.
+```
+
+Two things to check before committing one. Log in, or the sidebar reads
+`anonymous` where every other figure reads `Admin`. And confirm the rows the alt
+text names are actually in the image, because the alt text on these figures
+enumerates them and is the part a screen reader gets.
+
 #### The golden renders under tests
 
 There are eight, four per map. None is an illustration and none is fetched from
