@@ -125,6 +125,26 @@ def test_the_shipped_dataset_never_names_an_object_it_has_not_loaded_yet() -> No
     assert not complaints, "\n".join(complaints)
 
 
+def test_the_optics_load_after_the_catalog_and_after_the_ports_they_sit_in() -> None:
+    """Where the two transceiver files sit, held on its own so a rename says so.
+
+    Load order is filename order, and `14a_geant_transceivers.yml` sorts after
+    `14_geant_ports.yml` only because an underscore sorts before a letter. A
+    fitted unit names its port and its part number and the loader resolves both
+    at insert time, so a filename that sorted the other way would fail the whole
+    batch on the server rather than here. The test above finds the same fault
+    from the reference side; this one names the file that moved.
+    """
+    order = [path.name for path in object_files()]
+    for earlier, later in (
+        ("03_optical_modes.yml", "06_transceiver_types.yml"),
+        ("06_transceiver_types.yml", "14a_geant_transceivers.yml"),
+        ("14_geant_ports.yml", "14a_geant_transceivers.yml"),
+        ("14a_geant_transceivers.yml", "15_geant_spans.yml"),
+    ):
+        assert order.index(earlier) < order.index(later), f"{later} loads before {earlier}"
+
+
 @pytest.mark.parametrize("file_name", scenario_files())
 def test_each_scenario_never_names_an_object_it_has_not_loaded_yet(file_name: str) -> None:
     """One scenario file, over a branch that already holds the shipped dataset."""

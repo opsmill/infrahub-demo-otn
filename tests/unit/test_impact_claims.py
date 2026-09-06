@@ -175,12 +175,12 @@ def test_the_cut_section_carries_seven_wavelengths() -> None:
 def test_no_shipped_carrier_has_a_service_behind_it() -> None:
     """The reason the impact report counts unattached spectrum explicitly.
 
-    The forty shipped carriers are data, not provisioned services. A report that
-    dropped a carrier for having no optical path would report an outage of zero
-    services where the real answer is seven wavelengths.
+    The forty-three shipped carriers are data, not provisioned services. A report
+    that dropped a carrier for having no optical path would report an outage of
+    zero services where the real answer is seven wavelengths.
     """
     carriers = objects_of_kind("OtnOpticalCarrier")
-    assert len(carriers) == 40
+    assert len(carriers) == 43
     assert not [carrier for carrier in carriers if carrier.get("optical_path")]
 
 

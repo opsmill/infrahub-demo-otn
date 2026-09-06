@@ -188,7 +188,7 @@ def test_the_inventory_the_installation_page_promises_is_what_loads() -> None:
         "OtnReceiverMonitor",
     )
     total = sum(len((document.get("spec") or {}).get("data") or []) for document in object_documents())
-    assert total == 2452, "the pages say the load is 2344 objects, and this is the figure that moved them"
+    assert total == 2484, "the pages say the load is 2344 objects, and this is the figure that moved them"
     assert sum(len(objects_of_kind(kind)) for kind in devices) == 441, "the pages say 441 devices"
     # The two mux port kinds are absent from this tuple and from
     # `LEDGER_PORT_KINDS` in tests/unit/test_doc_claims.py, which is its twin.
@@ -196,7 +196,7 @@ def test_the_inventory_the_installation_page_promises_is_what_loads() -> None:
     # both tuples move together. The two attenuator kinds are absent from the
     # device tuple on the same terms: the four of them are in the object total
     # and the device figure moves when this tuple and its twin move together.
-    assert sum(len(objects_of_kind(kind)) for kind in ports) == 1490, "the pages say 1490 ports"
+    assert sum(len(objects_of_kind(kind)) for kind in ports) == 1502, "the pages say 1490 ports"
 
 
 # ---------------------------------------------------------------------------
@@ -505,9 +505,9 @@ def test_the_connected_to_edge_is_declared_on_one_side_only() -> None:
     add_drop = [port for port in objects_of_kind("OtnRoadmAddDropPort") if "connected_to" in port]
     assert not add_drop, "connected_to declared on the ROADM side as well as the line side"
 
-    transponder_ports = _line_ports_on_transponders()
-    linked = [port for port in transponder_ports if "connected_to" in port]
-    assert len(linked) == len(transponder_ports), "some transponder line ports are unconnected"
+    into_the_roadm = _line_ports_on_transponders() + _line_ports_on_routers()
+    linked = [port for port in into_the_roadm if "connected_to" in port]
+    assert len(linked) == len(into_the_roadm), "some line ports on a transponder or a router are unconnected"
     targets = [tuple(port["connected_to"]) for port in linked]
     assert len(targets) == len(set(targets)), "two line ports share one add/drop port"
 
@@ -732,8 +732,8 @@ def test_occupancy_is_uneven_and_sixteen_sections_are_empty() -> None:
             loaded[str(section)] += 1
 
     assert loaded["oms-fra-mil"] == 40
-    assert sorted(count for count in loaded.values() if count) == [3, 3, 5, 7, 40]
-    assert sum(1 for count in loaded.values() if count == 0) == 16
+    assert sorted(count for count in loaded.values() if count) == [1, 1, 1, 3, 3, 5, 7, 40]
+    assert sum(1 for count in loaded.values() if count == 0) == 13
 
 
 def test_every_carrier_is_inside_its_modes_nominal_reach() -> None:
@@ -874,10 +874,13 @@ def test_no_monitor_reports_seventy_one_channels() -> None:
 
 
 def test_every_degree_monitor_reports_the_light_on_the_section_it_faces() -> None:
-    """42 degree monitors, and the distribution is the carrier plan's, not a constant."""
+    """42 degree monitors, and the distribution is the carrier plan's, not a constant.
+
+    The six degrees reading 1 are the ends of the three coloured pluggables, on
+    fibres that carried nothing before them."""
     counts = _channel_counts("OtnRoadmDegreeMonitor")
     assert len(counts) == 42
-    assert sorted(Counter(counts.values()).items()) == [(0, 32), (3, 4), (5, 2), (7, 2), (40, 2)]
+    assert sorted(Counter(counts.values()).items()) == [(0, 26), (1, 6), (3, 4), (5, 2), (7, 2), (40, 2)]
 
 
 def test_each_dense_multiplexer_monitor_reports_the_channels_terminating_at_its_site() -> None:
@@ -901,11 +904,39 @@ def test_the_two_cwdm_multiplexer_monitors_report_their_four_wavelengths() -> No
 
 
 @cache
+def _pluggable_carriers() -> tuple[dict[str, Any], ...]:
+    """The wavelengths terminating on a router rather than on a transponder.
+
+    Read off the carrier's own line ports against the router inventory. The name
+    carries the same information and reading it would be a naming convention
+    doing a relationship's job.
+    """
+    routers = {str(box["name"]) for box in objects_of_kind("OtnRouter")}
+    return tuple(
+        carrier
+        for carrier in objects_of_kind("OtnOpticalCarrier")
+        if any(str(device) in routers for device, _ in carrier["line_ports"])
+    )
+
+
+@cache
+def _transponder_carriers() -> tuple[dict[str, Any], ...]:
+    """The wavelengths terminating on a transponder at both ends.
+
+    What the transponder estate is sized against. A coloured pluggable occupies
+    no transponder and no transponder line port, so a rule about how many
+    transponders a PoP holds has nothing to say about one.
+    """
+    pluggable = {str(carrier["name"]) for carrier in _pluggable_carriers()}
+    return tuple(carrier for carrier in objects_of_kind("OtnOpticalCarrier") if str(carrier["name"]) not in pluggable)
+
+
+@cache
 def _terminations_from_the_object_files() -> dict[str, int]:
-    """Site shortname -> the carrier ends that land there, rebuilt from objects/."""
+    """Site shortname -> the transponder-terminated carrier ends that land there."""
     endpoints = _section_endpoints()
     counts = {str(site["shortname"]): 0 for site in objects_of_kind("OtnSite")}
-    for carrier in objects_of_kind("OtnOpticalCarrier"):
+    for carrier in _transponder_carriers():
         along: Counter[str] = Counter()
         for section in carrier["sections"]:
             along.update(endpoints[str(section)])
@@ -935,10 +966,19 @@ def _line_ports_on_odu_switches() -> tuple[dict[str, Any], ...]:
     return tuple(port for port in objects_of_kind("OtnLinePort") if str(port["device"]) in switches)
 
 
-def test_every_line_port_sits_on_a_transponder_or_an_odu_switch() -> None:
-    """The two populations account for all of them, so neither test can miss one."""
-    counted = len(_line_ports_on_transponders()) + len(_line_ports_on_odu_switches())
-    assert counted == len(objects_of_kind("OtnLinePort")), "a line port sits on neither a transponder nor an O-E-O"
+@cache
+def _line_ports_on_routers() -> tuple[dict[str, Any], ...]:
+    """The line ports holding a coloured pluggable. `OtnLinePort.device` peers the
+    device generic, so a router carries one without any schema change."""
+    routers = {str(box["name"]) for box in objects_of_kind("OtnRouter")}
+    return tuple(port for port in objects_of_kind("OtnLinePort") if str(port["device"]) in routers)
+
+
+def test_every_line_port_sits_on_a_transponder_an_odu_switch_or_a_router() -> None:
+    """The three populations account for all of them, so no test can miss one."""
+    counted = len(_line_ports_on_transponders()) + len(_line_ports_on_odu_switches()) + len(_line_ports_on_routers())
+    assert counted == len(objects_of_kind("OtnLinePort")), "a line port sits on none of the three"
+    assert len(_line_ports_on_routers()) == 6, "three coloured pluggables at two ends each"
 
 
 def test_a_regenerator_carries_two_dark_line_ports_and_a_cross_connect_none() -> None:
@@ -995,7 +1035,7 @@ def test_every_bound_line_port_is_tuned_to_its_wavelengths_channel() -> None:
     """A port and the channel object behind it cannot disagree."""
     channel_of = {str(carrier["name"]): int(carrier["channel"]) for carrier in objects_of_kind("OtnOpticalCarrier")}
     named = _line_ports_by_carrier()
-    assert len(named) == 80, f"forty wavelengths at two ends each is eighty bound ports, not {len(named)}"
+    assert len(named) == 86, f"forty-three wavelengths at two ends each is 86 bound ports, not {len(named)}"
 
     mismatched: list[str] = []
     dark_but_coloured: list[str] = []
@@ -1074,9 +1114,17 @@ def test_no_pop_drops_below_the_floor_and_a_dark_pop_sits_on_it() -> None:
 
 
 def test_the_add_drop_client_and_line_port_populations_stay_one_to_one() -> None:
-    """Every line port needs an add/drop port to patch into and a client port beside it."""
+    """Every line port needs an add/drop port to patch into, and a transponder line
+    port needs a client port beside it.
+
+    The two counts parted when the coloured pluggables arrived. Six of the
+    add/drop ports face a router line port, which has no client port beside it:
+    a router's client side is its own grey ports, not a second port on a
+    transponder.
+    """
     line = _line_ports_on_transponders()
-    assert len(objects_of_kind("OtnRoadmAddDropPort")) == len(line)
+    patched = line + _line_ports_on_routers()
+    assert len(objects_of_kind("OtnRoadmAddDropPort")) == len(patched)
     assert len(objects_of_kind("OtnClientPort")) == len(line)
 
     per_device = {
@@ -1098,7 +1146,7 @@ def test_the_add_drop_client_and_line_port_populations_stay_one_to_one() -> None
     assert not misnumbered, f"add/drop numbering does not start at AD-01 and run contiguous: {misnumbered}"
 
     assert not [port for port in objects_of_kind("OtnRoadmAddDropPort") if "connected_to" in port]
-    assert all("connected_to" in port for port in line)
+    assert all("connected_to" in port for port in patched)
 
 
 # ---------------------------------------------------------------------------
@@ -1147,8 +1195,13 @@ def _receiver_bounds() -> dict[str, tuple[int, int]]:
 
 @cache
 def _lit_transponders() -> set[str]:
-    """The transponders holding at least one wavelength, from the carrier side of the edge."""
-    return {device for device, _ in _line_ports_by_carrier()}
+    """The transponders holding at least one wavelength, from the carrier side of the edge.
+
+    Filtered against the transponder inventory, because six of the bound ports
+    are on routers and a router carries no receiver monitor to read.
+    """
+    transponders = {str(box["name"]) for box in objects_of_kind("OtnTransponder")}
+    return {device for device, _ in _line_ports_by_carrier() if device in transponders}
 
 
 def test_every_receiver_reading_is_inside_the_bounds_its_schema_attribute_declares() -> None:
@@ -1168,7 +1221,7 @@ def test_the_lit_receivers_report_five_dispersion_figures_for_the_five_routes() 
     lengths = _section_length_m()
     by_carrier = {
         str(carrier["name"]): sum(lengths[str(section)] for section in carrier["sections"])
-        for carrier in objects_of_kind("OtnOpticalCarrier")
+        for carrier in _transponder_carriers()
     }
     expected = {round(m_to_km(metres)) * DISPERSION_FS_PER_NM_KM for metres in by_carrier.values()}
     assert len(expected) == 5, f"the carrier plan no longer walks five distinct routes: {sorted(expected)}"

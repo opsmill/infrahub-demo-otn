@@ -374,9 +374,14 @@ def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
 
 
 def test_every_shipped_carrier_is_terminated_at_both_ends_through_the_resolver() -> None:
-    """Forty wavelengths, two line ports each, read the way the check reads them."""
+    """Forty-three wavelengths, two line ports each, read the way the check reads them.
+
+    Forty land on transponders and three on routers, and the check makes no
+    distinction: a wavelength is terminated when two line ports name it,
+    whichever kind of device those ports sit on.
+    """
     carriers = payload("carrier_termination", None)["OtnOpticalCarrier"]["edges"]
-    assert len(carriers) == 40
+    assert len(carriers) == 43
     counts = {str(edge["node"]["name"]["value"]): len(edge["node"]["line_ports"]["edges"]) for edge in carriers}
     wrong = {name: count for name, count in counts.items() if count != 2}
     assert not wrong, f"shipped wavelengths not terminated at exactly two ends: {wrong}"

@@ -64,9 +64,16 @@ SECTION_LOAD = {
     "oms-ber-fra": 5,
     "oms-par-fra": 3,
     "oms-vie-mil": 3,
+    "oms-ams-bru": 1,
+    "oms-ber-prg": 1,
+    "oms-ham-ber": 1,
 }
-"""The five loaded sections and what rides them. The other sixteen carry
-nothing, and the test below asserts that rather than ignoring them."""
+"""The eight loaded sections and what rides them. The other thirteen carry
+nothing, and the test below asserts that rather than ignoring them.
+
+The three carrying one each are the coloured pluggables, which run router to
+router on the three shortest sections and light three fibres that carried no
+wavelength at all before."""
 
 
 def _site_of_roadm() -> dict[str, str]:
@@ -280,15 +287,15 @@ def test_a_carrier_with_no_channel_raises_rather_than_counting_as_one() -> None:
 
 
 def test_the_shipped_carriers_produce_the_measured_section_loads() -> None:
-    """The distribution the whole repair is aimed at: five loaded sections and
-    sixteen dark ones, against 42 monitors that all report 71 today.
+    """The distribution the whole repair is aimed at: eight loaded sections and
+    thirteen dark ones, against 42 monitors that all report 71 today.
 
     Recomputed from `objects/` rather than restated, so a carrier added to the
     dataset without a matching monitor count fails here."""
     counts = channels_by_section(_carriers(), [str(section["name"]) for section in _sections()])
     assert len(counts) == 21, sorted(counts)
     assert {name: load for name, load in counts.items() if load} == SECTION_LOAD
-    assert sum(1 for load in counts.values() if load == 0) == 16
+    assert sum(1 for load in counts.values() if load == 0) == 13
 
 
 def test_a_channel_terminating_at_a_site_counts_at_both_of_its_ends() -> None:

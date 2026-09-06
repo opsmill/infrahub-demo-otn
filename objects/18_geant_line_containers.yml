@@ -262,3 +262,21 @@ spec:
       tributary_slots: 0
       tributary_slot_capacity: 80
       carrier: oc-ch093-fra-vie
+    - name: odu-line-oc-ch003-ams-bru
+      description: ODUC4 on oc-ch003-ams-bru. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch003-ams-bru
+    - name: odu-line-oc-ch004-ber-prg
+      description: ODUC4 on oc-ch004-ber-prg. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch004-ber-prg
+    - name: odu-line-oc-ch006-ham-ber
+      description: ODUC4 on oc-ch006-ham-ber. Lit and empty until a service grooms into it.
+      odu_type: ODUC4
+      tributary_slots: 0
+      tributary_slot_capacity: 320
+      carrier: oc-ch006-ham-ber

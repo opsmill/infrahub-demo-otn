@@ -203,11 +203,11 @@ def test_the_fixture_is_the_shipped_network() -> None:
     sites, sections = dataset()
     assert len(sites) == 14
     assert len(sections) == 21
-    # 58, not 40. A wavelength runs end to end over several sections, so each of
-    # the 40 carriers is counted by every section it crosses. The count is a
+    # 61, not 43. A wavelength runs end to end over several sections, so each of
+    # the 43 carriers is counted by every section it crosses. The count is a
     # per-section figure and the panel says so; summing it over the network is
     # what this line does deliberately and no panel row does.
-    assert sum(section.carriers_lit for section in sections) == 58
+    assert sum(section.carriers_lit for section in sections) == 61
 
 
 def test_the_shipped_wavelengths_are_lit_and_empty_where_they_run_at_all() -> None:
@@ -215,31 +215,33 @@ def test_the_shipped_wavelengths_are_lit_and_empty_where_they_run_at_all() -> No
 
     Every pre-provisioned carrier arrives holding one empty line container, so
     where a wavelength runs the headroom is the full offering and nothing is
-    committed. Where none runs there is no ODU layer to report, and that is 16 of
-    the 21 sections: the shipped carriers cover five route segments, not the whole
-    network. A dataset change that stops shipping the line containers fails here
-    rather than quietly turning the five coloured routes grey.
+    committed. Where none runs there is no ODU layer to report, and that is 13 of
+    the 21 sections: the shipped carriers cover eight route segments, not the
+    whole network. A dataset change that stops shipping the line containers fails
+    here rather than quietly turning the eight coloured routes grey.
     """
     _, sections = dataset()
     lit = [section for section in sections if section.carriers_lit]
     dark = [section for section in sections if not section.carriers_lit]
-    assert len(lit) == 5
+    assert len(lit) == 8
     assert {section.committed_slots for section in lit} == {0}
     assert all(section.band is NO_ODU_BAND for section in dark)
-    # Two offerings, not one. The five carriers over Vienna to Milan are 100G and
-    # ride an ODU4 at 80 slots; the other 66 are 400G and ride an ODUC4 at 320.
+    # Two offerings, not one. The three carriers over Vienna to Milan are 100G
+    # and ride an ODU4 at 80 slots; the other 40 are 400G and ride an ODUC4 at
+    # 320, the three coloured pluggables among them.
     assert sorted({section.headroom_slots for section in lit}) == [80, 320]
     assert named("oms-vie-mil").headroom_slots == 80
-    # Frankfurt to Milan carries all 71, so its roomiest is an empty ODUC4 and its
-    # tightest is an empty ODU4. Both figures real, and they disagree.
+    # Frankfurt to Milan carries all 40 transponder wavelengths, so its roomiest
+    # is an empty ODUC4 and its tightest is an empty ODU4. Both figures real, and
+    # they disagree.
     assert (named("oms-fra-mil").headroom_slots, named("oms-fra-mil").tightest_free_slots) == (320, 80)
 
 
-def test_the_shipped_dataset_splits_sixteen_grey_and_five_roomy() -> None:
+def test_the_shipped_dataset_splits_thirteen_grey_and_eight_roomy() -> None:
     """The base dataset's whole colour story.
 
-    Sixteen sections have no carrier at all, so they are honestly unknown rather
-    than empty and available. The five that do are all in the roomiest band,
+    Thirteen sections have no carrier at all, so they are honestly unknown rather
+    than empty and available. The eight that do are all in the roomiest band,
     because nothing is provisioned on `main`. The four real bands are earned on a
     branch with services on it, which is what the mixed-fill scenario is for; a
     dataset change that moves a section fails here rather than quietly redrawing
@@ -250,7 +252,7 @@ def test_the_shipped_dataset_splits_sixteen_grey_and_five_roomy() -> None:
     counted[NO_ODU_BAND.key] = 0
     for section in sections:
         counted[section.band.key] += 1
-    assert counted == {"full": 0, "odu0": 0, "odu2": 0, "odu4": 5, "no-odu": 16}
+    assert counted == {"full": 0, "odu0": 0, "odu2": 0, "odu4": 8, "no-odu": 13}
 
 
 def test_the_panel_row_carries_all_four_columns_for_a_real_section() -> None:
@@ -279,7 +281,7 @@ def test_the_totals_do_not_sum_one_wavelength_over_every_section_it_crosses() ->
     the sections instead, and this is what stops a sum growing back.
     """
     texts = _texts(render_odu_map(*dataset(), "fra", "main"))
-    assert texts[texts.index("Sections with a headroom figure") + 1] == "5 of 21"
+    assert texts[texts.index("Sections with a headroom figure") + 1] == "8 of 21"
     assert texts[texts.index("Least headroom on a section") + 1] == "80 slots"
     assert texts[texts.index("Tightest carrier anywhere") + 1] == "80 slots"
     assert texts[texts.index("Sections where nothing fits") + 1] == "0"

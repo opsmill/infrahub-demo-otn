@@ -2266,6 +2266,48 @@ spec:
       tx_power_mdbm: 0
       rx_sensitivity_mdbm: -20000
       connector_type: LC
+    - name: AD-09
+      device: roadm-ams-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-05
+      device: roadm-bru-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-07
+      device: roadm-ber-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-05
+      device: roadm-prg-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-05
+      device: roadm-ham-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
+    - name: AD-08
+      device: roadm-ber-01
+      role: add_drop
+      oper_state: up
+      tx_power_mdbm: 0
+      rx_sensitivity_mdbm: -20000
+      connector_type: LC
 
 ---
 apiVersion: infrahub.app/v1
@@ -3533,6 +3575,72 @@ spec:
       connected_to:
         - roadm-waw-01
         - AD-04
+    - name: 1/2/1
+      device: rtr-ams-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-ams-01
+        - AD-09
+      center_frequency_mhz: 191450000
+    - name: 1/2/1
+      device: rtr-bru-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-bru-01
+        - AD-05
+      center_frequency_mhz: 191450000
+    - name: 1/2/1
+      device: rtr-ber-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-ber-01
+        - AD-07
+      center_frequency_mhz: 191500000
+    - name: 1/2/1
+      device: rtr-prg-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-prg-01
+        - AD-05
+      center_frequency_mhz: 191500000
+    - name: 1/2/1
+      device: rtr-ham-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-ham-01
+        - AD-05
+      center_frequency_mhz: 191600000
+    - name: 1/2/2
+      device: rtr-ber-01
+      role: line
+      oper_state: up
+      tx_power_mdbm: 1000
+      rx_sensitivity_mdbm: -18000
+      connector_type: LC
+      connected_to:
+        - roadm-ber-01
+        - AD-08
+      center_frequency_mhz: 191600000
 
 ---
 apiVersion: infrahub.app/v1
@@ -10671,7 +10779,7 @@ spec:
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 15200
-      channel_count: 0
+      channel_count: 1
     - name: MON-DEG-FRA
       device: roadm-ams-01
       role: monitor
@@ -10713,21 +10821,21 @@ spec:
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 15200
-      channel_count: 0
+      channel_count: 1
     - name: MON-DEG-PRG
       device: roadm-ber-01
       role: monitor
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 15200
-      channel_count: 0
+      channel_count: 1
     - name: MON-DEG-AMS
       device: roadm-bru-01
       role: monitor
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 15200
-      channel_count: 0
+      channel_count: 1
     - name: MON-DEG-PAR
       device: roadm-bru-01
       role: monitor
@@ -10818,7 +10926,7 @@ spec:
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 15200
-      channel_count: 0
+      channel_count: 1
     - name: MON-DEG-CPH
       device: roadm-ham-01
       role: monitor
@@ -10902,7 +11010,7 @@ spec:
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 15200
-      channel_count: 0
+      channel_count: 1
     - name: MON-DEG-FRA
       device: roadm-prg-01
       role: monitor

@@ -450,12 +450,12 @@ def test_a_type_outside_the_table_is_an_error_and_does_not_hide_the_rest() -> No
 def test_the_shipped_dataset_holds_no_parent_at_all_and_the_check_says_so() -> None:
     """What the live run on `main` reports, asserted offline."""
     containers = _shipped_containers()
-    assert len(containers) == 40, "the base dataset no longer holds 40 line containers"
+    assert len(containers) == 43, "the base dataset no longer holds 43 line containers"
     check = _run(_capacity_payload(*containers), CAPACITY)
 
     assert _messages(check, "ERROR") == []
     assert _messages(check, "INFO") == [
-        "Checked 40 containers and none of them holds a child, so no committed total can exceed a capacity. "
+        "Checked 43 containers and none of them holds a child, so no committed total can exceed a capacity. "
         "Every wavelength here is lit and empty"
     ]
 
