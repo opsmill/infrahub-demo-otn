@@ -363,6 +363,18 @@ uniqueness constraint on a port is (device, name), so the coherent ports need a
 slot of their own rather than a suffix on the grey ones.
 """
 
+PLUGGABLE_PORT_KIND = "OtnLinePort"
+"""The concrete kind `build_ports` racks the six coherent router ports as.
+
+`build_transceivers` has to name it, because `OtnTransceiver.port` peers the
+`OtnOpticalPort` generic and that generic carries no `human_friendly_id`: the
+identity keys live on `OtnGenericPort`, which is a sibling generic rather than a
+parent, and this repository composes flat generics instead of nesting them. A
+scalar HFID pair on that relationship is refused at load with `Unable to lookup
+node by HFID, schema 'OtnOpticalPort' does not have a HFID defined`, so the
+reference carries the concrete kind and the loader resolves the pair against it.
+"""
+
 # --------------------------------------------------------------------------
 # Seed table 6: the CWDM tail.
 #
@@ -1675,7 +1687,7 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
         ports["OtnRoadmAddDropPort"].append(
             _port(target, roadm, "add_drop", tx_power_mdbm=0, rx_sensitivity_mdbm=-20000, connector_type="LC")
         )
-        ports["OtnLinePort"].append(
+        ports[PLUGGABLE_PORT_KIND].append(
             _port(
                 port,
                 router,
@@ -2529,7 +2541,7 @@ def build_transceivers() -> list[dict[str, Any]]:
                 "serial": f"ZRP-{site.upper()}-{used[site]:02d}",
                 "status": "in_service",
                 "type": PLUGGABLE_PART,
-                "port": [router, port],
+                "port": {"kind": PLUGGABLE_PORT_KIND, "data": {"device": router, "name": port}},
             }
         )
     records += [
@@ -2893,12 +2905,16 @@ def generate(target: Path) -> dict[str, int]:
             "",
             "Numbered to load straight after 14_geant_ports.yml, because a fitted",
             "unit names the port it sits in and the loader resolves that reference",
-            "at insert time.",
+            "at insert time. The reference carries its concrete kind, because the",
+            "port relationship peers a generic that holds no identity keys and a",
+            "bare pair cannot be looked up against it.",
             "",
             "A unit with no port is a spare or an RMA. That is why the port",
             "relationship is optional, and it is why no uniqueness constraint can",
             "hold one port to one optic: the constraint is available on a mandatory",
-            "relationship only. checks/transceiver_placement.py owns that rule.",
+            "relationship only. The duplicate is refused anyway, by the",
+            "cardinality-one inverse the three port kinds that hold a module",
+            "declare. checks/transceiver_placement.py keeps only the port-kind rule.",
         ],
         [_document("OtnTransceiver", transceivers)],
         {

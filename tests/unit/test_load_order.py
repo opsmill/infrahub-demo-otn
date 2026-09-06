@@ -21,6 +21,21 @@ def _key(kind: str, record: Record) -> Key:
     return tuple(str(record.get(part.split("__")[0], "")) for part in schema()[kind].hfid)
 
 
+def _named_kind(value: Any) -> tuple[str, Record] | None:
+    """The `{kind, data}` form a reference takes, or `None` for a plain one.
+
+    `OtnTransceiver.port` peers `OtnOpticalPort`, and that generic carries no
+    `human_friendly_id`: the identity keys live on `OtnGenericPort`, a sibling
+    generic rather than a parent. So the loader has nothing to resolve a bare
+    `[device, name]` pair against and refuses it. The reference names the
+    concrete kind and the loader resolves the fields against that instead.
+    """
+    if not isinstance(value, dict) or "kind" not in value:
+        return None
+    data = value.get("data")
+    return (str(value["kind"]), data) if isinstance(data, dict) else None
+
+
 def _references(kind: str, record: Record, known: set[tuple[str, Key]]) -> list[tuple[str, Any]]:
     """The relationship values on one record that name nothing declared yet."""
     unresolved: list[tuple[str, Any]] = []
@@ -32,6 +47,19 @@ def _references(kind: str, record: Record, known: set[tuple[str, Key]]) -> list[
             continue
         candidates = _peer_kinds(field.peer)
         raw = value if isinstance(value, list) else [value]
+
+        # A reference that names its own kind is read against that kind alone.
+        # It takes this form because its peer is a generic with no identity
+        # keys, so the loader has nothing to resolve a bare pair against, and
+        # the fields it carries are named rather than positional.
+        named = [item for item in (_named_kind(item) for item in raw) if item is not None]
+        if named:
+            for kind_name, data in named:
+                parts = _key(kind_name, data)
+                if kind_name in candidates and (kind_name, parts) in known:
+                    continue
+                unresolved.append((field.name, list(parts)))
+            continue
 
         flat = tuple(str(part) for part in raw if not isinstance(part, list))
         if flat and any((peer, flat) in known for peer in candidates):

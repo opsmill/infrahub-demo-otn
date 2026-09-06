@@ -206,12 +206,42 @@ def _build_edges(view: View) -> Index:
     return index
 
 
+def _named_kind(value: Any) -> tuple[str, Record] | None:
+    """The `{kind, data}` form, or `None` for a plain reference.
+
+    A relationship whose peer is a generic carrying no identity keys cannot
+    resolve a bare pair: the loader looks the pair up against the peer named on
+    the relationship, and that generic has no `human_friendly_id` to look it up
+    by. The reference names its concrete kind instead and the loader resolves
+    the fields against that. `OtnTransceiver.port` is the one that needs it,
+    because it peers `OtnOpticalPort` and the identity keys live on the sibling
+    generic `OtnGenericPort`.
+    """
+    if not isinstance(value, dict) or "kind" not in value:
+        return None
+    data = value.get("data")
+    return (str(value["kind"]), data) if isinstance(data, dict) else None
+
+
 def _resolve_peers(view: View, value: Any, candidates: tuple[str, ...]) -> list[tuple[str, Key]]:
     """Match a relationship value against the records it could name."""
     found: list[tuple[str, Key]] = []
     if value is None:
         return found
     raw = value if isinstance(value, list) else [value]
+
+    # Read the explicit kind before anything else, and read nothing else once
+    # one is present. Its fields are named rather than positional, so the pair
+    # matching below would key them in the order they were written instead of
+    # the order the schema declares, and a reference that named a kind nothing
+    # holds would come back resolved against the wrong record.
+    named = [found_kind for found_kind in (_named_kind(item) for item in raw) if found_kind is not None]
+    if named:
+        return [
+            (kind, _key(kind, data))
+            for kind, data in named
+            if kind in candidates and _key(kind, data) in view.get(kind, {})
+        ]
 
     composite = [str(part) for part in raw if not isinstance(part, list)]
     if composite:
