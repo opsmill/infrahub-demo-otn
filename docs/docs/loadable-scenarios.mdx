@@ -4,7 +4,7 @@ title: Loadable scenarios and the runbook
 
 # Loadable scenarios and the runbook
 
-Three pairs of scenarios and three singles, one task each, then the runbook that
+Three pairs of scenarios and five singles, one task each, then the runbook that
 walks the whole demo in narrative order, then how to put the default branch back.
 Each task makes its own branch, loads its own scenario input and runs its own
 check, so nothing here asks you for a branch name. Every number below is produced
@@ -444,6 +444,128 @@ no wavelength, carries no service, holds no channel and has no ports, so
 `provisionable`, `carrier_termination` and `mux_channel_binding` all read the
 branch exactly as they read the default one. The one figure it would move is a
 link budget, and no optical path in this dataset runs through an attenuator yet.
+
+## One loadable scenario for the transceiver placement
+
+The fourth single, and the first of two about the pluggable optics the three
+router wavelengths run on.
+
+```bash
+uv run invoke demo-transceiver-placement
+```
+
+**`demo/13_transceiver_placement.yml`, a module in a port with no cage.**
+`ZRP-BRU-01` is the OpenZR+ QSFP-DD in the Brussels router's line port. The file
+restates it into `amp-ams-bru-08 OUT`, the booster port at the Brussels end of
+the same section. That is the port an operator points at when asked where the
+wavelength leaves the site, and it is also a fixed optical interface on an EDFA
+with nothing to plug a module into.
+
+**The load succeeds**, and the reason is the same limit the multiplexer scenario
+runs into from another direction. `OtnTransceiver.port` peers the
+`OtnOpticalPort` generic, and a relationship to a generic cannot be filtered by
+the kind of its peers. So the schema can offer the field or withhold it, and it
+cannot say "any of these three kinds and none of the other five". Declaring the
+reverse edge on the port instead would put a transceiver field on amplifier and
+ROADM degree ports that never hold one.
+
+The check **fails**, with exactly one finding:
+
+```text
+QDD-400G-ZRP ZRP-BRU-01 is fitted in amp-ams-bru-08 OUT, a port of kind
+OtnAmplifierPort. A pluggable optic goes in a line, a client or a router port,
+and no other port kind has a cage to take one, so either this unit is somewhere
+else or the port on its record is wrong
+```
+
+The same run says what it judged:
+
+```text
+9 transceiver(s) examined, 6 of them fitted in a port and judged, 3 on a shelf
+and not judged. An unfitted unit is a spare, an RMA or a decommissioned module,
+and holding one is why the port relationship is optional. That optionality is
+also why the duplicate rule is here rather than in the schema
+```
+
+**The other half of this check has no branch, and the reason is measured.** A
+port holding two optics is what `uniqueness_constraints: [["port"]]` exists for,
+and Infrahub accepts that constraint only where the relationship is mandatory:
+with `optional: true` the schema load is refused outright. Making the port
+mandatory buys the constraint and costs the ability to hold an unfitted optic,
+which is three of the nine units here and most of what an optic inventory is
+for. The constraint is available and it is the wrong trade, so the duplicate
+rule sits in the check beside the port kind.
+
+**A second check speaks on this branch and blocks nothing.** Pulling the module
+out of `rtr-bru-01 1/2/1` leaves `oc-ch003-ams-bru` with a pluggable at one end
+and integrated optics at the other, and `transceiver_mode_support` reports that
+as INFO:
+
+```text
+oc-ch003-ams-bru is terminated by a pluggable at rtr-ams-01 1/2/1 and by
+integrated optics at rtr-bru-01 1/2/1. The fitted end is judged against its own
+part and the other end carries no part number to judge, which is a mixed
+termination rather than a fault
+```
+
+**Negative result: nothing here says the cage fits.** A part carries a
+`form_factor` and a port does not, so "a QSFP-DD module in a QSFP-DD cage" is a
+comparison this model cannot make. The check refuses the port kind and says
+nothing about the cage, which is the honest half.
+
+## One loadable scenario for the transceiver mode support
+
+The fifth single, and the one where two records that match on every visible
+field are still the wrong pair.
+
+```bash
+uv run invoke demo-transceiver-mode
+```
+
+**`demo/14_transceiver_mode_support.yml`, a 400ZR on an OpenZR+ wavelength.**
+The OpenZR+ module comes out of the Amsterdam router's line port and the 400ZR
+spare off the shelf goes in. Both parts are QSFP-DD. Both are DP-16QAM. Both are
+400G. Both are tunable. What differs is forward error correction, cFEC against
+oFEC, and therefore reach: 120 km against 1000 km, on a 220 km section.
+
+**The load succeeds**, and no constraint could have refused it. `supported_modes`
+is a cardinality-many relationship on the part and the mode is a cardinality-one
+relationship on the carrier, two hops apart through a port. No attribute
+constraint reaches across two nodes and Infrahub has no cross-relationship
+constraint.
+
+The check **fails**, with exactly one finding:
+
+```text
+oc-ch003-ams-bru runs OpenZR+ 400G and rtr-ams-01 1/2/1 holds QDD-400G-ZR
+ZR-SPARE-01, which supports 400ZR. The part does not list OpenZR+ 400G, so the
+wavelength is planned on an optic that cannot produce it. Cage, constellation
+and line rate say nothing here: the part number and the mode are the whole of
+the difference
+```
+
+The same run says what it judged:
+
+```text
+43 wavelength(s) examined, 3 judged against the parts fitted at their line ports
+and 40 skipped for holding no pluggable at either end. A skipped wavelength is
+terminated on integrated optics, which carry no part number and no mode list, so
+this check's silence about them is not a verdict
+```
+
+**Negative result: forty of the forty-three cannot be judged.** A transponder
+lights its wavelength from a laser on the line card, so there is no part number
+and no mode list to compare anything against. Only the three router wavelengths
+carry a pluggable, and a run reporting no findings over forty-three skips would
+look exactly like a run that judged them all and found nothing. The split is
+printed for that reason.
+
+**Negative result: this check says nothing about whether the mode closes.**
+Whether `OpenZR+ 400G` reaches over the plant is `osnr_margin`'s question, and
+it does: +10.890 dB on `oms-ams-bru`. The 400ZR fitted here would fail on
+chromatic dispersion rather than on power, over its 2400 ps/nm tolerance by
+1340 ps/nm with 8 dB of OSNR still in hand. That is the argument for oFEC and it
+belongs on [the link budget page](./link-budget.mdx), not in this check.
 
 ## The runbook
 

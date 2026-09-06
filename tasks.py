@@ -91,6 +91,8 @@ CHECKS = (
     "carrier_termination",
     "mux_channel_binding",
     "attenuator_range",
+    "transceiver_placement",
+    "transceiver_mode_support",
 )
 
 DEMO_BRANCH = "demo"
@@ -107,6 +109,8 @@ DIVERSITY_BRANCH = "diversity-demo"
 MONITOR_GAP_BRANCH = "monitor-gap"
 MUX_BINDING_BRANCH = "mux-binding"
 ATTENUATOR_RANGE_BRANCH = "attenuator-range"
+TRANSCEIVER_PLACEMENT_BRANCH = "transceiver-placement"
+TRANSCEIVER_MODE_BRANCH = "transceiver-mode"
 
 DEMO_SERVICES = (
     "svc-ber-ams-400g",
@@ -224,6 +228,18 @@ SCENARIO_BRANCHES: tuple[ScenarioBranch, ...] = (
         branch=ATTENUATOR_RANGE_BRANCH,
         files=("demo/12_attenuator_range.yml",),
         check="attenuator_range",
+    ),
+    ScenarioBranch(
+        task="demo-transceiver-placement",
+        branch=TRANSCEIVER_PLACEMENT_BRANCH,
+        files=("demo/13_transceiver_placement.yml",),
+        check="transceiver_placement",
+    ),
+    ScenarioBranch(
+        task="demo-transceiver-mode",
+        branch=TRANSCEIVER_MODE_BRANCH,
+        files=("demo/14_transceiver_mode_support.yml",),
+        check="transceiver_mode_support",
     ),
 )
 
@@ -591,6 +607,8 @@ TASK_GROUPS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
             "demo-monitor-gap",
             "demo-mux-binding",
             "demo-attenuator-range",
+            "demo-transceiver-placement",
+            "demo-transceiver-mode",
             "demo-clean",
         ),
         (),
@@ -1869,6 +1887,60 @@ def demo_attenuator_range(context: Context, branch: str = ATTENUATOR_RANGE_BRANC
         "  attenuators, neither of them at exactly its maximum, which would pass\n"
         "  because the bound is inclusive. The two fixed pads are not judged and\n"
         "  have no range to judge. No other check moves on this branch."
+    )
+    _next_step("demo-transceiver-placement")
+
+
+@task
+def demo_transceiver_placement(context: Context, branch: str = TRANSCEIVER_PLACEMENT_BRANCH) -> None:
+    """A pluggable optic in a port with no cage, and the check that finds it.
+
+    The record loads, because a relationship to a generic cannot be filtered by
+    peer kind: the schema can offer the port field or withhold it and cannot say
+    "any of these three kinds and none of the other five".
+    """
+    _banner("The pluggable in a port that cannot hold one", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-transceiver-placement")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  One finding. ZRP-BRU-01 is recorded in amp-ams-bru-08 OUT, which is an\n"
+        "  amplifier port and a fixed interface on the equipment. The same run says\n"
+        "  what it judged: nine units, six fitted and three on a shelf, and a unit on\n"
+        "  a shelf is what the optional port relationship exists to hold. That\n"
+        "  optionality is also why no uniqueness constraint can refuse two optics in\n"
+        "  one port, which is the other half this check owns.\n"
+        "  transceiver_mode_support speaks too, and does not block: pulling the\n"
+        "  module leaves oc-ch003-ams-bru with a pluggable at one end and integrated\n"
+        "  optics at the other, which it reports as INFO."
+    )
+    _next_step("demo-transceiver-mode")
+
+
+@task
+def demo_transceiver_mode(context: Context, branch: str = TRANSCEIVER_MODE_BRANCH) -> None:
+    """A 400ZR where the wavelength runs OpenZR+ 400G, and the check that says no.
+
+    Both parts are QSFP-DD, both DP-16QAM, both 400G. They differ in forward
+    error correction and therefore in reach, 120 km against 1000 km on a 220 km
+    section, and no schema constraint reaches across two nodes to say so.
+    """
+    _banner("The pluggable that cannot run the mode it is fitted for", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-transceiver-mode")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  One finding, and it names a part number and a mode because nothing else\n"
+        "  separates the two modules. QDD-400G-ZR ZR-SPARE-01 sits in rtr-ams-01\n"
+        "  1/2/1 and supports 400ZR alone, where oc-ch003-ams-bru runs OpenZR+ 400G.\n"
+        "  The same run says what it judged: three wavelengths against the parts at\n"
+        "  their line ports and forty skipped on integrated optics, which carry no\n"
+        "  part number to compare. A run with no findings and forty-three skips would\n"
+        "  have seen nothing, so the split is printed rather than left to silence."
     )
     _next_step("demo-clean")
 

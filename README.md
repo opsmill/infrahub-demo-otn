@@ -56,7 +56,7 @@ occupying a width of spectrum around it.
   regenerator and budget each half on its own. The demo tries three regenerator
   sites on Madrid to Warsaw, all three are refused at DP-16QAM, and the fix turns
   out to be a regenerator and a different modulation.
-- **Block a bad merge.** Eleven checks run against a proposed change: the
+- **Block a bad merge.** Thirteen checks run against a proposed change: the
   shared package imports in the worker, no two carriers claim the same channel
   on the same section, every wavelength still closes its OSNR margin, no
   container commits more tributary slots than its parent offers, no two
@@ -65,8 +65,10 @@ occupying a width of spectrum around it.
   for the refusal, no degree monitor disagrees with the carriers on its
   section, no device that should carry a monitor is missing one, no active
   wavelength is left half-terminated, no multiplexer client port stands on the
-  wrong number of channels, and no variable attenuator is dialled past the range
-  its own hardware has.
+  wrong number of channels, no variable attenuator is dialled past the range
+  its own hardware has, no pluggable optic sits in a port with no cage to hold
+  it, and no wavelength runs a mode the parts fitted at its ends cannot
+  produce.
 - **See the drift.** Every other report predicts. One compares: configured gain
   against the gain each amplifier and Raman pump last reported delivering, so a
   stage sliding towards a maintenance visit is named before it fails anything.
@@ -237,12 +239,13 @@ which spends the one wide block, and all ten fit nowhere.
 - **Checks.** Shared-package import, channel collision, OSNR margin, container
   capacity, declared diversity, the provisionable gate, channel count
   consistency, monitor completeness, carrier termination, multiplexer channel
-  binding and attenuator range.
+  binding, attenuator range, transceiver placement and transceiver mode
+  support.
 - **Reports.** Service trace, impact, capacity, reach, AI latency, SRLG
   exposure, link budget and monitor drift, each with its own GraphQL query, plus
   the two rendered maps.
-- **Tasks.** 50 invoke tasks, one per lifecycle step, per demo scenario and
-  per loadable scenario. `invoke list` prints the 29 a reader needs and `--all`
+- **Tasks.** 52 invoke tasks, one per lifecycle step, per demo scenario and
+  per loadable scenario. `invoke list` prints the 31 a reader needs and `--all`
   adds the other 21. `invoke load` does the loading in one step, and
   `invoke demo` runs the whole walkthrough in ten steps.
 

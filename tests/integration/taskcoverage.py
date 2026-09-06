@@ -327,6 +327,24 @@ COVERAGE: tuple[CoverageRecord, ...] = (
             "`check attenuator_range` reports that one finding"
         ),
     ),
+    CoverageRecord(
+        task="demo-transceiver-placement",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`transceiver-placement` holds ZRP-BRU-01 in an amplifier port and "
+            "`check transceiver_placement` reports that one finding"
+        ),
+    ),
+    CoverageRecord(
+        task="demo-transceiver-mode",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`transceiver-mode` holds a QDD-400G-ZR on an OpenZR+ 400G wavelength and "
+            "`check transceiver_mode_support` names the part number and the mode"
+        ),
+    ),
     # ------------------------------------------------------------------ #
     # Cleanup
     # ------------------------------------------------------------------ #

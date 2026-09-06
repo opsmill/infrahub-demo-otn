@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 from dataclasses import dataclass
 from functools import cache
@@ -115,6 +116,8 @@ _DEFAULT: dict[str, Outcome] = {
     "carrier_termination": PASSES,
     "mux_channel_binding": PASSES,
     "attenuator_range": PASSES,
+    "transceiver_placement": PASSES,
+    "transceiver_mode_support": PASSES,
 }
 """What a scenario that adds services and containers and nothing else looks like.
 
@@ -217,6 +220,31 @@ _quiet(
 )
 
 _quiet(
+    "13_transceiver_placement.yml",
+    transceiver_placement=Fails(
+        1,
+        "`ZRP-BRU-01` is restated into `amp-ams-bru-08 OUT`, which is an amplifier port and holds no cage. "
+        "One finding and not two: the module moved rather than being copied, so no port ends up claimed by "
+        "two units and the duplicate half of the check stays silent",
+    ),
+)
+"""The one scenario `transceiver_mode_support` answers with INFO rather than
+silence. Pulling the Brussels module leaves `oc-ch003-ams-bru` fitted at one end
+and integrated at the other, which is a mixed termination and not a fault. The
+error count is what this table declares, so the INFO row is asserted below."""
+
+_quiet(
+    "14_transceiver_mode_support.yml",
+    transceiver_mode_support=Fails(
+        1,
+        "`ZR-SPARE-01` is a QDD-400G-ZR and the wavelength it lands on runs OpenZR+ 400G, which that part "
+        "does not list. One finding and not two: the OpenZR+ module it displaces moves to a router client "
+        "port, which is a kind that can hold an optic, so `transceiver_placement` stays green and the "
+        "scenario stays about one thing",
+    ),
+)
+
+_quiet(
     "90_fra_mil_saturated.yml",
     provisionable=NeedsGenerator(
         1,
@@ -249,10 +277,18 @@ def _check_class(name: str) -> Any:
 
 
 @cache
-def _errors(check_name: str, file_name: str | None) -> tuple[str, ...]:
+def _logs(check_name: str, file_name: str | None, level: str) -> tuple[str, ...]:
     check = _check_class(check_name)(branch="scenario-sweep")
     check.validate(payload(check_name, file_name))
-    return tuple(str(log["message"]) for log in check.logs if log["level"] == "ERROR")
+    return tuple(str(log["message"]) for log in check.logs if log["level"] == level)
+
+
+def _errors(check_name: str, file_name: str | None) -> tuple[str, ...]:
+    return _logs(check_name, file_name, "ERROR")
+
+
+def _infos(check_name: str, file_name: str | None) -> tuple[str, ...]:
+    return _logs(check_name, file_name, "INFO")
 
 
 CHECKS = tuple(entry.name for entry in CONFIG.check_definitions)
@@ -273,11 +309,11 @@ def test_the_expectation_table_is_exactly_the_product_of_the_two_directories() -
     )
 
 
-def test_the_sweep_covers_fourteen_scenarios_and_eleven_checks() -> None:
+def test_the_sweep_covers_sixteen_scenarios_and_thirteen_checks() -> None:
     """The two numbers this module's docstring publishes, read back from the tree."""
-    assert len(SCENARIOS) == 14, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
-    assert len(CHECKS) == 11, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
-    assert len(CELLS) == 154
+    assert len(SCENARIOS) == 16, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
+    assert len(CHECKS) == 13, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
+    assert len(CELLS) == 208
 
 
 @pytest.mark.parametrize("check_name", CHECKS)
@@ -366,6 +402,8 @@ def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
         "carrier_termination",
         "mux_channel_binding",
         "attenuator_range",
+        "transceiver_placement",
+        "transceiver_mode_support",
     ):
         assert verdicts[quiet] == 0, f"{quiet} fails the shipped plant, which nothing else in the suite says"
 
@@ -481,3 +519,77 @@ def test_the_resolver_reads_every_kind_the_object_files_declare() -> None:
 
     unkeyed = [kind for kind, records in merged(None).items() if any(part == "" for key in records for part in key)]
     assert not unkeyed, f"records whose human-friendly ID resolved to an empty part: {unkeyed}"
+
+
+# ---------------------------------------------------------------------------
+# The two rules a count of errors cannot see
+# ---------------------------------------------------------------------------
+
+
+def test_the_mixed_termination_row_is_reported_and_blocks_nothing() -> None:
+    """One line port on a pluggable and the other on integrated optics.
+
+    The sweep above asserts error counts, so an INFO row is invisible to it. This
+    is the row the contract asks for and the only branch that reaches it: the
+    three router wavelengths ship with both ends fitted and the forty transponder
+    wavelengths with neither, so nothing in `objects/` is in this state.
+    """
+    infos = _infos("transceiver_mode_support", "13_transceiver_placement.yml")
+    mixed = [message for message in infos if "mixed termination" in message]
+    assert len(mixed) == 1, f"the branch reported {len(mixed)} mixed terminations: {infos}"
+    assert "oc-ch003-ams-bru" in mixed[0]
+    assert "rtr-ams-01 1/2/1" in mixed[0] and "rtr-bru-01 1/2/1" in mixed[0]
+    assert not _errors("transceiver_mode_support", "13_transceiver_placement.yml")
+
+
+def test_two_optics_in_one_port_are_refused_though_no_file_under_demo_holds_that() -> None:
+    """The half of `transceiver_placement` that no scenario reaches.
+
+    `demo/13_transceiver_placement.yml` demonstrates the port kind, which is one
+    of the two rules the check owns. The other is the duplicate, and it is the
+    one a uniqueness constraint would have taken had `port` been mandatory, so
+    leaving it to a branch nobody wrote is how it would quietly stop working.
+    The payload is the shipped one with a shelved unit re-pointed at an occupied
+    port, which is exactly the state the constraint cannot refuse.
+    """
+    built = copy.deepcopy(payload("transceiver_placement", None))
+    edges = built["OtnTransceiver"]["edges"]
+    fitted = next(edge for edge in edges if edge["node"]["port"]["node"])
+    shelved = next(edge for edge in edges if not edge["node"]["port"]["node"])
+    shelved["node"]["port"] = {"node": dict(fitted["node"]["port"]["node"])}
+
+    check = _check_class("transceiver_placement")(branch="scenario-sweep")
+    check.validate(built)
+    errors = [str(log["message"]) for log in check.logs if log["level"] == "ERROR"]
+
+    assert len(errors) == 1, f"one port claimed twice gave {len(errors)} findings: {errors}"
+    for serial in (fitted["node"]["serial"]["value"], shelved["node"]["serial"]["value"]):
+        assert serial in errors[0], f"the finding does not name {serial}: {errors[0]}"
+
+
+def test_the_mode_check_says_how_many_wavelengths_it_judged_and_how_many_it_skipped() -> None:
+    """Silence is not a pass, and this is the sentence that keeps it from reading as one.
+
+    Three router wavelengths carry pluggables and forty transponder wavelengths
+    carry integrated optics. A run that judged none of the forty-three would log
+    the same zero errors, so the split is asserted from the dataset rather than
+    trusted.
+    """
+    carriers = payload("transceiver_mode_support", None)["OtnOpticalCarrier"]["edges"]
+    fitted_ports = {
+        str(edge["node"]["port"]["node"]["id"])
+        for edge in payload("transceiver_mode_support", None)["OtnTransceiver"]["edges"]
+        if edge["node"]["port"]["node"]
+    }
+    judged = sum(
+        1
+        for edge in carriers
+        if any(str(port["node"]["id"]) in fitted_ports for port in edge["node"]["line_ports"]["edges"])
+    )
+    assert (judged, len(carriers) - judged) == (3, 40), f"the dataset now gives {judged} judged of {len(carriers)}"
+
+    summary = [message for message in _infos("transceiver_mode_support", None) if "wavelength(s) examined" in message]
+    assert len(summary) == 1, summary
+    assert f"{len(carriers)} wavelength(s) examined" in summary[0]
+    assert f"{judged} judged" in summary[0]
+    assert f"{len(carriers) - judged} skipped" in summary[0]

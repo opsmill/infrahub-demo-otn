@@ -95,6 +95,20 @@ queries:
   # kind does not have.
   - name: attenuator_range
     file_path: "./queries/attenuator_range.gql"
+  # Rooted on OtnTransceiver and unfiltered, because a unit with no port is a
+  # spare and the check reports how many of those it left alone. Every optical
+  # port kind comes back through an inline fragment, including the five that can
+  # hold no module: `port` peers OtnOpticalPort, that generic carries neither
+  # `name` nor `device`, and a relationship to a generic cannot be filtered by
+  # peer kind, so the five wrong kinds are exactly what a finding has to name.
+  - name: transceiver_placement
+    file_path: "./queries/transceiver_placement.gql"
+  # Two collections, carriers and transceivers, joined in Python on the port id.
+  # OtnTransceiver.port is declared on the transceiver alone, so a line port
+  # cannot be asked what is fitted in it, and the reverse edge is refused for the
+  # reason above: it would land on all eight optical port kinds.
+  - name: transceiver_mode_support
+    file_path: "./queries/transceiver_mode_support.gql"
 
 # Every `watch.files` list below this line is generated. Run
 # `uv run python scripts/generate_watch_lists.py` after any import changes under
@@ -142,7 +156,7 @@ generator_definitions:
 # whole file at sync. scripts/generate_watch_lists.py knows this and skips the
 # section.
 #
-# Eleven checks, and one of the eleven carries a name this file once recorded as
+# Thirteen checks, and one of the thirteen carries a name this file once recorded as
 # deleted. There was a monitor_completeness check here, and it asserted that a
 # monitor carried the readings its family reports and none it cannot take. Both
 # halves are now schema constraints: the readings are mandatory on each monitor
@@ -194,7 +208,7 @@ check_definitions:
   - name: diversity
     file_path: "./checks/diversity.py"
     class_name: DiversityCheck
-  # Global, and it is the sixth here rather than the fourth: none of the eleven
+  # Global, and it is the sixth here rather than the fourth: none of the thirteen
   # entries in this section declares `targets`, including the two above that say
   # nothing about it. The reason for this one is the shared one worded for a
   # single node: a proposed change may touch one service while a different
@@ -278,6 +292,39 @@ check_definitions:
   - name: attenuator_range
     file_path: "./checks/attenuator_range.py"
     class_name: AttenuatorRangeCheck
+  # Global, because an absence is not an edit and because the duplicate case is
+  # a property of a pair. A change that fits a module in a port another module
+  # already claims touches one of the two records, and a targeted check handed
+  # that one alone cannot see the other.
+  #
+  # No `query:` key, per the note at the top of this section. The class binds it
+  # with `query = "transceiver_placement"`.
+  #
+  # It owns both halves, and the schema was tried on both. A uniqueness
+  # constraint on `port` is accepted only where the relationship is mandatory,
+  # and a mandatory port leaves a spare, an RMA and a decommissioned unit
+  # unmodellable. Restricting the port kind needs a reverse edge on
+  # OtnOpticalPort, and a relationship to a generic cannot be filtered by peer
+  # kind, so that edge would land on the five port kinds that never hold a
+  # module.
+  - name: transceiver_placement
+    file_path: "./checks/transceiver_placement.py"
+    class_name: TransceiverPlacementCheck
+  # Global, because a change may fit an optic at one end of a wavelength it does
+  # not otherwise touch, and the mode it has to match lives on the carrier.
+  #
+  # No `query:` key, per the note at the top of this section. The class binds it
+  # with `query = "transceiver_mode_support"`.
+  #
+  # Nothing here could go in the schema: the supported modes are a
+  # cardinality-many relationship on the part and the mode is a cardinality-one
+  # relationship on the carrier, two hops apart through a port, and Infrahub has
+  # no cross-relationship constraint. It judges the three router wavelengths and
+  # skips the forty on integrated optics, and it reports that split rather than
+  # letting silence read as a pass.
+  - name: transceiver_mode_support
+    file_path: "./checks/transceiver_mode_support.py"
+    class_name: TransceiverModeSupportCheck
 
 python_transforms:
   - name: budget_report

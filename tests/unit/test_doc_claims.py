@@ -669,6 +669,8 @@ COUNTS = {
     "nine": 9,
     "ten": 10,
     "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
 }
 """The window of spellings the check-count patterns below accept.
 

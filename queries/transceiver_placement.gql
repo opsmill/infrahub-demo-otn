@@ -1,0 +1,151 @@
+# Every pluggable optic, the part it is and the port it is recorded in.
+#
+# Rooted on `OtnTransceiver` and unfiltered. A unit with no port is a spare, an
+# RMA or a decommissioned module, and the check has to count those rather than
+# leave them out: a filter on "fitted" would make the shelf invisible and turn
+# its silence into a pass.
+#
+# **`__typename` on the port is required, not stylistic.** `port` peers the
+# generic `OtnOpticalPort`, and Infrahub cannot filter a relationship to a
+# generic by the kind of its peers, so "the transceivers in an amplifier port"
+# is not a query anybody can write. The kind comes back on the node and the
+# check discriminates on it. `queries/mux_channel_binding.gql` and
+# `queries/monitor_completeness.gql` carry the same shape for the same reason.
+#
+# **The eight fragments are required too.** `OtnOpticalPort` declares the
+# optical properties and nothing else: `name` and `device` live on
+# `OtnGenericPort`, which is the other generic each port kind inherits, so
+# selecting either one straight off the union fails. Every optical port kind is
+# listed, including the five that cannot hold a module, because those five are
+# exactly the ones a finding has to name.
+#
+# `id` on the port as well as its name, because two records claiming one port
+# are compared on identity rather than on a formatted string.
+#
+# `id` and `__typename` on the transceiver, because `log_error` takes both and
+# every finding names the unit it is about.
+query TransceiverPlacement {
+  OtnTransceiver {
+    edges {
+      node {
+        id
+        __typename
+        serial {
+          value
+        }
+        status {
+          value
+        }
+        type {
+          node {
+            part_number {
+              value
+            }
+          }
+        }
+        port {
+          node {
+            id
+            __typename
+            ... on OtnLinePort {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+            ... on OtnClientPort {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+            ... on OtnRouterPort {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+            ... on OtnRoadmAddDropPort {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+            ... on OtnRoadmDegreePort {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+            ... on OtnAmplifierPort {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+            ... on OtnMuxClientPort {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+            ... on OtnMuxLinePort {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
