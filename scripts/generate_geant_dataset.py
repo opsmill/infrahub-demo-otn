@@ -568,7 +568,7 @@ def _route_span_inputs(carrier: dict[str, Any]) -> list[SpanInput]:
         SpanInput(
             name=f"{carrier['name']} span {index}",
             length_m=length,
-            attenuation_mdb_per_km=coefficients["attenuation_mdb_per_km"],
+            attenuation_coefficient_mdb_per_km=coefficients["attenuation_coefficient_mdb_per_km"],
             dispersion_fs_per_nm_km=coefficients["dispersion_fs_per_nm_km"],
             group_index_milli=coefficients["group_index_milli"],
             **span_fiber_geometry(length),
@@ -941,7 +941,7 @@ def _fiber_coefficients() -> dict[str, dict[str, int]]:
             continue
         for record in spec.get("data") or []:
             coefficients[str(record["name"])] = {
-                "attenuation_mdb_per_km": int(record["attenuation_mdb_per_km"]),
+                "attenuation_coefficient_mdb_per_km": int(record["attenuation_coefficient_mdb_per_km"]),
                 "dispersion_fs_per_nm_km": int(record["dispersion_fs_per_nm_km"]),
                 "group_index_milli": int(record["group_index_milli"]),
             }

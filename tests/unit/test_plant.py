@@ -39,7 +39,7 @@ from infrahub_demo_otn.units import (
 
 FIBER = {
     "name": {"value": "G.652.D"},
-    "attenuation_mdb_per_km": {"value": 200},
+    "attenuation_coefficient_mdb_per_km": {"value": 200},
     "dispersion_fs_per_nm_km": {"value": 17_000},
     "group_index_milli": {"value": 1468},
 }
@@ -405,7 +405,7 @@ def test_a_pump_carrying_neither_placement_field_is_an_error() -> None:
 
 def test_a_span_takes_its_coefficients_from_its_fiber_type() -> None:
     span = build_span(unwrap(span_node("span-a", 1, 70_000)), unwrap(FIBER))
-    assert span.attenuation_mdb_per_km == 200
+    assert span.attenuation_coefficient_mdb_per_km == 200
     assert span.dispersion_fs_per_nm_km == 17_000
     assert span.group_index_milli == 1468
 

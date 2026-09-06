@@ -151,7 +151,7 @@ class SpanInput:
 
     name: str
     length_m: int
-    attenuation_mdb_per_km: int
+    attenuation_coefficient_mdb_per_km: int
     dispersion_fs_per_nm_km: int
     splice_count: int = 0
     splice_loss_mdb: int = 0
@@ -183,10 +183,23 @@ class AmplifierInput:
 
 @dataclass(frozen=True)
 class NodeInput:
-    """Any `OtnOpticalElement` light passes through without amplification."""
+    """Any `OtnOpticalElement` light passes through without amplification.
+
+    An attenuator holds two numbers rather than one: `insertion_loss_mdb` is
+    what the device costs and `attenuation_mdb` is what it is set to. The hop
+    costs their sum and nothing stores that sum, so the model can still say
+    which half is the device and, for a variable pad, how much range is left.
+    Every other element leaves `attenuation_mdb` at zero.
+    """
 
     name: str
     insertion_loss_mdb: int
+    attenuation_mdb: int = 0
+
+    @property
+    def loss_mdb(self) -> int:
+        """What the hop costs: the device plus whatever it is dialled to."""
+        return self.insertion_loss_mdb + self.attenuation_mdb
 
 
 @dataclass(frozen=True)
@@ -322,7 +335,7 @@ class PathElement:
     def loss_mdb(self) -> int:
         """What this element costs the power budget, ageing included."""
         if self.node is not None:
-            return self.node.insertion_loss_mdb
+            return self.node.loss_mdb
         if self.span is not None:
             return span_loss_mdb(self.span)
         return 0
@@ -331,7 +344,7 @@ class PathElement:
     def fiber_loss_mdb(self) -> int:
         """What this element costs the OSNR path, ageing excluded."""
         if self.node is not None:
-            return self.node.insertion_loss_mdb
+            return self.node.loss_mdb
         if self.span is not None:
             return span_fiber_loss_mdb(self.span)
         return 0
@@ -417,7 +430,7 @@ def _effective_fiber_loss_mdb(span: SpanInput, raman_gain_mdb: int) -> int:
     Separate from `span_fiber_loss_mdb` so `validate()` can see the negative
     value that the public function floors away.
     """
-    attenuation = _round_div(span.length_m * span.attenuation_mdb_per_km, M_PER_KM)
+    attenuation = _round_div(span.length_m * span.attenuation_coefficient_mdb_per_km, M_PER_KM)
     splices = span.splice_count * span.splice_loss_mdb
     connectors = span.connector_count * span.connector_loss_mdb
     return attenuation + splices + connectors + span.pump_loss_mdb - raman_gain_mdb
@@ -659,7 +672,7 @@ def evaluate_path(
             cumulative_delay += span_delay_ns(element.span)
         elif element.kind == NODE and element.node is not None:
             nodes_seen += 1
-            loss = element.node.insertion_loss_mdb
+            loss = element.node.loss_mdb
             cumulative_delay += ROADM_LATENCY_NS
         elif element.amplifier is not None:
             amplifiers += 1

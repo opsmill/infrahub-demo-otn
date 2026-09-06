@@ -113,7 +113,7 @@ query BudgetReport {
                   name {
                     value
                   }
-                  attenuation_mdb_per_km {
+                  attenuation_coefficient_mdb_per_km {
                     value
                   }
                   dispersion_fs_per_nm_km {

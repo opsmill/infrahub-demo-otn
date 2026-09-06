@@ -56,6 +56,11 @@ ROADM_KIND = "OtnRoadm"
 SECTION_KIND = "OtnOpticalMultiplexSection"
 """The kind that must sit between every pair of ROADMs on a valid route."""
 
+ATTENUATOR_KINDS: frozenset[str] = frozenset({"OtnFixedAttenuator", "OtnVariableAttenuator"})
+"""The element kinds whose hop costs an attenuation setting on top of the
+device's own insertion loss. Two kinds and not one, because only the variable
+pad has a range, so the fixed one has no field to leave empty."""
+
 DIRECTION_A_TO_B = "a_to_b"
 """Towards the section's own `roadm_b`. Nothing stores this token any more. It
 is what `_direction` returns and what the engine, the checks and the impact
@@ -194,7 +199,7 @@ def build_span(span: Mapping[str, Any], fiber: Mapping[str, Any]) -> SpanInput:
     return SpanInput(
         name=str(span["name"]),
         length_m=int(span["length_m"]),
-        attenuation_mdb_per_km=int(fiber["attenuation_mdb_per_km"]),
+        attenuation_coefficient_mdb_per_km=int(fiber["attenuation_coefficient_mdb_per_km"]),
         dispersion_fs_per_nm_km=int(fiber["dispersion_fs_per_nm_km"]),
         splice_count=int(span.get("splice_count") or 0),
         splice_loss_mdb=int(span.get("splice_loss_mdb") or 0),
@@ -209,8 +214,21 @@ def build_span(span: Mapping[str, Any], fiber: Mapping[str, Any]) -> SpanInput:
 
 
 def build_node(element: Mapping[str, Any]) -> NodeInput:
-    """Any `OtnOpticalElement` that light passes through without gain."""
-    return NodeInput(name=str(element["name"]), insertion_loss_mdb=int(element.get("insertion_loss_mdb") or 0))
+    """Any `OtnOpticalElement` that light passes through without gain.
+
+    An attenuator is the one element whose hop costs more than the device does.
+    Its setting arrives as a second field and is passed through as one, not
+    folded into the insertion loss, so a reader can still tell the pad from the
+    part. `max_attenuation_mdb` is range and not loss, so nothing reads it here.
+    """
+    attenuation = 0
+    if str(element.get("__typename") or "") in ATTENUATOR_KINDS:
+        attenuation = int(element.get("attenuation_mdb") or 0)
+    return NodeInput(
+        name=str(element["name"]),
+        insertion_loss_mdb=int(element.get("insertion_loss_mdb") or 0),
+        attenuation_mdb=attenuation,
+    )
 
 
 def build_amplifier(amplifier: Mapping[str, Any]) -> AmplifierInput:

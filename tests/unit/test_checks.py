@@ -81,7 +81,7 @@ def _span_node(record: dict[str, Any], fibers: dict[str, dict[str, Any]]) -> dic
             "aging_margin_mdb",
         ),
         "fiber_type": _one(
-            _node(fiber, "name", "attenuation_mdb_per_km", "dispersion_fs_per_nm_km", "group_index_milli")
+            _node(fiber, "name", "attenuation_coefficient_mdb_per_km", "dispersion_fs_per_nm_km", "group_index_milli")
         ),
         "raman_pumps": _edges(*pumps),
     }
@@ -1624,9 +1624,10 @@ def test_a_router_is_not_judged_and_the_summary_names_the_kinds_that_are_not() -
     assert _messages(check, "ERROR") == []
     summary = " ".join(_messages(check, "INFO"))
     assert "rtr-fra-01" not in summary
-    assert "Routers, patch panels and ODU switches carry no monitor and are not judged here" in summary
-    assert "rtr-fra-01" not in summary
-    assert "Routers, patch panels and ODU switches carry no monitor and are not judged here" in summary
+    assert (
+        "Routers, patch panels, ODU switches, fixed attenuators and variable attenuators "
+        "carry no monitor and are not judged here"
+    ) in summary
 
 
 # ---------------------------------------------------------------------------
