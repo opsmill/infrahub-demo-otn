@@ -123,8 +123,9 @@ gives that section, or 86.1 percent.
 
 Routers are absent from the element count on purpose. Light terminates at a
 router, so a router adds no insertion loss and does not inherit the optical
-element generic. The three ODU switches are present, because they inherit the
-same generic.
+element generic. The three ODU switches and the four attenuators are present,
+because they inherit the same generic. A pluggable transceiver is not an element
+either: it is a module fitted into a port, and the port is already on the path.
 
 The per-kind counts live in `scripts/geant_manifest.json`, written by the
 generator. The unit tests and the CI integration test read it directly. The
@@ -158,7 +159,7 @@ Eight results in this dataset are negative, and the demo reports each one.
 
 | Finding | Why it matters |
 | --- | --- |
-| **400ZR and 800ZR are unusable network-wide.** Both quote 120 km of reach. The shortest section is Amsterdam to Brussels at 220 km. | The answer a planner wants before ordering pluggables, and it is visible only because reach is modelled data rather than an assumption. |
+| **400ZR and 800ZR are unusable network-wide, and not because of power.** Both quote 120 km of reach against a shortest section of 220 km. Put 400ZR on that section anyway and it holds +7.890 dB of OSNR margin and fails on chromatic dispersion, 1340 ps/nm over its 2400 ps/nm tolerance. | The answer a planner wants before ordering pluggables. It is cFEC that does not reach here: the OpenZR+ parts are oFEC, and three of the loaded wavelengths run them router to router. See [the link budget](./link-budget.mdx). |
 | **Madrid has no diverse route.** It is single-homed on Paris. | MareNostrum 5 cannot survive a single fiber cut, and the diversity report says so rather than reporting nothing. |
 | **Thirteen of the twenty-one sections carry no wavelength.** | Deliberate. 40 of the 43 carriers are concentrated on one corridor, because one congested corridor is what the capacity-against-latency scenario needs. An evenly loaded network demonstrates nothing. |
 | **Twenty-five of the twenty-six free blocks on Frankfurt to Milan fit no mode at all.** The narrowest mode in the catalog, DP-QPSK 32GBd 100G, occupies 44,400 MHz. Twenty-one blocks are 20,400 MHz, two are 5,600, one is 38,000 and one is 35,200. | 665,600 MHz is free and almost none of it is usable. Fragmentation is a capacity finding in its own right and a free-megahertz total hides it. See [the spectral model](./spectral-model.mdx). |

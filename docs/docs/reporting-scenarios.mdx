@@ -315,7 +315,16 @@ finding does not depend on the exact catalog figure.
 That is the answer a planner wants before raising a purchase order, and it is
 only available because reach is modelled data rather than an assumption. The
 same table shows what does work: `OpenZR+ 400G` covers twenty of twenty-one
-sections and misses only Paris to Madrid at 1250 km.
+sections and misses only Paris to Madrid at 1250 km, and three of the loaded
+wavelengths run it router to router.
+
+**Read the split as cFEC against oFEC rather than pluggable against
+transponder.** Every mode marked `pluggable` above is a coherent optic in a
+router cage. The two that reach nothing carry cFEC; the three that reach
+almost everything carry oFEC, and `OpenZR+ 200G` reaches as far as the 100G
+transponder does. [The link budget](./link-budget.mdx) has what happens when a
+400ZR is put on a section it cannot have: the OSNR gate passes and the
+dispersion gate refuses it.
 
 One caveat applies to every row: reach is not the budget. A mode in reach of a
 section can still miss the OSNR margin over that section's amplifier chains,

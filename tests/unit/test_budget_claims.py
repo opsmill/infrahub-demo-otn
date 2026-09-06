@@ -389,6 +389,40 @@ def test_the_120_km_pluggables_still_reach_nothing_once_osnr_is_computed(mode_na
     assert not budget.ok, f"{mode_name} on the shortest section: {budget.osnr_margin_mdb} mdB"
 
 
+ROUTER_SECTIONS = ("oms-ams-bru", "oms-ber-prg", "oms-ham-ber")
+"""The three sections the router wavelengths run over, shortest first."""
+
+
+@pytest.mark.parametrize("section_name", ROUTER_SECTIONS)
+def test_400zr_keeps_its_osnr_and_loses_on_dispersion(section_name: str) -> None:
+    """The mechanism behind the reach figure, which is the part the page leads on.
+
+    400ZR is refused on all three of these sections and the refusal is never
+    about power. It holds positive OSNR margin on each and exceeds its 2400 ps/nm
+    tolerance on each, which is what makes "pluggable" the wrong reading of the
+    finding and "cFEC" the right one.
+    """
+    budget = evaluate_path([_sections()[section_name]], _modes()["400ZR"])
+
+    assert budget.osnr_ok, f"{section_name}: 400ZR margin {budget.osnr_margin_mdb} mdB"
+    assert budget.osnr_margin_mdb > 4_000, f"{section_name}: margin {budget.osnr_margin_mdb} mdB is not power to spare"
+    assert not budget.cd_ok, f"{section_name}: 400ZR accumulates {budget.cd_total_fs_per_nm} fs/nm"
+
+
+@pytest.mark.parametrize("section_name", ROUTER_SECTIONS)
+def test_openzr_plus_400g_closes_at_the_top_rung_on_every_router_section(section_name: str) -> None:
+    """The same three sections, the same cage and constellation, and oFEC.
+
+    Nothing had to drop to the 300G or the 200G rung, which is the half of the
+    finding that says what oFEC buys rather than what cFEC costs.
+    """
+    budget = evaluate_path([_sections()[section_name]], _modes()["OpenZR+ 400G"])
+
+    assert budget.ok, f"{section_name}: OpenZR+ 400G margin {budget.osnr_margin_mdb} mdB"
+    assert budget.osnr_margin_mdb > 7_000, f"{section_name}: margin {budget.osnr_margin_mdb} mdB"
+    assert budget.cd_ok
+
+
 # --------------------------------------------------------------------------
 # What a regeneration buys on the shipped plant, and what it does not
 # --------------------------------------------------------------------------

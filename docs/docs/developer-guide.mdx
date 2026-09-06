@@ -46,8 +46,15 @@ device can point at it. The same reason put the Raman pumps in `15`.
 Transponders are the one device count the generator sizes per site instead of
 fixing. A PoP gets `max(2, ceil(terminations / 2))` of them and two line ports
 on each, so Milan holds 19, Frankfurt 13, and the eight PoPs that terminate no
-wavelength hold two apiece. Fifty-nine in total, 118 line ports, of which 80
-carry a wavelength and 38 are dark.
+wavelength on a transponder hold two apiece. Fifty-nine in total, 118 line ports,
+of which 80 carry a wavelength and 38 are dark.
+
+The dataset holds 126 line ports, not 118. Six sit on routers and carry the
+three OpenZR+ wavelengths on pluggable optics, and two are the line side of the
+Frankfurt regenerator. Nine transceiver units against five part numbers go with
+them: six fitted and in service, two spares on a shelf and one returned to the
+vendor. Four attenuators, two fixed pads and two VOAs, are racked and on no path
+yet.
 [Concepts](./concepts.mdx) says why the spread is that wide. The per-kind counts
 live in `scripts/geant_manifest.json`, and the totals a reader sees are on
 [Installation and setup](./installation-setup.mdx), where

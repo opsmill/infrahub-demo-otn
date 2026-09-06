@@ -43,6 +43,8 @@ SDKs
 THz
 Tbps
 Terraform
+VOA
+VOAs
 Vale
 Vega
 WSS
@@ -74,6 +76,7 @@ kbps
 lossy
 millidecibel
 millidecibels
+mux
 muxponder
 mypy
 namespace
@@ -81,6 +84,7 @@ namespaces
 nm
 ns
 oFEC
+passband
 pluggable
 pluggables
 provisionable

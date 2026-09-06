@@ -139,11 +139,19 @@ missed by. The model decides that before anything is provisioned.
 
 **IP over DWDM moves the optical budget into the router.** 400ZR, OpenZR+ and
 800ZR put coherent optics in the router's own pluggable. That removes the
-transponder and makes reach a property of the pluggable you buy. This
-demo shows the cost of that: the 120 km parts reach zero of the twenty-one
-sections in the network. That answer comes from a query against the mode
-catalog rather than from an assumption. The
-[AI and HPC payloads](./ai-payloads.mdx) page has the full working.
+transponder and makes reach a property of the part you buy, so the model records
+the part: a catalog of five part numbers, and nine modules with serials on them
+that sit in ports. Three wavelengths in this network run router to router on
+`OpenZR+ 400G` pluggables and close with margin to spare.
+
+The demo also shows where that stops working, and the reason is not the one most
+people expect. The 120 km parts reach zero of the twenty-one sections, and on the
+shortest section a 400ZR still holds nearly 8 dB of OSNR margin. What refuses it
+is chromatic dispersion. The difference between the parts that work here and the
+parts that do not is the forward error correction, cFEC against oFEC, not the
+form factor. Both answers come from a query against the mode catalog rather than
+from an assumption. The [link budget](./link-budget.mdx) has the working, and
+[AI and HPC payloads](./ai-payloads.mdx) has the payload side.
 
 ## What it answers
 
