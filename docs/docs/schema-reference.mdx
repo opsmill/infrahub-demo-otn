@@ -386,6 +386,32 @@ The ceiling on `on_off_gain_mdb` is 15.0 dB rather than 20.0 dB. The smallest
 fiber loss on any shipped span is 16.167 dB, so one pump can never reduce a span
 to zero loss. It takes two on one span to reach the floor.
 
+### `terminating_ports`, and why the span had to gain an edge
+
+`OtnFiberSpan.terminating_ports` points at the ports at the two ends of a span.
+It peers `OtnGenericPort`, is optional and many, and the dataset generator fills
+it for every span.
+
+It exists because the polish check could not be written without it. Before it, no
+port kind had any relationship to a span or an optical multiplex section in either
+direction. The nearest reachable ports were three hops away, through the section
+and its ROADMs, and a ROADM carries one degree port per direction whose
+`connected_to` is unset. The only thing that named the right one was the far site
+shortname inside the port's own name string.
+
+Parsing that string would have put a naming convention back in a relationship's
+job, which this repository has already been bitten by once. The edge is declared
+on the span alone, for the same reason the transceiver's port edge is one-sided:
+the inverse would give the field to every port kind, and most ports terminate no
+span.
+
+A span whose `terminating_ports` is empty is reported as unjudgeable by
+`connector_polish`, never as clean. An empty relationship and a correct span look
+identical from outside, and a green result over an empty traversal would be worse
+than no check. A test over the generated data holds the other side of that trust:
+every port in a span's `terminating_ports` belongs to a device at that span's own
+`site_a` or `site_b`.
+
 ### The direction a pump amplifies is worked out, not stored
 
 A pump holds two facts about the hardware: which end of the span it is spliced

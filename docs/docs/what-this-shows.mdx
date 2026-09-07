@@ -94,7 +94,7 @@ full list.
 | What is committed but not yet built, across vendors | Inside one project file | As planned objects, inside one domain | On a branch, across the whole plant |
 | Why this route and not the other one | With whoever ran the tool | No | The path, its ordered hops, the running budget, and the proposed change where a person signed |
 | What drops if one duct is cut | Within its own project | Within its own domain | [Scenario four](./reporting-scenarios.mdx#scenario-four-cut-the-frankfurt-to-amsterdam-fiber) |
-| Where a 400ZR in a router lands on the line system | It is not that tool's transponder | Split across two controllers | One chain of objects, the one below |
+| Where a coloured pluggable in a router lands on the line system | It is not that tool's transponder | Split across two controllers | One chain of objects, the one below. Three OpenZR+ wavelengths run router to router here. A 400ZR reaches none of these sections, and the model says so and says why |
 | Which IP link rides which wavelength rides which duct | No | No | One query, and [scenario seven](./reporting-scenarios.mdx#scenario-seven-which-services-are-not-diverse) reads it |
 | What the plan looked like last quarter | An older file, if anyone kept it | Rarely | The branch and the commit history |
 
@@ -111,6 +111,7 @@ two tools.
 | Insertion loss and noise figure | `vendor` and `model` on `OtnOpticalElement`, with the loss fields beside them | Objects per model |
 | An alien wavelength on a line system another operator built | A transponder whose carrier crosses sections built from other equipment | Nothing. No relationship in the hop chain is scoped to a vendor |
 | Framing and correction latency | `fec_latency_ns` on the mode, `framing_latency_ns` on the ODU switch | Values per model, added up by [scenario eight](./reporting-scenarios.mdx#scenario-eight-the-ai-services-against-their-budgets) |
+| Which optic supplies a mode | `OtnTransceiverType`, with the modes each part number supports | More catalog entries. `transceiver_mode_support` refuses a mode the fitted part cannot run, whoever made it |
 | Naming and slot conventions | The `human_friendly_id` on each kind | A different string |
 
 Every racked element in this plant loads as `vendor: Generic`. The field
@@ -123,12 +124,12 @@ objects in `objects/`, reviewed on a branch like any other change.
 | Layer | What the demo holds | Kinds |
 | --- | --- | --- |
 | Duct and shared risk | Which routes share a duct, which is what makes two services not diverse | `OtnConduit` |
-| Fiber | Attenuation, dispersion, group index, and Raman gain where it is pumped | `OtnFiberSpan`, `OtnFiberType`, `OtnRamanPump` |
-| Spectrum | The 50 GHz grid, the coarse grid, and what each carrier occupies on both | `OtnFrequencyGrid`, `OtnCwdmChannel` |
+| Fiber | Attenuation, dispersion, group index, Raman gain where it is pumped, and loss added on purpose | `OtnFiberSpan`, `OtnFiberType`, `OtnRamanPump`, `OtnFixedAttenuator`, `OtnVariableAttenuator` |
+| Spectrum | The 50 GHz grid, the coarse grid, what each carrier occupies on both, and which fiber a channel lands on | `OtnFrequencyGrid`, `OtnCwdmChannel`, `OtnMuxClientPort`, `OtnMuxLinePort` |
 | Optical carrier | One provisioned wavelength, the mode it runs, and every section it crosses | `OtnOpticalCarrier`, `OtnOpticalMode` |
 | Digital wrapper | The container hierarchy, tributary slots, and where a wavelength terminates and the next one starts | `OtnContainer`, `OtnOduSwitch` |
 | Client handover | Ethernet, SDH, PDH, Fibre Channel and InfiniBand, each with the container it maps into | `OtnClientSignal` |
-| Router edge | The router and its grey port, as the endpoint a service names | `OtnRouter`, `OtnRouterPort` |
+| Router edge | The router, its grey port as the endpoint a service names, and the coloured line port where a pluggable puts a wavelength straight on the line system | `OtnRouter`, `OtnRouterPort`, `OtnLinePort`, `OtnTransceiver`, `OtnTransceiverType` |
 | Above that | Nothing. No VLAN, no prefix, no routing protocol | [Not exercised](#what-this-demo-does-not-exercise) |
 
 The last row counts as much as the others. This model stops at the router port.
