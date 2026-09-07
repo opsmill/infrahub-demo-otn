@@ -441,7 +441,7 @@ def test_every_shipped_carrier_is_terminated_at_both_ends_through_the_resolver()
 
 
 def test_every_shipped_mux_client_port_binds_exactly_one_channel_through_the_resolver() -> None:
-    """Eighty-eight client ports, one channel each, read the way the check reads them.
+    """Ninety-four client ports, one channel each, read the way the check reads them.
 
     The generator derives a dense multiplexer's client ports from the same
     carrier plan the monitor's `channel_count` comes from, so this is the
@@ -461,9 +461,41 @@ def test_every_shipped_mux_client_port_binds_exactly_one_channel_through_the_res
             plans = [name for name in ("dwdm_channel", "cwdm_channel") if port["node"][name]["node"]]
             bound[f"{node['name']['value']}/{port['node']['name']['value']}"] = len(plans)
 
-    assert len(bound) == 88, f"the shipped dataset holds {len(bound)} mux client ports"
+    assert len(bound) == 94, f"the shipped dataset holds {len(bound)} mux client ports"
     wrong = {port: plans for port, plans in bound.items() if plans != 1}
     assert not wrong, f"shipped mux client ports not on exactly one channel: {wrong}"
+
+
+def test_a_coarse_binding_on_a_device_that_lists_none_says_so_rather_than_naming_nothing() -> None:
+    """The unlisted row on a dense unit, where the device-side list is empty.
+
+    `demo/11_mux_channel_binding.yml` reaches the double binding on a coarse
+    device, whose list does hold the wavelength named, so the unlisted row stays
+    silent there and no scenario file reaches this state. The dense units are
+    fourteen of the sixteen, so the empty list is the commoner half of this
+    finding and the one whose sentence has to read.
+    """
+    data = copy.deepcopy(payload("mux_channel_binding", None))
+    dense = next(
+        edge["node"]
+        for edge in data["OtnMuxDemux"]["edges"]
+        if edge["node"]["name"]["value"] == "mux-fra-01" and not edge["node"]["cwdm_channels"]["edges"]
+    )
+    port = next(edge["node"] for edge in dense["ports"]["edges"] if edge["node"]["__typename"] == "OtnMuxClientPort")
+    port["cwdm_channel"]["node"] = {"center_wavelength_nm": {"value": 1471}}
+
+    check = _check_class("mux_channel_binding")(branch="scenario-sweep")
+    check.validate(data)
+    errors = [str(log["message"]) for log in check.logs if log["level"] == "ERROR"]
+
+    unlisted = [message for message in errors if "lists no coarse wavelength at all" in message]
+    assert len(unlisted) == 1, errors
+    assert "mux-fra-01" in unlisted[0] and "1471 nm" in unlisted[0]
+    assert "the nothing" not in unlisted[0]
+
+    # The same port is on both plans now, so the double binding is true as well.
+    # Both rows are about one port and neither replaces the other.
+    assert [message for message in errors if "at the same time" in message]
 
 
 def test_a_regenerator_terminates_the_two_segments_it_joins_on_the_scenario_branch() -> None:
@@ -583,6 +615,51 @@ def test_the_mode_check_says_how_many_wavelengths_it_judged_and_how_many_it_skip
     assert f"{len(carriers)} wavelength(s) examined" in summary[0]
     assert f"{judged} judged" in summary[0]
     assert f"{len(carriers) - judged} skipped" in summary[0]
+    assert "0 left unjudged" in summary[0], "every shipped wavelength declares a mode"
+
+
+def test_a_wavelength_declaring_no_mode_is_counted_and_still_reported_as_half_fitted() -> None:
+    """The unjudged bucket, and the two rows that went missing without it.
+
+    `optical_mode` is optional on the carrier and no shipped wavelength leaves
+    it out, so the payload is edited here rather than in a scenario file. It is
+    edited on the one branch that already holds a mixed termination, because
+    both of the states this covers are about the same carrier: a carrier the
+    check cannot judge belongs in neither the judged nor the skipped count, and
+    it is still fitted at one end and integrated at the other whether or not
+    anything says what the fitted end has to produce.
+    """
+    data = copy.deepcopy(payload("transceiver_mode_support", "13_transceiver_placement.yml"))
+    stripped = [
+        edge["node"]
+        for edge in data["OtnOpticalCarrier"]["edges"]
+        if edge["node"]["name"]["value"] == "oc-ch003-ams-bru"
+    ]
+    assert len(stripped) == 1, "the branch no longer holds the carrier this test edits"
+    stripped[0]["optical_mode"]["node"] = None
+
+    check = _check_class("transceiver_mode_support")(branch="scenario-sweep")
+    check.validate(data)
+    messages = {
+        level: [str(log["message"]) for log in check.logs if log["level"] == level] for level in ("ERROR", "INFO")
+    }
+
+    unjudged = [message for message in messages["ERROR"] if "declares no optical mode" in message]
+    assert len(unjudged) == 1, messages["ERROR"]
+    assert "oc-ch003-ams-bru" in unjudged[0]
+
+    mixed = [message for message in messages["INFO"] if "mixed termination" in message]
+    assert len(mixed) == 1, "the mode being unknown does not make the two ends match"
+    assert "oc-ch003-ams-bru" in mixed[0]
+
+    # 43 examined: 2 router wavelengths still fitted at both ends and judged, 40
+    # transponder wavelengths skipped, and the edited one left unjudged. That
+    # last figure is the whole point: the same run used to print 43, 2 and 40 and
+    # leave a reader to find the missing row.
+    summary = next(message for message in messages["INFO"] if "wavelength(s) examined" in message)
+    assert "43 wavelength(s) examined" in summary
+    assert "2 judged" in summary and "40 skipped" in summary and "1 left unjudged" in summary
+    assert len(data["OtnOpticalCarrier"]["edges"]) == 43
 
 
 # ---------------------------------------------------------------------------

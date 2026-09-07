@@ -7654,6 +7654,12 @@ spec:
       oper_state: up
       connector_type: LC
       dwdm_channel: '2'
+    - name: CH003
+      device: mux-ams-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '3'
     - name: CH005
       device: mux-ams-01
       role: client
@@ -7738,6 +7744,18 @@ spec:
       oper_state: up
       connector_type: LC
       cwdm_channel: '1531'
+    - name: CH004
+      device: mux-ber-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '4'
+    - name: CH006
+      device: mux-ber-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '6'
     - name: CH023
       device: mux-ber-01
       role: client
@@ -7768,6 +7786,12 @@ spec:
       oper_state: up
       connector_type: LC
       dwdm_channel: '35'
+    - name: CH003
+      device: mux-bru-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '3'
     - name: CH047
       device: mux-fra-01
       role: client
@@ -7918,6 +7942,12 @@ spec:
       oper_state: up
       connector_type: LC
       dwdm_channel: '93'
+    - name: CH006
+      device: mux-ham-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '6'
     - name: CH002
       device: mux-mil-01
       role: client
@@ -8158,6 +8188,12 @@ spec:
       oper_state: up
       connector_type: LC
       dwdm_channel: '44'
+    - name: CH004
+      device: mux-prg-01
+      role: client
+      oper_state: up
+      connector_type: LC
+      dwdm_channel: '4'
     - name: CH091
       device: mux-vie-01
       role: client
@@ -11251,7 +11287,7 @@ spec:
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 9800
-      channel_count: 7
+      channel_count: 8
     - name: MON
       device: mux-ams-02
       role: monitor
@@ -11272,14 +11308,14 @@ spec:
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 9800
-      channel_count: 5
+      channel_count: 7
     - name: MON
       device: mux-bru-01
       role: monitor
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 9800
-      channel_count: 0
+      channel_count: 1
     - name: MON
       device: mux-cph-01
       role: monitor
@@ -11307,7 +11343,7 @@ spec:
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 9800
-      channel_count: 0
+      channel_count: 1
     - name: MON
       device: mux-lon-01
       role: monitor
@@ -11342,7 +11378,7 @@ spec:
       oper_state: up
       measured_at: '2026-08-26T06:00:00Z'
       total_power_mdbm: 9800
-      channel_count: 0
+      channel_count: 1
     - name: MON
       device: mux-vie-01
       role: monitor

@@ -71,7 +71,7 @@ class MuxChannelBindingCheck(InfrahubCheck):
                     continue
                 bound.add(coarse)
                 if coarse not in listed:
-                    self._unlisted(device, port, coarse)
+                    self._unlisted(device, port, coarse, listed)
 
             missing = sorted(listed - bound)
             if missing:
@@ -103,14 +103,27 @@ class MuxChannelBindingCheck(InfrahubCheck):
             object_type=str(device.get("__typename", "")),
         )
 
-    def _unlisted(self, device: dict[str, Any], port: dict[str, Any], coarse: int) -> None:
-        """A coarse binding the device does not claim to light."""
+    def _unlisted(self, device: dict[str, Any], port: dict[str, Any], coarse: int, listed: set[int]) -> None:
+        """A coarse binding the device does not claim to light.
+
+        Two sentences, because the empty list is the commoner half. `listed` is
+        the reading `validate` already took rather than a second one, and a
+        device with nothing in it is a dense unit: `_listed` renders an empty
+        set as the word "nothing", which read as "not among the nothing the
+        device lights".
+        """
+        if listed:
+            detail = (
+                f"which is not among the {_listed(f'{nm} nm' for nm in sorted(listed))} the device lights. "
+                f"Either the filter was never fitted for it or the device's cwdm_channels is short"
+            )
+        else:
+            detail = (
+                "and the device lists no coarse wavelength at all, so it is a dense unit carrying a coarse "
+                "binding. Either the port belongs on dwdm_channel or the device is missing its cwdm_channels"
+            )
         self.log_error(
-            message=(
-                f"{_name(device)} carries client port {_name(port)} on coarse wavelength {coarse} nm, which is "
-                f"not among the {_listed(f'{nm} nm' for nm in sorted(_listed_wavelengths(device)))} the device "
-                f"lights. Either the filter was never fitted for it or the device's cwdm_channels is short"
-            ),
+            message=f"{_name(device)} carries client port {_name(port)} on coarse wavelength {coarse} nm, {detail}",
             object_id=str(device.get("id", "")),
             object_type=str(device.get("__typename", "")),
         )

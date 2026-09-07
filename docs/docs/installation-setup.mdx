@@ -83,7 +83,7 @@ the task rather than the tool.
 The schema gives you <span data-fact="kinds">50</span> empty kinds. This step fills them with a European core
 network: <span data-fact="sites">15</span> sites, of which 14 are PoPs, <span data-fact="sections">21</span> ROADM-to-ROADM
 sections and <span data-fact="spans">133</span> fiber spans. On that plant sit <span data-fact="devices">445</span> devices,
-<span data-fact="ports">1606</span> ports, <span data-fact="wavelengths">43</span> pre-provisioned wavelengths
+<span data-fact="ports">1612</span> ports, <span data-fact="wavelengths">43</span> pre-provisioned wavelengths
 and one line container on each of them.
 
 Which branch to load onto depends on what is already there.
@@ -102,7 +102,7 @@ uv run invoke branch-create --name geant
 uv run invoke load --branch geant
 ```
 
-The object load takes a few minutes for <span data-fact="objects">2484</span> objects. Files load in sorted
+The object load takes a few minutes for <span data-fact="objects">2490</span> objects. Files load in sorted
 order and that order matters, which is why they have numeric prefixes. The
 catalogs load first, then tags, sites, conduits, devices, ports, spans, sections,
 carriers and the line containers riding them. The O-E-O devices load last,

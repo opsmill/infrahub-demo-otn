@@ -49,6 +49,7 @@ class TransceiverModeSupportCheck(InfrahubCheck):
         examined = 0
         judged = 0
         skipped = 0
+        unmoded = 0
 
         for carrier in nodes_of(data, CARRIER):
             examined += 1
@@ -61,8 +62,17 @@ class TransceiverModeSupportCheck(InfrahubCheck):
                 skipped += 1
                 continue
 
+            # Before the mode is read, because a mixed termination is true
+            # either way. Reported after it, a carrier declaring no mode would
+            # leave this side of the check silent about an end that is fitted
+            # and an end that is not.
+            bare = [port for port in peers(carrier, "line_ports") if not fitted.get(str(port.get("id") or ""))]
+            if bare:
+                self._half_fitted(carrier, occupied, bare)
+
             mode = _mode(carrier)
             if mode is None:
+                unmoded += 1
                 self._no_mode(carrier, occupied)
                 continue
 
@@ -72,11 +82,7 @@ class TransceiverModeSupportCheck(InfrahubCheck):
                 if mode not in supported:
                     self._unsupported(carrier, mode, port, unit, supported)
 
-            bare = [port for port in peers(carrier, "line_ports") if not fitted.get(str(port.get("id") or ""))]
-            if bare:
-                self._half_fitted(carrier, occupied, bare)
-
-        self._summarise(examined, judged, skipped)
+        self._summarise(examined, judged, skipped, unmoded)
 
     def _unsupported(
         self,
@@ -135,16 +141,23 @@ class TransceiverModeSupportCheck(InfrahubCheck):
             object_type=str(carrier.get("__typename", "")),
         )
 
-    def _summarise(self, examined: int, judged: int, skipped: int) -> None:
-        """One INFO line stating what was judged and what was left unjudged."""
+    def _summarise(self, examined: int, judged: int, skipped: int, unmoded: int) -> None:
+        """One INFO line stating what was judged and what was left unjudged.
+
+        The three figures sum to the number examined. That is why a carrier
+        declaring no mode is counted here rather than only reported as an
+        error: a summary whose parts do not add up sends a reader looking for
+        a row the check never names.
+        """
         if not examined:
             self.log_info(message="No wavelength is on this branch, so no optic can be fitted for the wrong mode.")
             return
         self.log_info(
             message=(
                 f"{examined} wavelength(s) examined, {judged} judged against the parts fitted at their line "
-                f"ports and {skipped} skipped for holding no pluggable at either end. A skipped wavelength is "
-                f"terminated on integrated optics, which carry no part number and no mode list, so this "
+                f"ports, {skipped} skipped for holding no pluggable at either end and {unmoded} left unjudged "
+                f"for declaring no optical mode. The three add up to the number examined. A skipped wavelength "
+                f"is terminated on integrated optics, which carry no part number and no mode list, so this "
                 f"check's silence about them is not a verdict"
             )
         )

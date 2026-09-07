@@ -10,7 +10,7 @@
   "OtnFiberSpan": 133,
   "OtnFixedAttenuator": 2,
   "OtnLinePort": 126,
-  "OtnMuxClientPort": 88,
+  "OtnMuxClientPort": 94,
   "OtnMuxDemux": 16,
   "OtnMuxDemuxMonitor": 16,
   "OtnMuxLinePort": 16,

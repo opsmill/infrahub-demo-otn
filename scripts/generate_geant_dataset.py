@@ -2078,8 +2078,14 @@ def build_monitoring_ports(ports: dict[str, list[dict[str, Any]]]) -> dict[str, 
             )
         )
 
+    # Both plans again, for the reason `on_section` gives above and
+    # `dense_channels_by_site` gives at length: a wavelength off a coloured
+    # pluggable lands on the multiplexer at its end like any other, so counting
+    # only the forty here would put this monitor and the degree monitor at the
+    # same site on different numbers.
     terminating = channels_terminating_by_site(
-        carrier_endpoints(carriers), [str(mux["site"]) for mux in devices["OtnMuxDemux"]]
+        carrier_endpoints(carriers) + pluggable_carrier_endpoints(),
+        [str(mux["site"]) for mux in devices["OtnMuxDemux"]],
     )
     for mux in devices["OtnMuxDemux"]:
         cwdm = mux.get("cwdm_channels") or []
@@ -2324,6 +2330,25 @@ def carrier_endpoints(carriers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def pluggable_carrier_endpoints() -> list[dict[str, Any]]:
+    """The same reading of seed table 5b, for the three router-to-router wavelengths.
+
+    Separate from `carrier_endpoints` because that one pairs the forty against
+    `CARRIER_PLAN` by position and refuses a list of another length.
+    `PLUGGABLE_PLAN` names both ends outright, so there is nothing to pair.
+
+    Every caller that counts what a site lights takes the two lists
+    concatenated. A coloured pluggable terminates in a router rather than a
+    transponder, but the wavelength it puts on the fibre still lands on the
+    multiplexer at that site, so leaving these out made two monitors at one site
+    disagree about the same light.
+    """
+    return [
+        {"name": f"oc-ch{channel:03d}-{a}-{b}", "channel": str(channel), "endpoints": [a, b]}
+        for a, b, channel, _ in PLUGGABLE_PLAN
+    ]
+
+
 @lru_cache(maxsize=1)
 def dense_channels_by_site() -> dict[str, list[int]]:
     """shortname -> the distinct dense channels a carrier terminates there.
@@ -2332,13 +2357,20 @@ def dense_channels_by_site() -> dict[str, list[int]]:
     same set for the multiplexer monitor. A dense AWG gets one client port per
     entry, so the two can never disagree about what a site lights.
 
-    Every site in `SITES` is present, and eight of them map to an empty list:
-    all forty wavelengths cross Frankfurt to Milan and only six sites are an end
-    of one. A multiplexer with no client port is a unit lighting nothing, which
-    is what the carrier plan says about those eight.
+    Both carrier plans are read. The three coloured pluggables terminate in a
+    router, so they take no transponder slot, but each one still lands on the
+    multiplexer at both of its ends: Brussels, Prague and Hamburg light one
+    wavelength each because of them, and Amsterdam and Berlin light one more
+    than the forty alone would give.
+
+    Every site in `SITES` is present, and five of them map to an empty list:
+    all forty wavelengths cross Frankfurt to Milan and nine of the fourteen
+    sites are an end of some wavelength. A multiplexer with no client port is a
+    unit lighting nothing, which is what the two plans together say about those
+    five.
     """
     lit: dict[str, set[int]] = {short: set() for _, short, _, _ in SITES}
-    for record in carrier_endpoints(build_carriers()):
+    for record in carrier_endpoints(build_carriers()) + pluggable_carrier_endpoints():
         for site in record["endpoints"]:
             lit[str(site)].add(int(record["channel"]))
     return {site: sorted(channels) for site, channels in lit.items()}
@@ -2457,7 +2489,9 @@ def build_pluggable_carriers() -> list[dict[str, Any]]:
     `line_port_bindings`. Those three size the transponder estate and assign its
     slots, and a wavelength that terminates in a router occupies no transponder.
     A pluggable carrier that reached them would place a transponder for a
-    wavelength that never touches one.
+    wavelength that never touches one. `pluggable_carrier_endpoints` is the ends
+    of these three in the shape `carrier_endpoints` returns, for the counters
+    that have to see every wavelength rather than every transponder.
     """
     names = site_names()
     rows = pluggable_terminations()

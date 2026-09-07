@@ -188,11 +188,11 @@ def test_the_inventory_the_installation_page_promises_is_what_loads() -> None:
         "OtnReceiverMonitor",
     )
     total = sum(len((document.get("spec") or {}).get("data") or []) for document in object_documents())
-    assert total == 2484, "the pages say the load is 2344 objects, and this is the figure that moved them"
+    assert total == 2490, "the pages say the load is 2490 objects, and this is the figure that moved them"
     assert sum(len(objects_of_kind(kind)) for kind in devices) == 441, "the pages say 441 devices"
     # The two mux port kinds are absent from this tuple and from
     # `LEDGER_PORT_KINDS` in tests/unit/test_doc_claims.py, which is its twin.
-    # The 104 of them are in the object total above; the port figure moves when
+    # The 110 of them are in the object total above; the port figure moves when
     # both tuples move together. The two attenuator kinds are absent from the
     # device tuple on the same terms: the four of them are in the object total
     # and the device figure moves when this tuple and its twin move together.
@@ -989,11 +989,21 @@ def test_every_degree_monitor_reports_the_light_on_the_section_it_faces() -> Non
 
 
 def test_each_dense_multiplexer_monitor_reports_the_channels_terminating_at_its_site() -> None:
-    """The fourteen AWG multiplexers, by name, because nothing else can check them."""
+    """The fourteen AWG multiplexers, by name, because nothing else can check them.
+
+    Nine light something. Amsterdam and Berlin read one above the forty alone,
+    and Brussels, Hamburg and Prague read 1 rather than 0, because the three
+    coloured pluggables terminate there and a wavelength off a router lands on
+    the multiplexer like any other. The five reading 0 are the sites no
+    wavelength ends at.
+    """
     counts = {device: count for (device, _), count in _channel_counts("OtnMuxDemuxMonitor").items()}
     cwdm = {"mux-ams-02", "mux-asp-01"}
     dense = {device: count for device, count in counts.items() if device not in cwdm}
-    expected = {"mux-mil-01": 37, "mux-fra-01": 25, "mux-ams-01": 7, "mux-ber-01": 5, "mux-par-01": 3, "mux-vie-01": 3}
+    expected = {
+        "mux-mil-01": 37, "mux-fra-01": 25, "mux-ams-01": 8, "mux-ber-01": 7,
+        "mux-par-01": 3, "mux-vie-01": 3, "mux-bru-01": 1, "mux-ham-01": 1, "mux-prg-01": 1,
+    }  # fmt: skip
 
     assert len(dense) == 14
     for device, channels in expected.items():

@@ -1,5 +1,9 @@
 """The Infrahub version is declared in six places; they must agree.
 
+Seven things are held to it, because `uv.lock` is not a declaration a bump
+writes but it is what decides which testcontainers release installs, and the
+specifier that names it is a floor rather than a pin.
+
 Nothing derives this version from anything else. The Dockerfile needs it as a
 build arg before any Python runs, Compose needs it to tag the image it builds,
 and the test stack needs it to know which image to pull, so each states it
@@ -36,6 +40,7 @@ COMPOSE_OVERRIDE = REPO_ROOT / "docker-compose.override.yml"
 TASKS = REPO_ROOT / "tasks.py"
 INTEGRATION_CONFTEST = REPO_ROOT / "tests" / "integration" / "conftest.py"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
+UV_LOCK = REPO_ROOT / "uv.lock"
 
 # Files that must state the version NOWHERE. The six declarations above are the
 # ones a bump moves; these two were a seventh and an eighth that nothing moved
@@ -192,4 +197,31 @@ def test_testcontainers_declares_the_version_the_stack_runs() -> None:
     assert match.group(2) == _base_version(), (
         f"{declarations[0]!r} names {match.group(2)}, but the Dockerfile builds {_base_version()}. "
         f"A bump moved one and not the other."
+    )
+
+
+def test_the_lock_resolves_testcontainers_to_the_version_the_stack_runs() -> None:
+    """The floor is a floor; this is the version that installs.
+
+    The test above reads the number in `pyproject.toml`, and that number is the
+    bottom of a `>=` range. A `uv lock --upgrade` that resolves testcontainers
+    past the server image the compose file starts moves nothing that test looks
+    at, so it stays green while the package that builds the topology and the
+    image running under it come from different releases.
+
+    The lock is the other half of that declaration and `update-infrahub.yml`
+    re-runs `uv lock` in the same commit, so holding it to the Dockerfile costs
+    a bump nothing and closes the one path into divergence that the rest of this
+    module does not watch.
+    """
+    for entry in tomllib.loads(UV_LOCK.read_text())["package"]:
+        if entry["name"] == "infrahub-testcontainers":
+            locked = str(entry["version"])
+            break
+    else:
+        raise AssertionError("uv.lock resolves no infrahub-testcontainers, so the stack cannot start")
+    assert locked == _base_version(), (
+        f"uv.lock resolves infrahub-testcontainers {locked}, but the Dockerfile builds {_base_version()}. "
+        f"The specifier is a floor, so a lock refresh can move this on its own: either bump the six "
+        f"declarations or hold the lock back."
     )

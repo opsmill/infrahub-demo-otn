@@ -21,7 +21,7 @@
 #
 # `checks/mux_channel_binding.py` is what notices. On a branch holding this file
 # it fails with exactly two findings, one per port, and the same run states what
-# it counted: 16 multiplexers examined, 90 client ports judged, 16 line ports
+# it counted: 16 multiplexers examined, 96 client ports judged, 16 line ports
 # skipped, and 14 devices whose dense bindings are compared against nothing
 # because the graph holds no dense equivalent of `cwdm_channels`.
 #
