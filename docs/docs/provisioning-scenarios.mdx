@@ -138,7 +138,7 @@ lower-order fallback as the cost it is.
 
 ### Read the result
 
-The generator wrote 29 objects and changed one:
+The generator wrote <span data-fact="provisioned-objects">29</span> objects and changed one:
 
 | Kind | Count | What it holds |
 | --- | --- | --- |
@@ -249,8 +249,9 @@ OtnService          ADDED    5     the five requests the setup loaded
 The plant is not in the diff. `invoke init` loads the schema, the menu and the
 dataset onto the default branch. A branch cut from it inherits all of that,
 and the diff contains only what the branch added. That is the five service
-requests the setup step loaded, and the 29 objects the generator wrote for the
-one you provisioned. The line container is in the diff even though it joined no
+requests the setup step loaded, and the
+<span data-fact="provisioned-objects">29</span> objects the generator wrote for the one
+you provisioned. The line container is in the diff even though it joined no
 tracking group: tracking decides what a re-run may reclaim, not what a branch
 diff shows. The service it changed is one of the five, which is why
 the services appear here as added rather than modified: the default branch has

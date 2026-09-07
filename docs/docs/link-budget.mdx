@@ -322,7 +322,7 @@ accepts one will eventually hold one.
 
 ### What that is worth on this network
 
-Nine spans have a pump on the default branch, all of them on Vienna to Milan,
+<span data-fact="pumped-spans">Nine</span> spans have a pump on the default branch, all of them on Vienna to Milan,
 all injected at the Milan end and firing against the signal, which amplifies
 Vienna towards Milan. Each pump quotes 10.0 dB of on-off gain, and each combiner
 costs 0.5 dB.
@@ -332,14 +332,14 @@ costs 0.5 dB.
 | Vienna towards Milan | 9.5 dB lower |
 | Milan towards Vienna | 0.5 dB higher |
 
-Nine spans are pumped, so the section total is nine times each figure. This is
+<span data-fact="pumped-spans">Nine</span> spans are pumped, so the section total is nine times each figure. This is
 the one place in the network where the two directions of a section produce
 different answers, and it is why the reports show both.
 
 The budget report shows the arithmetic on the rows it applies to and nowhere
 else. A pumped span row shows its on-off gain, its combiner loss, and what the
 span would have cost unpumped, so the improvement is traceable to its source.
-The other 123 spans have no Raman columns at all, because a column of zeros
+The other <span data-fact="unpumped-spans">124</span> spans have no Raman columns at all, because a column of zeros
 across the rest of the network reads as a fault rather than as a correct answer.
 
 ### Where the treatment stops being predictive
@@ -613,8 +613,9 @@ before the change can merge.
 **The section sweep** budgets every section on its own, in both directions,
 against one reference mode, `DP-16QAM 64GBd 400G`. That is 42 evaluations over
 21 sections, and it exists because the carrier loop cannot reach most of the
-network. Only eight sections carry a wavelength, so thirteen of the twenty-one
-were never evaluated by anything. Paris to Madrid was one of the thirteen. The
+network. Only <span data-fact="lit-sections">eight</span> sections carry a wavelength,
+so <span data-fact="unlit-sections">thirteen</span> of the twenty-one were never
+evaluated by anything. Paris to Madrid was one of the thirteen. The
 sweep is also the only place the N+1-amplifiers-per-direction rule becomes a
 gate rather than a unit test, because nothing in the graph enforces how many
 amplifiers a section holds.

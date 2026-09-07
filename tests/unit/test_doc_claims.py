@@ -48,43 +48,28 @@ from tests.unit.conftest import (
     doc_text,
     object_documents,
     objects_of_kind,
+    pinned,
+    pinned_counts,
+    pinned_tuple,
 )
 
 MANIFEST = json.loads((SCRIPT_DIR / "geant_manifest.json").read_text())
 
 REPOSITORY_CONFIG = yaml.safe_load((REPO_ROOT / ".infrahub.yml").read_text())
 
-BUILT_IN_VALIDATORS = 4
+BUILT_IN_VALIDATORS = int(pinned()["built_in_validators"])
 """The validators a proposed change runs that no entry in `.infrahub.yml` asks for.
 
-One `CoreDataValidator`, one `CoreSchemaValidator` and two
-`CoreRepositoryValidator`. The figure comes from a live proposed change opened
-while feature 023 was written: six user validators, one generator, three
-artifacts and these four made fourteen, and fourteen is what the page said until
-two more checks were registered.
-
-Written as a constant rather than derived, because nothing in this repository
-declares it. A stack that registers a third repository moves it, and then this
-number and the page move together.
+Measured on a live proposed change rather than derived, because nothing in this
+repository declares it, so it is a pin in `pinned.yml` beside the other sets a
+page's figures are summed over.
 """
 
-OPTICAL_ELEMENT_KINDS = (
-    "OtnAmplifier",
-    "OtnFiberSpan",
-    "OtnFixedAttenuator",
-    "OtnMuxDemux",
-    "OtnOduSwitch",
-    "OtnPatchPanel",
-    "OtnRamanPump",
-    "OtnRoadm",
-    "OtnTransponder",
-    "OtnVariableAttenuator",
-)
-"""The ten kinds that inherit `OtnOpticalElement`.
+OPTICAL_ELEMENT_KINDS = pinned_tuple("optical_element_kinds")
+"""The kinds that inherit `OtnOpticalElement`, summed for `optical-elements`.
 
-Pinned identically in `test_schema_contract.py`, which asserts the list against
-the schema. Repeated here rather than imported so a failure in that module and a
-failure in this one say different things.
+`test_schema_contract.py` reads the same pin and asserts it against the schema.
+One declaration, two assertions, and each says a different thing when it fails.
 """
 
 
@@ -119,78 +104,18 @@ def figure(page: str, pattern: str) -> str:
 # The figures the pages publish
 # ---------------------------------------------------------------------------
 
-SPELLED: dict[str, int] = {
-    "one": 1,
-    "two": 2,
-    "three": 3,
-    "four": 4,
-    "five": 5,
-    "six": 6,
-    "seven": 7,
-    "eight": 8,
-    "nine": 9,
-    "ten": 10,
-    "eleven": 11,
-    "twelve": 12,
-    "thirteen": 13,
-    "fourteen": 14,
-    "fifteen": 15,
-    "sixteen": 16,
-    "seventeen": 17,
-    "eighteen": 18,
-    "nineteen": 19,
-    "twenty": 20,
-}
+SPELLED: dict[str, int] = pinned_counts("spelled")
 """Words a page may write a figure as instead of digits.
 
-The pages spell small numbers and print large ones, which is ordinary English and
-not something a test should force either way. Both readings are accepted and the
-comparison happens on the integer.
+Stops at twenty, so a page writing a larger figure as a word fails naming the
+word rather than passing quietly. `pinned.yml` holds the table.
 """
 
-LEDGER_DEVICE_KINDS = (
-    "OtnRouter",
-    "OtnTransponder",
-    "OtnRoadm",
-    "OtnAmplifier",
-    "OtnMuxDemux",
-    "OtnPatchPanel",
-    "OtnRamanPump",
-    "OtnOduSwitch",
-    "OtnFixedAttenuator",
-    "OtnVariableAttenuator",
-)
-"""What `installation-setup.mdx` means by a device: everything a rack holds.
+LEDGER_DEVICE_KINDS = pinned_tuple("ledger_device_kinds")
+"""What `installation-setup.mdx` means by a device: everything a rack holds."""
 
-An attenuator is racked, so both kinds are here. A pad in a patch field and a
-VOA in a shelf are inventory a planner counts, and the page counts them.
-"""
-
-LEDGER_PORT_KINDS = (
-    "OtnRouterPort",
-    "OtnClientPort",
-    "OtnLinePort",
-    "OtnRoadmAddDropPort",
-    "OtnRoadmDegreePort",
-    "OtnAmplifierPort",
-    "OtnMuxClientPort",
-    "OtnMuxLinePort",
-    "OtnTributaryPort",
-    "OtnAmplifierMonitor",
-    "OtnRoadmDegreeMonitor",
-    "OtnMuxDemuxMonitor",
-    "OtnRamanMonitor",
-    "OtnReceiverMonitor",
-)
-"""What the same sentence means by a port, monitors included.
-
-A monitor is a port on the modelled device and is counted as one on the page, so
-it is counted as one here.
-
-Neither transceiver kind is here. A pluggable sits **in** a port and is not one,
-so counting it would count the same interface twice: once as the cage on the
-device and once as the module in the cage.
-"""
+LEDGER_PORT_KINDS = pinned_tuple("ledger_port_kinds")
+"""What the same sentence means by a port, monitors included and pluggables not."""
 
 SWEPT_PAGES: tuple[Path, ...] = (*sorted(DOC_DIR.glob("*.mdx")), REPO_ROOT / "README.md", REPO_ROOT / "CLAUDE.md")
 """Pages the two shape sweeps read, markers or no markers.
@@ -240,6 +165,61 @@ def _monitor_reading_counts() -> dict[str, int]:
             for name in readings(node):
                 counts[name] = counts.get(name, 0) + 1
     return counts
+
+
+def _computed_attribute_count() -> int:
+    """How many attributes across `schemas/` carry a `computed_attribute` key.
+
+    Counted over both sections of every file rather than over the `_display`
+    suffix, because a computed attribute does not have to be a display and the
+    figure the page publishes is the whole set.
+    """
+    total = 0
+    for path in sorted(SCHEMA_DIR.glob("*.yml")):
+        parsed = yaml.safe_load(path.read_text())
+        for section in ("generics", "nodes"):
+            for node in parsed.get(section) or []:
+                total += sum(1 for attribute in node.get("attributes") or [] if "computed_attribute" in attribute)
+    return total
+
+
+def _lit_sections() -> int:
+    """Multiplex sections at least one shipped carrier crosses.
+
+    A pre-provisioned carrier arrives holding an empty line container, so a
+    section a carrier crosses is lit whether or not anything is groomed into it.
+    That distinction is the whole point of the sentence the pages state: grey on
+    the ODU map means "no wavelength", not "empty and available".
+    """
+    crossed = {
+        str(section) for carrier in objects_of_kind("OtnOpticalCarrier") for section in (carrier.get("sections") or [])
+    }
+    assert crossed, "no shipped carrier names a section, so the lit and unlit split is vacuous"
+    return len(crossed)
+
+
+PROVISIONED_WRITE_ROW = re.compile(r"^\| `(Otn\w+)` \| (\d+) \|", re.MULTILINE)
+"""The per-kind rows of the write table on `provisioning-scenarios.mdx`.
+
+The one row that reads `1 changed` rather than a bare count is skipped by this
+pattern, which is what makes the sum the objects the run *writes*. The table is
+structure and the three sentences quoting its total are prose, the same split
+`checks-speaking` makes, so the total is derived from the table rather than
+typed a fourth time.
+
+Measured against a live stack on 2026-09-07: provisioning `svc-ber-ams-400g`
+onto a fresh branch added one `OtnOpticalCarrier`, one `OtnOpticalPath`, 25
+`OtnPathHop` and two `OtnContainer` across every `Otn` kind the graph declares,
+and moved the one service to `active`. `README.md` said 28 and was one out: it
+counted the line container and not the client container inside it.
+"""
+
+
+def _provisioned_object_count() -> int:
+    """The objects the table on `provisioning-scenarios.mdx` accounts for."""
+    rows = PROVISIONED_WRITE_ROW.findall(doc_text("provisioning-scenarios.mdx"))
+    assert len(rows) >= 4, f"the write table on provisioning-scenarios.mdx has {len(rows)} counted rows"
+    return sum(int(count) for _, count in rows)
 
 
 def _bulleted_speaking_checks() -> list[str]:
@@ -293,9 +273,20 @@ def facts() -> dict[str, int]:
         "sites": MANIFEST["OtnSite"],
         "sections": MANIFEST["OtnOpticalMultiplexSection"],
         "spans": MANIFEST["OtnFiberSpan"],
+        "line-ports": MANIFEST["OtnLinePort"],
+        # Pumped and unpumped are stated as a pair on the link budget page, and
+        # the complement was written by hand and was one out.
+        "pumped-spans": MANIFEST["OtnRamanPump"],
+        "unpumped-spans": MANIFEST["OtnFiberSpan"] - MANIFEST["OtnRamanPump"],
         "devices": sum(MANIFEST[kind] for kind in LEDGER_DEVICE_KINDS),
         "ports": sum(MANIFEST[kind] for kind in LEDGER_PORT_KINDS),
         "wavelengths": MANIFEST["OtnOpticalCarrier"],
+        # Which sections carry a wavelength, counted off the carrier file rather
+        # than the manifest: the ledger holds how many carriers there are and
+        # not which sections they cross, and the concentration on one corridor
+        # is the reason six pages state this pair.
+        "lit-sections": _lit_sections(),
+        "unlit-sections": MANIFEST["OtnOpticalMultiplexSection"] - _lit_sections(),
         # What the schema is.
         "kinds": sum(
             len(parsed.get("generics") or []) + len(parsed.get("nodes") or [])
@@ -304,6 +295,7 @@ def facts() -> dict[str, int]:
         "device-kinds": sum(
             1 for node in devices.get("nodes", []) if "OtnGenericDevice" in (node.get("inherit_from") or [])
         ),
+        "computed-attributes": _computed_attribute_count(),
         "rejection-codes": len(set(re.findall(r'^REASON_([A-Z_]+) = "', routing, re.MULTILINE))),
         "monitor-readings": len(readings),
         "monitor-readings-alone": sum(1 for count in readings.values() if count == 1),
@@ -325,6 +317,7 @@ def facts() -> dict[str, int]:
         # sentences quoting them are prose, and this is what holds them together.
         "checks-speaking": len(_bulleted_speaking_checks()),
         "checks-silent": len(REPOSITORY_CONFIG["check_definitions"]) - len(_bulleted_speaking_checks()),
+        "provisioned-objects": _provisioned_object_count(),
     }
 
 
@@ -684,27 +677,12 @@ def test_a_default_a_page_states_is_the_default_the_task_carries() -> None:
 # What the pipeline registers
 # ---------------------------------------------------------------------------
 
-COUNTS = {
-    "three": 3,
-    "four": 4,
-    "five": 5,
-    "six": 6,
-    "seven": 7,
-    "eight": 8,
-    "nine": 9,
-    "ten": 10,
-    "eleven": 11,
-    "twelve": 12,
-    "thirteen": 13,
-    "fourteen": 14,
-    "fifteen": 15,
-}
-"""The window of spellings the check-count patterns below accept.
+COUNTS = pinned_counts("check_count_spellings")
+"""The window of spellings the check-count sweep accepts.
 
-Wide enough that adding a check produces a failure naming the old word, rather
-than a pattern that matches nothing and a message about a missing regex. It runs
-down to three because the same table reads the split between the checks that
-speak about one change and the checks that stay quiet.
+Wide enough that adding a check fails naming the old word rather than matching
+nothing. It runs down to three because the same table reads the speaking and
+silent split.
 """
 
 
@@ -933,6 +911,40 @@ def test_no_page_states_a_kind_count_that_is_not_the_schema() -> None:
 
     assert matched, "no page states a kind count, so this test asserted nothing"
     assert not offenders, "kind counts that disagree with schemas/: " + "; ".join(offenders)
+
+
+OBJECT_WRITE_SHAPE = r"\b(?:writes|wrote) (\d+) objects\b"
+"""What one provisioning run writes, on the page that cannot mark it up.
+
+`README.md` states it and carries no marker, the same trade the check, kind and
+task sweeps already make. It is swept rather than left alone because this is the
+figure that actually drifted: the README said 28 while the three `.mdx` pages and
+the per-kind table all said 29, and the extra object is the client container
+nested inside the line container.
+
+The `.mdx` copies carry the marker, so the fact is stated as a fact somewhere and
+this sweep only has to hold the copy that cannot be.
+"""
+
+
+def test_no_page_states_an_object_write_count_that_is_not_the_table() -> None:
+    """What a provisioning run writes, held against the table that enumerates it."""
+    expected = facts()["provisioned-objects"]
+    offenders = []
+    matched = 0
+
+    for path in SWEPT_PAGES:
+        if not path.exists():
+            continue
+        text = path.read_text()
+        for match in re.finditer(OBJECT_WRITE_SHAPE, text):
+            matched += 1
+            if int(match.group(1)) != expected:
+                line = text[: match.start()].count("\n") + 1
+                offenders.append(f"{path.name}:{line} says {match.group(1)} objects, the table accounts for {expected}")
+
+    assert matched, "no page states what a provisioning run writes, so this test asserted nothing"
+    assert not offenders, "object write counts that disagree with the per-kind table: " + "; ".join(offenders)
 
 
 TASK_COUNT_SHAPES = (

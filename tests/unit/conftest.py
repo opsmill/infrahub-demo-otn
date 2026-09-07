@@ -19,6 +19,9 @@ that takes a file name rather than a glob. The scenarios there are alternative
 branches and not one state, so merging them would produce a network nobody ever
 loads.
 
+`pinned.yml` is read here for the same reason: it holds the sets the two
+contract modules assert against, and one of those sets is read by both.
+
 These are plain cached functions rather than pytest fixtures on purpose. Most
 callers need them inside a comprehension or a helper, where a fixture argument
 would have to be threaded through three layers to reach the place it is used.
@@ -62,6 +65,35 @@ def doc_text(name: str) -> str:
     if name in {"README.md", "CLAUDE.md"}:
         return (REPO_ROOT / name).read_text()
     return (DOC_DIR / name).read_text()
+
+
+@cache
+def pinned() -> dict[str, Any]:
+    """`pinned.yml`, the sets `test_doc_claims.py` and `test_schema_contract.py` assert against.
+
+    Here rather than in either module because both read the kinds that inherit
+    `OtnOpticalElement`, and two copies of a boundary is how one of them starts
+    summing a kind the other rejected. The file's header states which pins were
+    moved out of the code, which were deliberately left in, and why.
+    """
+    parsed = yaml.safe_load((Path(__file__).parent / "pinned.yml").read_text())
+    assert isinstance(parsed, dict) and parsed, "tests/unit/pinned.yml does not parse to a non-empty mapping"
+    return parsed
+
+
+def pinned_tuple(key: str) -> tuple[str, ...]:
+    """One pinned list, as a tuple of strings. Empty would make its callers vacuous."""
+    values = pinned()[key]
+    assert isinstance(values, list) and values, f"pinned.yml: {key} is not a non-empty list"
+    return tuple(str(value) for value in values)
+
+
+def pinned_counts(key: str) -> dict[str, int]:
+    """One pinned word-to-integer table, checked to be exactly that."""
+    values = pinned()[key]
+    assert isinstance(values, dict) and values, f"pinned.yml: {key} is not a non-empty mapping"
+    assert all(isinstance(count, int) for count in values.values()), f"pinned.yml: {key} holds a non-integer"
+    return {str(word): int(count) for word, count in values.items()}
 
 
 def schema_files() -> list[Path]:

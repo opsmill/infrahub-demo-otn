@@ -56,8 +56,8 @@ uv run invoke load-repository   # if the stack has no repository yet
 
   Frankfurt's copy of `odu-map`, off a branch carrying
   `demo/05_odu_mixed_fill.yml`, so all five bands are on one picture. The default
-  branch shows only two of them: `odu4` on eight sections and `no-odu` on
-  thirteen. The measured split in this picture is `odu4` 5, `odu2` 1, `odu0` 1,
+  branch shows only two of them: `odu4` on <span data-fact="lit-sections">eight</span> sections and `no-odu` on
+  <span data-fact="unlit-sections">thirteen</span>. The measured split in this picture is `odu4` 5, `odu2` 1, `odu0` 1,
   `full` 2 and `no-odu` 12. Three of the five green routes are the
   router-to-router OpenZR+ wavelengths, each an empty ODUC4 offering all 320 of
   its slots. Every figure in the panel was checked against the containers on the
@@ -142,13 +142,13 @@ it.
 
 ## `no-odu` does not mean empty and available
 
-On a clean `main` the grey band covers **13 of the 21 sections**, and most of the
+On a clean `main` the grey band covers **<span data-fact="unlit-sections">13</span> of the 21 sections**, and most of the
 map is grey. That is the honest picture and not a broken render.
 
-The 13 are sections with **no wavelength at all**, not sections whose wavelengths
+The <span data-fact="unlit-sections">13</span> are sections with **no wavelength at all**, not sections whose wavelengths
 are unlit. Every pre-provisioned carrier in the dataset arrives carrying an empty
 line container, so a section with a carrier is lit. The 43 wavelengths in
-`objects/17_geant_carriers.yml` cover eight sections and nothing else:
+`objects/17_geant_carriers.yml` cover <span data-fact="lit-sections">eight</span> sections and nothing else:
 
 | Section | Lit carriers | Committed over offered | Band |
 | --- | --- | --- | --- |

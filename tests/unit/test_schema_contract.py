@@ -50,7 +50,7 @@ from infrahub_demo_otn.units import (
     cwdm_index_to_wavelength_nm,
     wavelength_nm_to_band,
 )
-from tests.unit.conftest import SCHEMA_DIR, objects_of_kind, schema_files
+from tests.unit.conftest import SCHEMA_DIR, objects_of_kind, pinned, pinned_tuple, schema_files
 
 # `_ohm` stays here and is deliberately absent from SUFFIX_DIVISORS below.
 # Impedance is a plain integer in ohms, not a scaled quantity, so "must be a
@@ -96,63 +96,14 @@ UNIT_SUFFIXES = (
 BANNED_KINDS = frozenset({"Float", "JSON", "Any"})
 """Infrahub has no Float; JSON and Any are not filterable."""
 
-EXPECTED_DISPLAY_ATTRIBUTES = frozenset(
-    {
-        # Devices and ports.
-        "input_power_display",
-        "output_power_display",
-        "measured_gain_display",
-        "measured_osnr_display",
-        "insertion_loss_display",
-        "center_frequency_display",
-        "tx_power_display",
-        "rx_sensitivity_display",
-        # Plant and the optics catalog. The fiber type renders a coefficient,
-        # per kilometre; the two attenuators below render a loss.
-        "attenuation_coefficient_display",
-        "dispersion_display",
-        "length_display",
-        "required_osnr_display",
-        "nominal_reach_display",
-        "bit_rate_display",
-        # Amplifiers. Both are _mdb, which SUFFIX_DIVISORS already maps to
-        # MDB_PER_DB, so the pin map below needs no new entry: only these two
-        # names. `oms_sequence` gets no display, matching the span's.
-        "noise_figure_display",
-        "gain_display",
-        # The Raman pump. Also _mdb, so the pin map below covers it too.
-        "on_off_gain_display",
-        # The attenuators. Both kinds declare the loss they insert; only the
-        # variable one has a top of range to render.
-        "attenuation_display",
-        "max_attenuation_display",
-        # Services, paths and hops: six on the service and the path, four on the
-        # hop. Three of the ten render nanoseconds, which is the only use of the
-        # `_ns` entry in the pin map below.
-        "max_latency_display",
-        "total_length_display",
-        "total_loss_display",
-        "osnr_total_display",
-        "osnr_margin_display",
-        "latency_display",
-        "cumulative_length_display",
-        "cumulative_loss_display",
-        "cumulative_osnr_display",
-        "cumulative_delay_display",
-    }
-)
-"""One entry per `_display` name. Several names are declared on more than one
-kind, so this set is smaller than the number of declarations; which names those
-are is `REPEATED_DISPLAY_NAMES` below, read back out of the schema rather than
-counted here."""
+EXPECTED_DISPLAY_ATTRIBUTES = frozenset(pinned_tuple("display_attributes"))
+"""One entry per `_display` name, from `pinned.yml`.
 
-REPEATED_DISPLAY_NAMES = frozenset(
-    {
-        "center_frequency_display",
-        "measured_gain_display",
-        "attenuation_display",
-    }
-)
+Several names are declared on more than one kind, so this set is smaller than
+the number of declarations; which names those are is `REPEATED_DISPLAY_NAMES`
+below, read back out of the schema rather than counted here."""
+
+REPEATED_DISPLAY_NAMES = frozenset(pinned_tuple("repeated_display_names"))
 """The `_display` names more than one kind declares.
 
 Pinned rather than counted, because the count was written into the docstring
@@ -523,46 +474,16 @@ def test_display_divisors_are_legal_for_the_unit_they_render() -> None:
 
 
 def test_the_declared_divisor_pin_map_agrees_with_the_schema() -> None:
-    """The map above derives the constant; this states it, so both must agree.
+    """`SUFFIX_DIVISORS` derives the constant; `pinned.yml` states it, so both must agree.
 
     Deriving alone would silently accept a display whose source attribute was
     renamed into a different unit. Stating alone is the pin-by-name map that
     has to be edited by hand for every new `_display`. Holding both and
     asserting they match is what makes either one load-bearing.
     """
-    required: dict[str, str] = {
-        "input_power_display": "MDB_PER_DB",
-        "output_power_display": "MDB_PER_DB",
-        "measured_gain_display": "MDB_PER_DB",
-        "measured_osnr_display": "MDB_PER_DB",
-        "insertion_loss_display": "MDB_PER_DB",
-        "tx_power_display": "MDB_PER_DB",
-        "rx_sensitivity_display": "MDB_PER_DB",
-        "center_frequency_display": "MHZ_PER_THZ",
-        "attenuation_display": "MDB_PER_DB",
-        "attenuation_coefficient_display": "MDB_PER_DB",
-        "max_attenuation_display": "MDB_PER_DB",
-        "dispersion_display": "FS_PER_PS",
-        "length_display": "M_PER_KM",
-        "required_osnr_display": "MDB_PER_DB",
-        "nominal_reach_display": "M_PER_KM",
-        "bit_rate_display": "KBPS_PER_MBPS",
-        "noise_figure_display": "MDB_PER_DB",
-        "gain_display": "MDB_PER_DB",
-        "on_off_gain_display": "MDB_PER_DB",
-        "max_latency_display": "NS_PER_US",
-        "total_length_display": "M_PER_KM",
-        "total_loss_display": "MDB_PER_DB",
-        "osnr_total_display": "MDB_PER_DB",
-        "osnr_margin_display": "MDB_PER_DB",
-        "latency_display": "NS_PER_US",
-        "cumulative_length_display": "M_PER_KM",
-        "cumulative_loss_display": "MDB_PER_DB",
-        "cumulative_osnr_display": "MDB_PER_DB",
-        "cumulative_delay_display": "NS_PER_US",
-    }
+    required: dict[str, str] = {name: str(constant) for name, constant in pinned()["display_divisors"].items()}
     assert set(required) == EXPECTED_DISPLAY_ATTRIBUTES, (
-        "the divisor pin-map and EXPECTED_DISPLAY_ATTRIBUTES disagree: "
+        "pinned.yml: display_divisors and display_attributes disagree: "
         f"{sorted(set(required) ^ EXPECTED_DISPLAY_ATTRIBUTES)}"
     )
 
@@ -981,26 +902,10 @@ def test_a_running_total_is_capped_no_lower_than_the_total_it_accumulates(hop_na
             )
 
 
-# Every kind inheriting OtnOpticalElement. OtnRouter is deliberately absent:
-# light terminates at a router, so a router contributes no insertion loss and a
-# query against the generic must not return one.
-#
-# The two mux port kinds and the two transceiver kinds are absent for a different
-# reason: a port is where an element ends rather than an element light passes
-# through, and a pluggable optic is a part fitted into a port. Either would make
-# the budget charge a loss the mux or the transponder already charges.
-OPTICAL_ELEMENT_KINDS = (
-    "OtnAmplifier",
-    "OtnFiberSpan",
-    "OtnFixedAttenuator",
-    "OtnMuxDemux",
-    "OtnOduSwitch",
-    "OtnPatchPanel",
-    "OtnRamanPump",
-    "OtnRoadm",
-    "OtnTransponder",
-    "OtnVariableAttenuator",
-)
+# Every kind inheriting OtnOpticalElement. `pinned.yml` states which kinds and
+# why each of OtnRouter, the two mux port kinds and the two transceiver kinds is
+# absent. `test_doc_claims.py` reads the same pin and sums the manifest over it.
+OPTICAL_ELEMENT_KINDS = pinned_tuple("optical_element_kinds")
 
 
 def test_the_optical_element_generic_has_exactly_the_pinned_implementers() -> None:
@@ -1028,8 +933,9 @@ def test_the_optical_element_generic_has_exactly_the_pinned_implementers() -> No
                 declared.add(f"{node['namespace']}{node['name']}")
 
     assert declared == set(OPTICAL_ELEMENT_KINDS), (
-        "the set of kinds inheriting OtnOpticalElement moved. Update the tuple here, the "
-        "matching one in tests/integration/test_infrahub.py, and the count the schema "
+        "the set of kinds inheriting OtnOpticalElement moved. Update optical_element_kinds in "
+        "tests/unit/pinned.yml, the matching tuple in tests/integration/test_infrahub.py, "
+        "and the count the schema "
         "reference and concepts pages state, or the docs go stale and the budget sums a "
         f"kind nobody decided on. Added: {sorted(declared - set(OPTICAL_ELEMENT_KINDS))}. "
         f"Removed: {sorted(set(OPTICAL_ELEMENT_KINDS) - declared)}."

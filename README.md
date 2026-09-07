@@ -207,9 +207,10 @@ Copenhagen is 110 km longer than Prague and has the better margin, because span
 loss enters the OSNR cascade exponentially while route length enters it
 linearly. Route length alone does not order signal quality.
 
-The run writes 28 objects and changes one: the carrier, the path, 25 hop rows
-carrying the running loss, OSNR and delay at each element, the OTN container,
-and the service moved to `active`. Run it again and the counts do not move.
+The run writes 29 objects and changes one: the carrier, the path, 25 hop rows
+carrying the running loss, OSNR and delay at each element, the line container on
+the carrier and the client container inside it, and the service moved to
+`active`. Run it again and the counts do not move.
 
 Then `invoke demo-refusal` fills the Frankfurt to Milan corridor and asks for a
 service across it. The answer is a refusal with a reason, and the reason is
