@@ -52,7 +52,7 @@ from infrahub_demo_otn.budget import (
 )
 from infrahub_demo_otn.units import db_to_mdb, propagation_delay_ns
 
-G652_ATTENUATION_MDB_PER_KM = 200
+G652_ATTENUATION_COEFFICIENT_MDB_PER_KM = 200
 G652_DISPERSION_FS_PER_NM_KM = 17_000
 
 BOOSTER_NF_MDB = 4_500
@@ -66,7 +66,7 @@ def make_span(name: str, km: int, splices: int) -> SpanInput:
     return SpanInput(
         name=name,
         length_m=km * 1_000,
-        attenuation_mdb_per_km=G652_ATTENUATION_MDB_PER_KM,
+        attenuation_coefficient_mdb_per_km=G652_ATTENUATION_COEFFICIENT_MDB_PER_KM,
         dispersion_fs_per_nm_km=G652_DISPERSION_FS_PER_NM_KM,
         splice_count=splices,
         splice_loss_mdb=50,
@@ -181,7 +181,7 @@ def test_span_loss_rounds_a_fractional_kilometre_rather_than_truncating() -> Non
     span = SpanInput(
         name="s",
         length_m=73_334,
-        attenuation_mdb_per_km=200,
+        attenuation_coefficient_mdb_per_km=200,
         dispersion_fs_per_nm_km=17_000,
     )
     assert span_fiber_loss_mdb(span) == 14_667
@@ -878,7 +878,7 @@ def over_pumped_span() -> SpanInput:
     return SpanInput(
         name="span-over-pumped",
         length_m=80_000,
-        attenuation_mdb_per_km=G652_ATTENUATION_MDB_PER_KM,
+        attenuation_coefficient_mdb_per_km=G652_ATTENUATION_COEFFICIENT_MDB_PER_KM,
         dispersion_fs_per_nm_km=G652_DISPERSION_FS_PER_NM_KM,
         splice_count=4,
         splice_loss_mdb=50,

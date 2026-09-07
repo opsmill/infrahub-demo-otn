@@ -11,6 +11,13 @@
 # oms because it belongs to no section at all, and that absence is the
 # only thing keeping a coarse link out of the budget engine, which
 # would price it at a 1550 nm attenuation coefficient.
+#
+# Every span writes terminating_ports, and the loader resolves each
+# entry as a [device, port] pair. The ports load in 14, five files
+# earlier, because object load resolves a human-friendly ID at insert
+# time. An empty list here is not a clean span: the polish check
+# reports one as unjudgeable, because a traversal that returns
+# nothing and a span with no fault look the same from outside.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:
@@ -28,6 +35,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: bru
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-BRU
+        - - roadm-bru-01
+          - DEG-AMS
       conduit: cd-ams-west
     - name: span-ams-bru-02
       description: Amsterdam to Brussels, span 2 of 3.
@@ -41,6 +53,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: bru
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-BRU
+        - - roadm-bru-01
+          - DEG-AMS
     - name: span-ams-bru-03
       description: Amsterdam to Brussels, span 3 of 3.
       oms_sequence: 3
@@ -53,6 +70,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: bru
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-BRU
+        - - roadm-bru-01
+          - DEG-AMS
     - name: span-ams-lon-01
       description: Amsterdam to London, span 1 of 6.
       oms_sequence: 1
@@ -65,6 +87,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: lon
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-LON
+        - - roadm-lon-01
+          - DEG-AMS
       conduit: cd-ams-west
     - name: span-ams-lon-02
       description: Amsterdam to London, span 2 of 6.
@@ -78,6 +105,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: lon
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-LON
+        - - roadm-lon-01
+          - DEG-AMS
     - name: span-ams-lon-03
       description: Amsterdam to London, span 3 of 6.
       oms_sequence: 3
@@ -90,6 +122,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: lon
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-LON
+        - - roadm-lon-01
+          - DEG-AMS
     - name: span-ams-lon-04
       description: Amsterdam to London, span 4 of 6.
       oms_sequence: 4
@@ -102,6 +139,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: lon
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-LON
+        - - roadm-lon-01
+          - DEG-AMS
     - name: span-ams-lon-05
       description: Amsterdam to London, span 5 of 6.
       oms_sequence: 5
@@ -114,6 +156,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: lon
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-LON
+        - - roadm-lon-01
+          - DEG-AMS
     - name: span-ams-lon-06
       description: Amsterdam to London, span 6 of 6.
       oms_sequence: 6
@@ -126,6 +173,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: lon
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-LON
+        - - roadm-lon-01
+          - DEG-AMS
       conduit: cd-lon-channel
     - name: span-ams-ham-01
       description: Amsterdam to Hamburg, span 1 of 6.
@@ -139,6 +191,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: ham
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-HAM
+        - - roadm-ham-01
+          - DEG-AMS
       conduit: cd-ams-northeast
     - name: span-ams-ham-02
       description: Amsterdam to Hamburg, span 2 of 6.
@@ -152,6 +209,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: ham
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-HAM
+        - - roadm-ham-01
+          - DEG-AMS
     - name: span-ams-ham-03
       description: Amsterdam to Hamburg, span 3 of 6.
       oms_sequence: 3
@@ -164,6 +226,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: ham
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-HAM
+        - - roadm-ham-01
+          - DEG-AMS
     - name: span-ams-ham-04
       description: Amsterdam to Hamburg, span 4 of 6.
       oms_sequence: 4
@@ -176,6 +243,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: ham
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-HAM
+        - - roadm-ham-01
+          - DEG-AMS
     - name: span-ams-ham-05
       description: Amsterdam to Hamburg, span 5 of 6.
       oms_sequence: 5
@@ -188,6 +260,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: ham
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-HAM
+        - - roadm-ham-01
+          - DEG-AMS
     - name: span-ams-ham-06
       description: Amsterdam to Hamburg, span 6 of 6.
       oms_sequence: 6
@@ -200,6 +277,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: ham
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-HAM
+        - - roadm-ham-01
+          - DEG-AMS
     - name: span-ams-fra-01
       description: Amsterdam to Frankfurt, span 1 of 6.
       oms_sequence: 1
@@ -212,6 +294,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: fra
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-AMS
       conduit: cd-ams-southeast
     - name: span-ams-fra-02
       description: Amsterdam to Frankfurt, span 2 of 6.
@@ -225,6 +312,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: fra
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-AMS
     - name: span-ams-fra-03
       description: Amsterdam to Frankfurt, span 3 of 6.
       oms_sequence: 3
@@ -237,6 +329,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: fra
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-AMS
     - name: span-ams-fra-04
       description: Amsterdam to Frankfurt, span 4 of 6.
       oms_sequence: 4
@@ -249,6 +346,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: fra
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-AMS
     - name: span-ams-fra-05
       description: Amsterdam to Frankfurt, span 5 of 6.
       oms_sequence: 5
@@ -261,6 +363,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: fra
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-AMS
     - name: span-ams-fra-06
       description: Amsterdam to Frankfurt, span 6 of 6.
       oms_sequence: 6
@@ -273,6 +380,11 @@ spec:
       fiber_type: G.652.D
       site_a: ams
       site_b: fra
+      terminating_ports:
+        - - roadm-ams-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-AMS
       conduit: cd-fra-north
     - name: span-bru-par-01
       description: Brussels to Paris, span 1 of 4.
@@ -286,6 +398,11 @@ spec:
       fiber_type: G.652.D
       site_a: bru
       site_b: par
+      terminating_ports:
+        - - roadm-bru-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-BRU
     - name: span-bru-par-02
       description: Brussels to Paris, span 2 of 4.
       oms_sequence: 2
@@ -298,6 +415,11 @@ spec:
       fiber_type: G.652.D
       site_a: bru
       site_b: par
+      terminating_ports:
+        - - roadm-bru-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-BRU
     - name: span-bru-par-03
       description: Brussels to Paris, span 3 of 4.
       oms_sequence: 3
@@ -310,6 +432,11 @@ spec:
       fiber_type: G.652.D
       site_a: bru
       site_b: par
+      terminating_ports:
+        - - roadm-bru-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-BRU
     - name: span-bru-par-04
       description: Brussels to Paris, span 4 of 4.
       oms_sequence: 4
@@ -322,6 +449,11 @@ spec:
       fiber_type: G.652.D
       site_a: bru
       site_b: par
+      terminating_ports:
+        - - roadm-bru-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-BRU
     - name: span-lon-par-01
       description: London to Paris, span 1 of 6.
       oms_sequence: 1
@@ -334,6 +466,11 @@ spec:
       fiber_type: G.652.D
       site_a: lon
       site_b: par
+      terminating_ports:
+        - - roadm-lon-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-LON
       conduit: cd-lon-channel
     - name: span-lon-par-02
       description: London to Paris, span 2 of 6.
@@ -347,6 +484,11 @@ spec:
       fiber_type: G.652.D
       site_a: lon
       site_b: par
+      terminating_ports:
+        - - roadm-lon-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-LON
     - name: span-lon-par-03
       description: London to Paris, span 3 of 6.
       oms_sequence: 3
@@ -359,6 +501,11 @@ spec:
       fiber_type: G.652.D
       site_a: lon
       site_b: par
+      terminating_ports:
+        - - roadm-lon-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-LON
     - name: span-lon-par-04
       description: London to Paris, span 4 of 6.
       oms_sequence: 4
@@ -371,6 +518,11 @@ spec:
       fiber_type: G.652.D
       site_a: lon
       site_b: par
+      terminating_ports:
+        - - roadm-lon-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-LON
     - name: span-lon-par-05
       description: London to Paris, span 5 of 6.
       oms_sequence: 5
@@ -383,6 +535,11 @@ spec:
       fiber_type: G.652.D
       site_a: lon
       site_b: par
+      terminating_ports:
+        - - roadm-lon-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-LON
     - name: span-lon-par-06
       description: London to Paris, span 6 of 6.
       oms_sequence: 6
@@ -395,6 +552,11 @@ spec:
       fiber_type: G.652.D
       site_a: lon
       site_b: par
+      terminating_ports:
+        - - roadm-lon-01
+          - DEG-PAR
+        - - roadm-par-01
+          - DEG-LON
     - name: span-par-fra-01
       description: Paris to Frankfurt, span 1 of 7.
       oms_sequence: 1
@@ -407,6 +569,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: fra
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PAR
     - name: span-par-fra-02
       description: Paris to Frankfurt, span 2 of 7.
       oms_sequence: 2
@@ -419,6 +586,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: fra
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PAR
     - name: span-par-fra-03
       description: Paris to Frankfurt, span 3 of 7.
       oms_sequence: 3
@@ -431,6 +603,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: fra
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PAR
     - name: span-par-fra-04
       description: Paris to Frankfurt, span 4 of 7.
       oms_sequence: 4
@@ -443,6 +620,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: fra
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PAR
     - name: span-par-fra-05
       description: Paris to Frankfurt, span 5 of 7.
       oms_sequence: 5
@@ -455,6 +637,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: fra
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PAR
     - name: span-par-fra-06
       description: Paris to Frankfurt, span 6 of 7.
       oms_sequence: 6
@@ -467,6 +654,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: fra
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PAR
     - name: span-par-fra-07
       description: Paris to Frankfurt, span 7 of 7.
       oms_sequence: 7
@@ -479,6 +671,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: fra
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PAR
       conduit: cd-fra-north
     - name: span-par-mad-01
       description: Paris to Madrid, span 1 of 14.
@@ -492,6 +689,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
       conduit: cd-par-south
     - name: span-par-mad-02
       description: Paris to Madrid, span 2 of 14.
@@ -505,6 +707,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-03
       description: Paris to Madrid, span 3 of 14.
       oms_sequence: 3
@@ -517,6 +724,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-04
       description: Paris to Madrid, span 4 of 14.
       oms_sequence: 4
@@ -529,6 +741,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-05
       description: Paris to Madrid, span 5 of 14.
       oms_sequence: 5
@@ -541,6 +758,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-06
       description: Paris to Madrid, span 6 of 14.
       oms_sequence: 6
@@ -553,6 +775,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-07
       description: Paris to Madrid, span 7 of 14.
       oms_sequence: 7
@@ -565,6 +792,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-08
       description: Paris to Madrid, span 8 of 14.
       oms_sequence: 8
@@ -577,6 +809,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-09
       description: Paris to Madrid, span 9 of 14.
       oms_sequence: 9
@@ -589,6 +826,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-10
       description: Paris to Madrid, span 10 of 14.
       oms_sequence: 10
@@ -601,6 +843,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-11
       description: Paris to Madrid, span 11 of 14.
       oms_sequence: 11
@@ -613,6 +860,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-12
       description: Paris to Madrid, span 12 of 14.
       oms_sequence: 12
@@ -625,6 +877,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-13
       description: Paris to Madrid, span 13 of 14.
       oms_sequence: 13
@@ -637,6 +894,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-par-mad-14
       description: Paris to Madrid, span 14 of 14.
       oms_sequence: 14
@@ -649,6 +911,11 @@ spec:
       fiber_type: G.652.D
       site_a: par
       site_b: mad
+      terminating_ports:
+        - - roadm-par-01
+          - DEG-MAD
+        - - roadm-mad-01
+          - DEG-PAR
     - name: span-ham-ber-01
       description: Hamburg to Berlin, span 1 of 4.
       oms_sequence: 1
@@ -661,6 +928,11 @@ spec:
       fiber_type: G.652.D
       site_a: ham
       site_b: ber
+      terminating_ports:
+        - - roadm-ham-01
+          - DEG-BER
+        - - roadm-ber-01
+          - DEG-HAM
     - name: span-ham-ber-02
       description: Hamburg to Berlin, span 2 of 4.
       oms_sequence: 2
@@ -673,6 +945,11 @@ spec:
       fiber_type: G.652.D
       site_a: ham
       site_b: ber
+      terminating_ports:
+        - - roadm-ham-01
+          - DEG-BER
+        - - roadm-ber-01
+          - DEG-HAM
     - name: span-ham-ber-03
       description: Hamburg to Berlin, span 3 of 4.
       oms_sequence: 3
@@ -685,6 +962,11 @@ spec:
       fiber_type: G.652.D
       site_a: ham
       site_b: ber
+      terminating_ports:
+        - - roadm-ham-01
+          - DEG-BER
+        - - roadm-ber-01
+          - DEG-HAM
     - name: span-ham-ber-04
       description: Hamburg to Berlin, span 4 of 4.
       oms_sequence: 4
@@ -697,6 +979,11 @@ spec:
       fiber_type: G.652.D
       site_a: ham
       site_b: ber
+      terminating_ports:
+        - - roadm-ham-01
+          - DEG-BER
+        - - roadm-ber-01
+          - DEG-HAM
       conduit: cd-ber-north
     - name: span-ham-cph-01
       description: Hamburg to Copenhagen, span 1 of 5.
@@ -710,6 +997,11 @@ spec:
       fiber_type: G.652.D
       site_a: ham
       site_b: cph
+      terminating_ports:
+        - - roadm-ham-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-HAM
     - name: span-ham-cph-02
       description: Hamburg to Copenhagen, span 2 of 5.
       oms_sequence: 2
@@ -722,6 +1014,11 @@ spec:
       fiber_type: G.652.D
       site_a: ham
       site_b: cph
+      terminating_ports:
+        - - roadm-ham-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-HAM
     - name: span-ham-cph-03
       description: Hamburg to Copenhagen, span 3 of 5.
       oms_sequence: 3
@@ -734,6 +1031,11 @@ spec:
       fiber_type: G.652.D
       site_a: ham
       site_b: cph
+      terminating_ports:
+        - - roadm-ham-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-HAM
     - name: span-ham-cph-04
       description: Hamburg to Copenhagen, span 4 of 5.
       oms_sequence: 4
@@ -746,6 +1048,11 @@ spec:
       fiber_type: G.652.D
       site_a: ham
       site_b: cph
+      terminating_ports:
+        - - roadm-ham-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-HAM
     - name: span-ham-cph-05
       description: Hamburg to Copenhagen, span 5 of 5.
       oms_sequence: 5
@@ -758,6 +1065,11 @@ spec:
       fiber_type: G.652.D
       site_a: ham
       site_b: cph
+      terminating_ports:
+        - - roadm-ham-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-HAM
     - name: span-ber-cph-01
       description: Berlin to Copenhagen, span 1 of 6.
       oms_sequence: 1
@@ -770,6 +1082,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: cph
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-BER
       conduit: cd-ber-north
     - name: span-ber-cph-02
       description: Berlin to Copenhagen, span 2 of 6.
@@ -783,6 +1100,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: cph
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-BER
     - name: span-ber-cph-03
       description: Berlin to Copenhagen, span 3 of 6.
       oms_sequence: 3
@@ -795,6 +1117,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: cph
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-BER
     - name: span-ber-cph-04
       description: Berlin to Copenhagen, span 4 of 6.
       oms_sequence: 4
@@ -807,6 +1134,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: cph
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-BER
     - name: span-ber-cph-05
       description: Berlin to Copenhagen, span 5 of 6.
       oms_sequence: 5
@@ -819,6 +1151,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: cph
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-BER
     - name: span-ber-cph-06
       description: Berlin to Copenhagen, span 6 of 6.
       oms_sequence: 6
@@ -831,6 +1168,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: cph
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-CPH
+        - - roadm-cph-01
+          - DEG-BER
     - name: span-ber-fra-01
       description: Berlin to Frankfurt, span 1 of 6.
       oms_sequence: 1
@@ -843,6 +1185,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: fra
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-BER
       conduit: cd-ber-south
     - name: span-ber-fra-02
       description: Berlin to Frankfurt, span 2 of 6.
@@ -856,6 +1203,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: fra
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-BER
     - name: span-ber-fra-03
       description: Berlin to Frankfurt, span 3 of 6.
       oms_sequence: 3
@@ -868,6 +1220,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: fra
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-BER
     - name: span-ber-fra-04
       description: Berlin to Frankfurt, span 4 of 6.
       oms_sequence: 4
@@ -880,6 +1237,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: fra
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-BER
     - name: span-ber-fra-05
       description: Berlin to Frankfurt, span 5 of 6.
       oms_sequence: 5
@@ -892,6 +1254,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: fra
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-BER
     - name: span-ber-fra-06
       description: Berlin to Frankfurt, span 6 of 6.
       oms_sequence: 6
@@ -904,6 +1271,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: fra
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-BER
     - name: span-ber-prg-01
       description: Berlin to Prague, span 1 of 4.
       oms_sequence: 1
@@ -916,6 +1288,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: prg
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-PRG
+        - - roadm-prg-01
+          - DEG-BER
       conduit: cd-ber-south
     - name: span-ber-prg-02
       description: Berlin to Prague, span 2 of 4.
@@ -929,6 +1306,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: prg
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-PRG
+        - - roadm-prg-01
+          - DEG-BER
     - name: span-ber-prg-03
       description: Berlin to Prague, span 3 of 4.
       oms_sequence: 3
@@ -941,6 +1323,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: prg
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-PRG
+        - - roadm-prg-01
+          - DEG-BER
     - name: span-ber-prg-04
       description: Berlin to Prague, span 4 of 4.
       oms_sequence: 4
@@ -953,6 +1340,11 @@ spec:
       fiber_type: G.652.D
       site_a: ber
       site_b: prg
+      terminating_ports:
+        - - roadm-ber-01
+          - DEG-PRG
+        - - roadm-prg-01
+          - DEG-BER
     - name: span-prg-fra-01
       description: Prague to Frankfurt, span 1 of 5.
       oms_sequence: 1
@@ -965,6 +1357,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: fra
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PRG
     - name: span-prg-fra-02
       description: Prague to Frankfurt, span 2 of 5.
       oms_sequence: 2
@@ -977,6 +1374,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: fra
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PRG
     - name: span-prg-fra-03
       description: Prague to Frankfurt, span 3 of 5.
       oms_sequence: 3
@@ -989,6 +1391,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: fra
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PRG
     - name: span-prg-fra-04
       description: Prague to Frankfurt, span 4 of 5.
       oms_sequence: 4
@@ -1001,6 +1408,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: fra
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PRG
     - name: span-prg-fra-05
       description: Prague to Frankfurt, span 5 of 5.
       oms_sequence: 5
@@ -1013,6 +1425,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: fra
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-FRA
+        - - roadm-fra-01
+          - DEG-PRG
     - name: span-prg-vie-01
       description: Prague to Vienna, span 1 of 4.
       oms_sequence: 1
@@ -1025,6 +1442,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: vie
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-VIE
+        - - roadm-vie-01
+          - DEG-PRG
       conduit: cd-prg-east
     - name: span-prg-vie-02
       description: Prague to Vienna, span 2 of 4.
@@ -1038,6 +1460,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: vie
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-VIE
+        - - roadm-vie-01
+          - DEG-PRG
     - name: span-prg-vie-03
       description: Prague to Vienna, span 3 of 4.
       oms_sequence: 3
@@ -1050,6 +1477,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: vie
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-VIE
+        - - roadm-vie-01
+          - DEG-PRG
     - name: span-prg-vie-04
       description: Prague to Vienna, span 4 of 4.
       oms_sequence: 4
@@ -1062,6 +1494,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: vie
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-VIE
+        - - roadm-vie-01
+          - DEG-PRG
     - name: span-prg-waw-01
       description: Prague to Warsaw, span 1 of 8.
       oms_sequence: 1
@@ -1074,6 +1511,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: waw
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-PRG
       conduit: cd-prg-east
     - name: span-prg-waw-02
       description: Prague to Warsaw, span 2 of 8.
@@ -1087,6 +1529,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: waw
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-PRG
     - name: span-prg-waw-03
       description: Prague to Warsaw, span 3 of 8.
       oms_sequence: 3
@@ -1099,6 +1546,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: waw
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-PRG
     - name: span-prg-waw-04
       description: Prague to Warsaw, span 4 of 8.
       oms_sequence: 4
@@ -1111,6 +1563,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: waw
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-PRG
     - name: span-prg-waw-05
       description: Prague to Warsaw, span 5 of 8.
       oms_sequence: 5
@@ -1123,6 +1580,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: waw
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-PRG
     - name: span-prg-waw-06
       description: Prague to Warsaw, span 6 of 8.
       oms_sequence: 6
@@ -1135,6 +1597,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: waw
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-PRG
     - name: span-prg-waw-07
       description: Prague to Warsaw, span 7 of 8.
       oms_sequence: 7
@@ -1147,6 +1614,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: waw
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-PRG
     - name: span-prg-waw-08
       description: Prague to Warsaw, span 8 of 8.
       oms_sequence: 8
@@ -1159,6 +1631,11 @@ spec:
       fiber_type: G.652.D
       site_a: prg
       site_b: waw
+      terminating_ports:
+        - - roadm-prg-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-PRG
     - name: span-vie-waw-01
       description: Vienna to Warsaw, span 1 of 8.
       oms_sequence: 1
@@ -1171,6 +1648,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: waw
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-VIE
     - name: span-vie-waw-02
       description: Vienna to Warsaw, span 2 of 8.
       oms_sequence: 2
@@ -1183,6 +1665,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: waw
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-VIE
     - name: span-vie-waw-03
       description: Vienna to Warsaw, span 3 of 8.
       oms_sequence: 3
@@ -1195,6 +1682,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: waw
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-VIE
     - name: span-vie-waw-04
       description: Vienna to Warsaw, span 4 of 8.
       oms_sequence: 4
@@ -1207,6 +1699,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: waw
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-VIE
     - name: span-vie-waw-05
       description: Vienna to Warsaw, span 5 of 8.
       oms_sequence: 5
@@ -1219,6 +1716,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: waw
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-VIE
     - name: span-vie-waw-06
       description: Vienna to Warsaw, span 6 of 8.
       oms_sequence: 6
@@ -1231,6 +1733,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: waw
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-VIE
     - name: span-vie-waw-07
       description: Vienna to Warsaw, span 7 of 8.
       oms_sequence: 7
@@ -1243,6 +1750,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: waw
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-VIE
     - name: span-vie-waw-08
       description: Vienna to Warsaw, span 8 of 8.
       oms_sequence: 8
@@ -1255,6 +1767,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: waw
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-WAW
+        - - roadm-waw-01
+          - DEG-VIE
     - name: span-vie-mil-01
       description: Vienna to Milan, span 1 of 9.
       oms_sequence: 1
@@ -1267,6 +1784,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: mil
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-VIE
     - name: span-vie-mil-02
       description: Vienna to Milan, span 2 of 9.
       oms_sequence: 2
@@ -1279,6 +1801,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: mil
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-VIE
     - name: span-vie-mil-03
       description: Vienna to Milan, span 3 of 9.
       oms_sequence: 3
@@ -1291,6 +1818,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: mil
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-VIE
     - name: span-vie-mil-04
       description: Vienna to Milan, span 4 of 9.
       oms_sequence: 4
@@ -1303,6 +1835,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: mil
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-VIE
     - name: span-vie-mil-05
       description: Vienna to Milan, span 5 of 9.
       oms_sequence: 5
@@ -1315,6 +1852,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: mil
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-VIE
     - name: span-vie-mil-06
       description: Vienna to Milan, span 6 of 9.
       oms_sequence: 6
@@ -1327,6 +1869,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: mil
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-VIE
     - name: span-vie-mil-07
       description: Vienna to Milan, span 7 of 9.
       oms_sequence: 7
@@ -1339,6 +1886,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: mil
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-VIE
     - name: span-vie-mil-08
       description: Vienna to Milan, span 8 of 9.
       oms_sequence: 8
@@ -1351,6 +1903,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: mil
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-VIE
     - name: span-vie-mil-09
       description: Vienna to Milan, span 9 of 9.
       oms_sequence: 9
@@ -1363,6 +1920,11 @@ spec:
       fiber_type: G.652.D
       site_a: vie
       site_b: mil
+      terminating_ports:
+        - - roadm-vie-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-VIE
       conduit: cd-mil-northeast
     - name: span-fra-gva-01
       description: Frankfurt to Geneva, span 1 of 7.
@@ -1376,6 +1938,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: gva
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-GVA
+        - - roadm-gva-01
+          - DEG-FRA
       conduit: cd-fra-south
     - name: span-fra-gva-02
       description: Frankfurt to Geneva, span 2 of 7.
@@ -1389,6 +1956,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: gva
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-GVA
+        - - roadm-gva-01
+          - DEG-FRA
     - name: span-fra-gva-03
       description: Frankfurt to Geneva, span 3 of 7.
       oms_sequence: 3
@@ -1401,6 +1973,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: gva
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-GVA
+        - - roadm-gva-01
+          - DEG-FRA
     - name: span-fra-gva-04
       description: Frankfurt to Geneva, span 4 of 7.
       oms_sequence: 4
@@ -1413,6 +1990,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: gva
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-GVA
+        - - roadm-gva-01
+          - DEG-FRA
     - name: span-fra-gva-05
       description: Frankfurt to Geneva, span 5 of 7.
       oms_sequence: 5
@@ -1425,6 +2007,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: gva
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-GVA
+        - - roadm-gva-01
+          - DEG-FRA
     - name: span-fra-gva-06
       description: Frankfurt to Geneva, span 6 of 7.
       oms_sequence: 6
@@ -1437,6 +2024,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: gva
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-GVA
+        - - roadm-gva-01
+          - DEG-FRA
     - name: span-fra-gva-07
       description: Frankfurt to Geneva, span 7 of 7.
       oms_sequence: 7
@@ -1449,6 +2041,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: gva
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-GVA
+        - - roadm-gva-01
+          - DEG-FRA
     - name: span-fra-mil-01
       description: Frankfurt to Milan, span 1 of 9.
       oms_sequence: 1
@@ -1461,6 +2058,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: mil
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-FRA
       conduit: cd-fra-south
     - name: span-fra-mil-02
       description: Frankfurt to Milan, span 2 of 9.
@@ -1474,6 +2076,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: mil
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-FRA
     - name: span-fra-mil-03
       description: Frankfurt to Milan, span 3 of 9.
       oms_sequence: 3
@@ -1486,6 +2093,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: mil
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-FRA
     - name: span-fra-mil-04
       description: Frankfurt to Milan, span 4 of 9.
       oms_sequence: 4
@@ -1498,6 +2110,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: mil
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-FRA
     - name: span-fra-mil-05
       description: Frankfurt to Milan, span 5 of 9.
       oms_sequence: 5
@@ -1510,6 +2127,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: mil
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-FRA
     - name: span-fra-mil-06
       description: Frankfurt to Milan, span 6 of 9.
       oms_sequence: 6
@@ -1522,6 +2144,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: mil
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-FRA
     - name: span-fra-mil-07
       description: Frankfurt to Milan, span 7 of 9.
       oms_sequence: 7
@@ -1534,6 +2161,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: mil
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-FRA
     - name: span-fra-mil-08
       description: Frankfurt to Milan, span 8 of 9.
       oms_sequence: 8
@@ -1546,6 +2178,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: mil
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-FRA
     - name: span-fra-mil-09
       description: Frankfurt to Milan, span 9 of 9.
       oms_sequence: 9
@@ -1558,6 +2195,11 @@ spec:
       fiber_type: G.652.D
       site_a: fra
       site_b: mil
+      terminating_ports:
+        - - roadm-fra-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-FRA
       conduit: cd-mil-northeast
     - name: span-gva-mil-01
       description: Geneva to Milan, span 1 of 5.
@@ -1571,6 +2213,11 @@ spec:
       fiber_type: G.652.D
       site_a: gva
       site_b: mil
+      terminating_ports:
+        - - roadm-gva-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-GVA
     - name: span-gva-mil-02
       description: Geneva to Milan, span 2 of 5.
       oms_sequence: 2
@@ -1583,6 +2230,11 @@ spec:
       fiber_type: G.652.D
       site_a: gva
       site_b: mil
+      terminating_ports:
+        - - roadm-gva-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-GVA
     - name: span-gva-mil-03
       description: Geneva to Milan, span 3 of 5.
       oms_sequence: 3
@@ -1595,6 +2247,11 @@ spec:
       fiber_type: G.652.D
       site_a: gva
       site_b: mil
+      terminating_ports:
+        - - roadm-gva-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-GVA
     - name: span-gva-mil-04
       description: Geneva to Milan, span 4 of 5.
       oms_sequence: 4
@@ -1607,6 +2264,11 @@ spec:
       fiber_type: G.652.D
       site_a: gva
       site_b: mil
+      terminating_ports:
+        - - roadm-gva-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-GVA
     - name: span-gva-mil-05
       description: Geneva to Milan, span 5 of 5.
       oms_sequence: 5
@@ -1619,6 +2281,11 @@ spec:
       fiber_type: G.652.D
       site_a: gva
       site_b: mil
+      terminating_ports:
+        - - roadm-gva-01
+          - DEG-MIL
+        - - roadm-mil-01
+          - DEG-GVA
       conduit: cd-mil-northwest
     - name: span-asp-ams-01
       description: Amsterdam Science Park to Amsterdam, the CWDM tail. One span, in no optical multiplex section.
@@ -1632,6 +2299,11 @@ spec:
       fiber_type: G.652.D
       site_a: asp
       site_b: ams
+      terminating_ports:
+        - - mux-asp-01
+          - LINE
+        - - mux-ams-02
+          - LINE
 
 ---
 apiVersion: infrahub.app/v1

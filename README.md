@@ -80,15 +80,19 @@ branch.
   regenerator and budget each half on its own. The demo tries three regenerator
   sites on Madrid to Warsaw, all three are refused at DP-16QAM, and the fix turns
   out to be a regenerator and a different modulation.
-- **Block a bad merge.** Nine checks run against a proposed change: the
+- **Block a bad merge.** Fourteen checks run against a proposed change: the
   shared package imports in the worker, no two carriers claim the same channel
   on the same section, every wavelength still closes its OSNR margin, no
   container commits more tributary slots than its parent offers, no two
   circuits an operator declared diverse route through the same duct, no
   service the model refused reaches the default branch unless somebody signed
   for the refusal, no degree monitor disagrees with the carriers on its
-  section, no device that should carry a monitor is missing one, and no active
-  wavelength is left half-terminated.
+  section, no device that should carry a monitor is missing one, no active
+  wavelength is left half-terminated, no multiplexer client port stands on the
+  wrong number of channels, no variable attenuator is dialled past the range
+  its own hardware has, no pluggable optic sits in a port with no cage to hold
+  it, and no wavelength runs a mode the parts fitted at its ends cannot
+  produce.
 - **See the drift.** Every other report predicts. One compares: configured gain
   against the gain each amplifier and Raman pump last reported delivering, so a
   stage sliding towards a maintenance visit is named before it fails anything.
@@ -203,9 +207,10 @@ Copenhagen is 110 km longer than Prague and has the better margin, because span
 loss enters the OSNR cascade exponentially while route length enters it
 linearly. Route length alone does not order signal quality.
 
-The run writes 28 objects and changes one: the carrier, the path, 25 hop rows
-carrying the running loss, OSNR and delay at each element, the OTN container,
-and the service moved to `active`. Run it again and the counts do not move.
+The run writes 29 objects and changes one: the carrier, the path, 25 hop rows
+carrying the running loss, OSNR and delay at each element, the line container on
+the carrier and the client container inside it, and the service moved to
+`active`. Run it again and the counts do not move.
 
 Then `invoke demo-refusal` fills the Frankfurt to Milan corridor and asks for a
 service across it. The answer is a refusal with a reason, and the reason is
@@ -252,19 +257,21 @@ which spends the one wide block, and all ten fit nowhere.
 
 ## What's included
 
-- **Schemas.** 44 kinds across eight files: sites, the EuroHPC facilities on
+- **Schemas.** 50 kinds across eight files: sites, the EuroHPC facilities on
   them and a location hierarchy,
   conduits, fiber spans and optical multiplex sections, ROADMs, amplifiers,
-  transponders, mux/demux, patch panels and O-E-O regenerators, seven port
-  kinds, the DWDM frequency grid and the CWDM wavelength plan, optical modes,
+  transponders, mux/demux, patch panels, O-E-O regenerators and fixed and
+  variable attenuators, nine port kinds, pluggable transceivers and the parts
+  they come from, the DWDM frequency grid and the CWDM wavelength plan, optical modes,
   client signals, diversity groups, and the service, carrier, path and container
   model.
 - **Dataset.** A European research core, generated from a seed and guarded by
   a regenerate-and-diff test: 15 sites of which 14 are PoPs, 12 conduits, 133
   fiber spans across 21 optical multiplex sections, 306 amplifiers, 14 ROADMs,
-  59 transponders, 20 routers, three O-E-O devices at the two hub sites,
-  1488 ports, and 40 wavelengths holding 4,134,400 MHz of the 4,800,000 MHz the
-  C-band gives the busiest section.
+  59 transponders, 20 routers, three O-E-O devices at the two hub sites, four
+  attenuators, nine pluggable transceivers, 1606 ports, and 43 wavelengths, the
+  40 on the busiest section holding 4,134,400 MHz of the 4,800,000 MHz the
+  C-band gives it.
 - **Catalogs.** The fixed 50 GHz C-band grid at all 96 channels, the coarse
   18-wavelength plan beside it, 10 optical modes from DP-QPSK 32GBd 100G to
   DP-64QAM 64GBd 600G including the ZR pluggables, 11 client signals, and 3
@@ -281,12 +288,14 @@ which spends the one wide block, and all ten fit nowhere.
   seconds earlier and never a stale one.
 - **Checks.** Shared-package import, channel collision, OSNR margin, container
   capacity, declared diversity, the provisionable gate, channel count
-  consistency, monitor completeness and carrier termination.
+  consistency, monitor completeness, carrier termination, multiplexer channel
+  binding, attenuator range, transceiver placement, transceiver mode support
+  and connector polish on Raman-pumped spans.
 - **Reports.** Service trace, impact, capacity, reach, AI latency, SRLG
   exposure, link budget and monitor drift, each with its own GraphQL query, plus
   the two rendered maps.
-- **Tasks.** 48 invoke tasks, one per lifecycle step, per demo scenario and
-  per loadable scenario. `invoke list` prints the 27 a reader needs and `--all`
+- **Tasks.** 53 invoke tasks, one per lifecycle step, per demo scenario and
+  per loadable scenario. `invoke list` prints the 32 a reader needs and `--all`
   adds the other 21. `invoke load` does the loading in one step, and
   `invoke demo` runs the whole walkthrough in ten steps.
 

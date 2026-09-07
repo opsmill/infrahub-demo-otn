@@ -221,13 +221,13 @@ def test_each_berlin_route_picks_the_narrowest_mode_that_closes(
 def test_berlin_to_amsterdam_picks_hamburg_on_channel_two() -> None:
     """The headline routing result, computed offline before it is run live.
 
-    **Channel two, not channel one, and occupancy has nothing to do with it.**
-    All 71 shipped carriers sit on `oms-fra-mil` and neither Hamburg section
-    carries anything, so every anchor on this route is unclaimed. Channel 1 is
-    refused by the band edge: the mode is 64 GBd and 79.6 GHz wide, channel 1
-    centres 25 GHz above the lower edge of the modelled C-band, and the carrier
-    would reach 14.8 GHz past it. The whole route is free and the answer still
-    moved, which is the clearest statement of what the width model changed.
+    **Channel two, not channel one, and occupancy has almost nothing to do with
+    it.** `oms-ams-ham` carries nothing and `oms-ham-ber` carries one coloured
+    pluggable on channel 6, so every anchor this mode wants is still unclaimed.
+    Channel 1 is refused by the band edge: the mode is 64 GBd and 79.6 GHz wide,
+    channel 1 centres 25 GHz above the lower edge of the modelled C-band, and the
+    carrier would reach 14.8 GHz past it. The route is all but free and the answer
+    still moved, which is the clearest statement of what the width model changed.
     """
     result = choose_route(
         _routes(BERLIN, AMSTERDAM, max_sections=3), _sections(), _modes(), _occupancy(), rate_gbps=400
@@ -236,7 +236,9 @@ def test_berlin_to_amsterdam_picks_hamburg_on_channel_two() -> None:
     assert result.selection.route.key == "oms-ham-ber|oms-ams-ham"
     assert result.selection.mode.name == QAM16_400G
     assert result.selection.channel == 2
-    assert result.selection.widest_free_mhz == CBAND_EXTENT_MHZ, "nothing crosses either Hamburg section"
+    # One 75,354 MHz pluggable on oms-ham-ber cuts the band in two: a 237,323 MHz
+    # sliver below it and this block above. Nothing else crosses either section.
+    assert result.selection.widest_free_mhz == 4_487_323, result.selection.widest_free_mhz
     assert result.selection.route.hop_count == 2
     assert 2.2 < mdb_to_db(result.selection.budget.osnr_margin_mdb) < 2.4
 

@@ -47,10 +47,9 @@ jobs:
         with:
           token: ${{ github.token }}
           filters: .github/file-filters.yml
-      # Full when the change can reach a scenario, core otherwise, and whatever
-      # a dispatch asked for over both. Decided here rather than in an `if:` on
-      # the steps below, so the answer is one value the log prints once and the
-      # job cannot disagree with itself.
+      # Full when the change can reach a scenario, core otherwise, and whatever a
+      # dispatch asked for over both. Decided here rather than in an `if:` on the
+      # steps below, so the answer is one value the job cannot disagree with.
       - name: Decide the integration tier
         id: tier
         env:
@@ -173,11 +172,10 @@ jobs:
       # generator and transform rests on. Prove it on every change.
       #
       # No --build-arg. The Dockerfile's own `ARG INFRAHUB_BASE_VERSION=` default
-      # is the version, and passing the same literal here was a seventh
-      # declaration that `update-infrahub.yml` did not rewrite and
-      # `tests/unit/test_pins.py` did not guard: a bump moved the other six and
-      # left this job building the release it had just moved off, silently and
-      # green. `test_pins.py` now fails if a version literal returns here.
+      # is the version. Passing the same literal here was a seventh declaration
+      # nothing rewrote and nothing guarded, so a bump left this job building the
+      # release it had just moved off, silently and green. `test_pins.py` now
+      # fails if a version literal returns here.
       - name: Build the custom Infrahub image
         run: docker build -t infrahub-demo-otn:ci .
       - name: Verify the worker can import the shared package
@@ -215,11 +213,18 @@ jobs:
     #
     # It runs only when the lint jobs pass, because starting Infrahub and loading
     # 1265 objects to discover a syntax error is an expensive way to find one.
+    #
+    # A dispatch runs it whatever changed. The paths filter reads a dispatch
+    # against `main` as touching nothing, so without that first clause the one
+    # way to ask for the full tier would select every scenario and then run
+    # none of them.
     if: |
       always() && !cancelled() &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
-      (needs.files-changed.outputs.python == 'true' || needs.files-changed.outputs.schema == 'true')
+      (github.event_name == 'workflow_dispatch' ||
+       needs.files-changed.outputs.python == 'true' ||
+       needs.files-changed.outputs.schema == 'true')
     needs: ["files-changed", "python-lint", "yaml-lint", "schema-validate", "budget-unit-tests"]
     # Not ubuntu-latest, after four cores were given a fair trial and failed it.
     #
@@ -318,15 +323,15 @@ jobs:
           echo "runner:  ${{ runner.name }}"
           echo "cores:   $(nproc)"
           free -g || true
-      # infrahub-testcontainers is pinned to the same version docker-compose
-      # runs, so this exercises the version the demo ships against rather than
-      # whatever is newest. Named without the number on purpose: a version
-      # literal in this file is what test_pins.py now refuses.
+      # infrahub-testcontainers resolves to the same version docker-compose runs,
+      # so this exercises the version the demo ships against. The specifier is a
+      # floor, so it is `tests/unit/test_pins.py` that holds both the floor and
+      # the locked version to the Dockerfile. Named without the number on
+      # purpose: a version literal in this file is what test_pins.py refuses.
       #
-      # Through the task, not a bare pytest: `tasks.py::TIERS` is what maps a
-      # tier to a selection, and a second copy of that mapping here is a second
-      # thing to keep in step. `tests/unit/test_task_commands.py` reads the tier
-      # out of this file and checks it against that table.
+      # Through the task, not a bare pytest: `tasks.py::TIERS` maps a tier to a
+      # selection, and `tests/unit/test_task_commands.py` reads the tier out of
+      # this file and checks it against that table.
       - name: Load the dataset, register the repository, run the pipeline
         env:
           TIER: ${{ needs.files-changed.outputs.tier }}

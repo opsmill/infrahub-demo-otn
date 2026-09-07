@@ -64,7 +64,7 @@ case. Every other check in this repository is global for a related reason.
 **The summary states the coverage per kind.** A green result that says only
 "passed" is the failure mode the deleted check was removed for, so a passing run
 says which kinds it counted, how many of each, and which kinds it did not judge.
-`monitors.KINDS_NOT_JUDGED` names the three device kinds that carry no monitor,
+`monitors.KINDS_NOT_JUDGED` names the five device kinds that carry no monitor,
 so the boundary of what was judged is read rather than inferred from silence.
 """
 
@@ -96,6 +96,8 @@ PLURAL: dict[str, str] = {
     "OtnRouter": "Routers",
     "OtnPatchPanel": "patch panels",
     "OtnOduSwitch": "ODU switches",
+    "OtnFixedAttenuator": "fixed attenuators",
+    "OtnVariableAttenuator": "variable attenuators",
 }
 """How each kind is named in a sentence a person reads.
 

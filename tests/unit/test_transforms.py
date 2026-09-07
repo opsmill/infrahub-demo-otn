@@ -85,7 +85,7 @@ def _run(file_path: str, class_name: str, payload: dict[str, Any]) -> Any:
 def _fiber(name: str = "G.652.D") -> dict[str, Any]:
     return {
         "name": attribute(name),
-        "attenuation_mdb_per_km": attribute(200),
+        "attenuation_coefficient_mdb_per_km": attribute(200),
         "dispersion_fs_per_nm_km": attribute(17_000),
         "group_index_milli": attribute(1468),
     }

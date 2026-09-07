@@ -21,6 +21,21 @@ def _key(kind: str, record: Record) -> Key:
     return tuple(str(record.get(part.split("__")[0], "")) for part in schema()[kind].hfid)
 
 
+def _named_kind(value: Any) -> tuple[str, Record] | None:
+    """The `{kind, data}` form a reference takes, or `None` for a plain one.
+
+    `OtnTransceiver.port` peers `OtnOpticalPort`, and that generic carries no
+    `human_friendly_id`: the identity keys live on `OtnGenericPort`, a sibling
+    generic rather than a parent. So the loader has nothing to resolve a bare
+    `[device, name]` pair against and refuses it. The reference names the
+    concrete kind and the loader resolves the fields against that instead.
+    """
+    if not isinstance(value, dict) or "kind" not in value:
+        return None
+    data = value.get("data")
+    return (str(value["kind"]), data) if isinstance(data, dict) else None
+
+
 def _references(kind: str, record: Record, known: set[tuple[str, Key]]) -> list[tuple[str, Any]]:
     """The relationship values on one record that name nothing declared yet."""
     unresolved: list[tuple[str, Any]] = []
@@ -32,6 +47,19 @@ def _references(kind: str, record: Record, known: set[tuple[str, Key]]) -> list[
             continue
         candidates = _peer_kinds(field.peer)
         raw = value if isinstance(value, list) else [value]
+
+        # A reference that names its own kind is read against that kind alone.
+        # It takes this form because its peer is a generic with no identity
+        # keys, so the loader has nothing to resolve a bare pair against, and
+        # the fields it carries are named rather than positional.
+        named = [item for item in (_named_kind(item) for item in raw) if item is not None]
+        if named:
+            for kind_name, data in named:
+                parts = _key(kind_name, data)
+                if kind_name in candidates and (kind_name, parts) in known:
+                    continue
+                unresolved.append((field.name, list(parts)))
+            continue
 
         flat = tuple(str(part) for part in raw if not isinstance(part, list))
         if flat and any((peer, flat) in known for peer in candidates):
@@ -125,6 +153,26 @@ def test_the_shipped_dataset_never_names_an_object_it_has_not_loaded_yet() -> No
     assert not complaints, "\n".join(complaints)
 
 
+def test_the_optics_load_after_the_catalog_and_after_the_ports_they_sit_in() -> None:
+    """Where the two transceiver files sit, held on its own so a rename says so.
+
+    Load order is filename order, and `14a_geant_transceivers.yml` sorts after
+    `14_geant_ports.yml` only because an underscore sorts before a letter. A
+    fitted unit names its port and its part number and the loader resolves both
+    at insert time, so a filename that sorted the other way would fail the whole
+    batch on the server rather than here. The test above finds the same fault
+    from the reference side; this one names the file that moved.
+    """
+    order = [path.name for path in object_files()]
+    for earlier, later in (
+        ("03_optical_modes.yml", "06_transceiver_types.yml"),
+        ("06_transceiver_types.yml", "14a_geant_transceivers.yml"),
+        ("14_geant_ports.yml", "14a_geant_transceivers.yml"),
+        ("14a_geant_transceivers.yml", "15_geant_spans.yml"),
+    ):
+        assert order.index(earlier) < order.index(later), f"{later} loads before {earlier}"
+
+
 @pytest.mark.parametrize("file_name", scenario_files())
 def test_each_scenario_never_names_an_object_it_has_not_loaded_yet(file_name: str) -> None:
     """One scenario file, over a branch that already holds the shipped dataset."""
@@ -152,3 +200,68 @@ def test_a_scenario_that_adds_a_device_declares_it_before_its_ports() -> None:
                 assert order.index(device_kind) < order.index("OtnLinePort"), (
                     f"{file_name} declares its line ports before the {device_kind} they sit on"
                 )
+
+
+def _generics_without_identity_keys() -> dict[str, str]:
+    """Every generic in `schemas/` that declares no `human_friendly_id`, and its file.
+
+    This repository composes flat generics rather than nesting them, so a
+    generic can be missing identity keys while every kind that inherits it has
+    them. `OtnOpticalPort` is the one that is: `human_friendly_id` sits on the
+    sibling `OtnGenericPort`, and a relationship peering the optical half has
+    nothing to resolve a pair against.
+    """
+    from tests.unit.conftest import schema_files
+
+    found: dict[str, str] = {}
+    for path in schema_files():
+        document = yaml.safe_load(path.read_text()) or {}
+        for entry in document.get("generics") or []:
+            if not entry.get("human_friendly_id"):
+                found[str(entry["namespace"]) + str(entry["name"])] = path.name
+    return found
+
+
+def test_a_reference_to_a_generic_holding_no_identity_keys_names_its_concrete_kind() -> None:
+    """The shape the server refuses, and the one no other test here could see.
+
+    A bare `[device, name]` pair is looked up against the kind the relationship
+    names as its peer. When that peer is a generic with no `human_friendly_id`,
+    the server has nothing to look it up by and answers `Unable to lookup node
+    by HFID, schema '<generic>' does not have a HFID defined`. It takes the
+    whole batch with it, and when the batch is the repository import it takes
+    every check, generator and artifact definition with it too.
+
+    The walk above cannot find this. It resolves a pair against the concrete
+    kinds that inherit the generic, which is what the reference means and not
+    what the loader does, so a pair naming a real port passes offline and fails
+    on the server. This test reads the syntax rather than the target.
+    """
+    generics = _generics_without_identity_keys()
+    paths = [*object_files(), *(DEMO_DIR / name for name in scenario_files())]
+    complaints = []
+    for path in paths:
+        for document in _documents(path.read_text()):
+            spec = document.get("spec") or {}
+            kind = str(spec.get("kind") or "")
+            if kind not in schema():
+                continue
+            for record in spec.get("data") or []:
+                if not isinstance(record, dict):
+                    continue
+                for field in schema()[kind].relationships.values():
+                    if field.peer not in generics or field.name not in record:
+                        continue
+                    value = record[field.name]
+                    if value is None:
+                        continue
+                    items = value if isinstance(value, list) else [value]
+                    if all(_named_kind(item) is not None for item in items):
+                        continue
+                    complaints.append(
+                        f"{path.name}: {kind} {record.get('serial') or record.get('name')!r} names "
+                        f"{value!r} on `{field.name}`, whose peer {field.peer} declares no "
+                        f"human_friendly_id in {generics[field.peer]}. Give the reference its concrete "
+                        "kind: `{kind: OtnLinePort, data: {device: ..., name: ...}}`"
+                    )
+    assert not complaints, "\n".join(complaints)

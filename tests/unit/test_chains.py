@@ -70,11 +70,14 @@ def _sections() -> dict[str, tuple[str, str]]:
 def _carrier_families() -> dict[frozenset[str], tuple[str, ...]]:
     """The shipped wavelengths, grouped by the set of sections they cross.
 
-    Five families over 71 wavelengths, and every one of them includes
+    Eight families over 43 wavelengths. The five multi-section ones all include
     `oms-fra-mil`. That is not a coincidence in the dataset, it is the fact
     R-008's 48 phantom junctions came from: one section that every wavelength
     crosses is a shared low-cardinality object two carriers can appear to meet
     at.
+
+    The other three are the coloured pluggables, one section each and disjoint
+    from everything, and the test below says why they still join nothing.
     """
     families: dict[frozenset[str], list[str]] = defaultdict(list)
     for record in objects_of_kind("OtnOpticalCarrier"):
@@ -218,17 +221,33 @@ def test_a_pair_meeting_on_a_shared_section_is_absent() -> None:
 def test_no_shipped_wavelength_pair_covers_any_route_end_to_end() -> None:
     """The same negative, generalised over the whole shipped dataset.
 
-    Every one of the five families crosses `oms-fra-mil`, so no two of them are
-    disjoint and no cover of two or more segments exists on the wavelengths that
-    ship today. That is a fact about the dataset and it is why Phase 6 has to emit
-    the wavelengths as well as the devices, and why the positive tests above use
+    Two shapes ship and each is ruled out for its own reason. Every one of the
+    five multi-section families crosses `oms-fra-mil`, so no two of them are
+    disjoint and no pair of them covers anything. The three coloured pluggables
+    are single-section and disjoint from everything, including from each other,
+    and two of them abut at Berlin; no O-E-O device holds any of them, so nothing
+    terminates one and re-originates the other.
+
+    That is a fact about the dataset and it is why Phase 6 has to emit the
+    wavelengths as well as the devices, and why the positive tests above use
     fixtures.
     """
-    families = list(_carrier_families())
-    assert all("oms-fra-mil" in sections for sections in families)
+    routers = {str(box["name"]) for box in objects_of_kind("OtnRouter")}
+    pluggable = {
+        str(carrier["name"])
+        for carrier in objects_of_kind("OtnOpticalCarrier")
+        if any(str(device) in routers for device, _ in carrier["line_ports"])
+    }
+    assert len(pluggable) == 3, pluggable
+
+    groomed = [sections for sections, names in _carrier_families().items() if not set(names) & pluggable]
+    assert all("oms-fra-mil" in sections for sections in groomed)
     assert not [
-        (first, second) for first in families for second in families if first is not second and not first & second
+        (first, second) for first in groomed for second in groomed if first is not second and not first & second
     ]
+
+    switched = {str(name) for box in objects_of_kind("OtnOduSwitch") for name in box["carriers"]}
+    assert not switched & pluggable, "an O-E-O device terminates a coloured pluggable: " + str(switched & pluggable)
 
 
 def test_a_device_at_another_site_makes_no_junction() -> None:

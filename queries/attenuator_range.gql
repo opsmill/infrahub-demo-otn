@@ -1,0 +1,32 @@
+# Every variable attenuator, its setting and the range it has.
+#
+# Rooted on `OtnVariableAttenuator` and on nothing else. `OtnFixedAttenuator`
+# is the other half of the pair and is deliberately absent: a pad has no
+# `max_attenuation_mdb`, because the kinds were split so the field would not
+# exist where it means nothing, and a query cannot select a field a kind does
+# not have.
+#
+# Unfiltered. Both figures live on one node, so there is nothing to filter
+# against, and the check reports how many devices it examined.
+#
+# `id` and `__typename` on the node, because `log_error` takes both and every
+# finding names the attenuator it is about.
+query AttenuatorRange {
+  OtnVariableAttenuator {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        attenuation_mdb {
+          value
+        }
+        max_attenuation_mdb {
+          value
+        }
+      }
+    }
+  }
+}

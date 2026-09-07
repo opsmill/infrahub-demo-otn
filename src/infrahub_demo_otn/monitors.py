@@ -173,7 +173,7 @@ open. `PER_PORT_KINDS` names the row that needs the other loop, so a caller can
 tell the two apart without matching on a kind name it typed itself.
 
 Everything absent from this table is absent deliberately, and `KINDS_NOT_JUDGED`
-names the three device kinds a reader is most likely to expect here.
+names the five device kinds a reader is most likely to expect here.
 """
 
 PER_PORT_KINDS: frozenset[str] = frozenset({"OtnRoadmDegreePort"})
@@ -181,12 +181,21 @@ PER_PORT_KINDS: frozenset[str] = frozenset({"OtnRoadmDegreePort"})
 rather than the device itself. The table cannot say this about itself, because
 both halves are kind names and nothing in the string distinguishes them."""
 
-KINDS_NOT_JUDGED: tuple[str, ...] = ("OtnRouter", "OtnPatchPanel", "OtnOduSwitch")
+KINDS_NOT_JUDGED: tuple[str, ...] = (
+    "OtnRouter",
+    "OtnPatchPanel",
+    "OtnOduSwitch",
+    "OtnFixedAttenuator",
+    "OtnVariableAttenuator",
+)
 """Device kinds that carry no monitor and are not expected to.
 
 Named rather than merely left out, because a completeness check whose summary
 says only "passed" is worth nothing. The summary names these so a reader can see
-the boundary of what was judged instead of inferring it from silence."""
+the boundary of what was judged instead of inferring it from silence.
+
+The two attenuators are here for different reasons: a fixed pad has nothing to
+measure, and a variable one has a photodiode this model does not carry."""
 
 
 @dataclass(frozen=True)
@@ -530,7 +539,7 @@ def missing_monitors(subjects: Iterable[Mapping[str, Any]]) -> list[MissingMonit
 
     A subject of a kind outside `MONITOR_BY_DEVICE_KIND` produces nothing. That
     silence is deliberate and the caller states it: `KINDS_NOT_JUDGED` names the
-    three device kinds that carry no monitor, so a passing run says what it
+    five device kinds that carry no monitor, so a passing run says what it
     judged instead of leaving a reader to infer it.
 
     Sorted by kind and then by name, with the device breaking the tie, so a run

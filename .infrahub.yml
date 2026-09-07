@@ -82,6 +82,34 @@ queries:
   # relationship rather than parsed out of the carrier name.
   - name: carrier_termination
     file_path: "./queries/carrier_termination.gql"
+  # Rooted on OtnMuxDemux and unfiltered: the disagreement is between a device
+  # and its own ports, and a filter would drop one side. Both mux port kinds come
+  # back through inline fragments, for the reason monitor_completeness.gql gives.
+  - name: mux_channel_binding
+    file_path: "./queries/mux_channel_binding.gql"
+  # Rooted on OtnVariableAttenuator alone. The fixed kind has no
+  # max_attenuation_mdb to read, and a query cannot select a field a kind does
+  # not have.
+  - name: attenuator_range
+    file_path: "./queries/attenuator_range.gql"
+  # Rooted on OtnTransceiver and unfiltered: a unit with no port is a spare and
+  # the check reports how many it left alone. Every optical port kind comes back
+  # through an inline fragment, including the five that can hold no module.
+  # `port` peers OtnOpticalPort, which carries neither `name` nor `device`, and a
+  # relationship to a generic cannot be filtered by peer kind.
+  - name: transceiver_placement
+    file_path: "./queries/transceiver_placement.gql"
+  # Two collections, carriers and transceivers, joined in Python on the port id.
+  # OtnLinePort now declares the inverse of OtnTransceiver.port, so reshaping
+  # onto a nested selection is possible; that is a change of its own.
+  - name: transceiver_mode_support
+    file_path: "./queries/transceiver_mode_support.gql"
+  # Rooted on OtnFiberSpan and unfiltered: the check has to say how many pumped
+  # spans it could not judge. Eight inline fragments, because terminating_ports
+  # peers OtnGenericPort and polish is declared on OtnOpticalPort, which only
+  # eight of the fourteen port kinds inherit.
+  - name: connector_polish
+    file_path: "./queries/connector_polish.gql"
 
 # Every `watch.files` list below this line is generated. Run
 # `uv run python scripts/generate_watch_lists.py` after any import changes under
@@ -129,7 +157,7 @@ generator_definitions:
 # whole file at sync. scripts/generate_watch_lists.py knows this and skips the
 # section.
 #
-# Nine checks, and one of the nine carries a name this file once recorded as
+# Fourteen checks, and one of the fourteen carries a name this file once recorded as
 # deleted. There was a monitor_completeness check here, and it asserted that a
 # monitor carried the readings its family reports and none it cannot take. Both
 # halves are now schema constraints: the readings are mandatory on each monitor
@@ -181,7 +209,7 @@ check_definitions:
   - name: diversity
     file_path: "./checks/diversity.py"
     class_name: DiversityCheck
-  # Global, and it is the sixth here rather than the fourth: none of the nine
+  # Global, and it is the sixth here rather than the fourth: none of the fourteen
   # entries in this section declares `targets`, including the two above that say
   # nothing about it. The reason for this one is the shared one worded for a
   # single node: a proposed change may touch one service while a different
@@ -234,6 +262,59 @@ check_definitions:
   - name: carrier_termination
     file_path: "./checks/carrier_termination.py"
     class_name: CarrierTerminationCheck
+  # Global, because the disagreement is between a multiplexer and its ports and a
+  # change may add a client port while the device that lists the wavelengths sits
+  # outside it.
+  #
+  # It owns both halves the schema could not take: a client port binding neither
+  # channel kind, and one binding both. The dense and coarse plans are separate
+  # kinds and Infrahub has no cross-relationship constraint, so "exactly one of
+  # these two" is not something the schema can say.
+  - name: mux_channel_binding
+    file_path: "./checks/mux_channel_binding.py"
+    class_name: MuxChannelBindingCheck
+  # Global like every entry here, though the question is two fields of one node
+  # and a targeted variant would buy nothing.
+  #
+  # The schema owns the absolute 0 to 30 dB range, `min_value` and `max_value` on
+  # the attribute, refused at write time. "Not more than this device's own
+  # maximum" compares two sibling attributes and Infrahub has no cross-attribute
+  # constraint, so that comparison is all this check does.
+  - name: attenuator_range
+    file_path: "./checks/attenuator_range.py"
+    class_name: AttenuatorRangeCheck
+  # Global, because an absence is not an edit: a change that moves a module into a
+  # port with no cage touches the module and not the port.
+  #
+  # The schema owns "two modules in one port": OtnLinePort, OtnClientPort and
+  # OtnRouterPort each declare a cardinality-one transceiver on the
+  # otn_optical_port__transceiver identifier, so both ends are cardinality one.
+  # The check owns the port kind, because OtnTransceiver.port peers a generic and
+  # a relationship to a generic cannot be filtered by peer kind.
+  - name: transceiver_placement
+    file_path: "./checks/transceiver_placement.py"
+    class_name: TransceiverPlacementCheck
+  # Global, because a change may fit an optic at one end of a wavelength it does
+  # not otherwise touch, and the mode it has to match lives on the carrier.
+  #
+  # Nothing here fits the schema: supported modes are cardinality-many on the
+  # part and the mode is cardinality-one on the carrier, two hops apart through a
+  # port. It judges the three router wavelengths, skips the forty on integrated
+  # optics, and reports that split rather than letting silence read as a pass.
+  - name: transceiver_mode_support
+    file_path: "./checks/transceiver_mode_support.py"
+    class_name: TransceiverModeSupportCheck
+  # Global, because a pump and the ports it endangers are three different records:
+  # a change that turns a pump on touches neither end of the fibre.
+  #
+  # The schema owns the vocabulary, a Dropdown of four polish choices. It cannot
+  # own the rest: polish is an attribute on the port and raman_pumps a
+  # relationship on the span, two hops apart. A pumped span with an empty
+  # terminating_ports is reported as unjudgeable rather than clean, because an
+  # empty traversal and a correct span look the same from outside.
+  - name: connector_polish
+    file_path: "./checks/connector_polish.py"
+    class_name: ConnectorPolishCheck
 
 python_transforms:
   - name: budget_report

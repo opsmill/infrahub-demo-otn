@@ -1,0 +1,244 @@
+---
+# Pins that two contract modules read, so a boundary can be moved without
+# editing a test.
+#
+# `test_doc_claims.py` and `test_schema_contract.py` keep the code: the readers,
+# the assertions and the failure messages. This file keeps only the sets those
+# assertions run against, which is the half a contributor has a legitimate
+# reason to change when the schema or the dataset moves.
+#
+# THE TRADE-OFF, STATED. A pin in a test is harder to edit casually than a pin
+# in a YAML file, and these pins exist because a silent divergence is expensive.
+# Moving one here makes the cheapest possible edit "add the new name to the
+# list", which is exactly the edit that papers over a real change. Every entry
+# below survives that, because something else still fails when it is wrong:
+#
+# - The kind lists feed a figure a page publishes. Widen one and the page's
+#   number moves, and `test_doc_claims.py` fails on the page.
+# - The display maps are asserted against `schemas/*.yml` and against the
+#   divisor `units.py` declares for the source attribute's unit. Add a name
+#   here and the schema still has to declare it, with the right divisor.
+# - The spelling tables only widen which words a test can read as numbers. A
+#   wrong entry cannot hide a wrong figure.
+#
+# What stayed in the code, deliberately, and why:
+#
+# - `ALLOWED_PREFIXES` and `ILLUSTRATION_LANGUAGES` in `test_doc_claims.py`
+#   decide what a page may tell a reader to type. A YAML entry is the cheapest
+#   way to excuse a raw command, or to hide one behind a fence tag, and that
+#   module already records fence retagging as how the guard rots.
+# - `BANNED_KINDS` in `test_schema_contract.py` is the constitution's no-Float
+#   rule. Allowing `Float` must not be a data edit.
+# - `UNIT_SUFFIXES` and `SUFFIX_DIVISORS` resolve to constants imported from
+#   `units.py` and carry the probes that decided each entry. They are code.
+# - Every regex, and `STATED_DEFAULTS`, which is a pattern per sentence.
+
+# The kinds that inherit `OtnOpticalElement`, and so the kinds the optical
+# budget sums an insertion loss for. Read by `test_schema_contract.py`, which
+# asserts it against the schema, and by `test_doc_claims.py`, which sums the
+# manifest over it for the `optical-elements` figure. One declaration, two
+# assertions, and each says a different thing when it fails.
+#
+# `OtnRouter` is absent because light terminates at a router. The two mux port
+# kinds and the two transceiver kinds are absent because a port is where an
+# element ends and a pluggable is a part fitted into one; either would charge a
+# loss the mux or the transponder already charges.
+optical_element_kinds:
+  - OtnAmplifier
+  - OtnFiberSpan
+  - OtnFixedAttenuator
+  - OtnMuxDemux
+  - OtnOduSwitch
+  - OtnPatchPanel
+  - OtnRamanPump
+  - OtnRoadm
+  - OtnTransponder
+  - OtnVariableAttenuator
+
+# What `installation-setup.mdx` means by a device: everything a rack holds. An
+# attenuator is racked, so both kinds are here. A pad in a patch field and a VOA
+# in a shelf are inventory a planner counts, and the page counts them.
+ledger_device_kinds:
+  - OtnRouter
+  - OtnTransponder
+  - OtnRoadm
+  - OtnAmplifier
+  - OtnMuxDemux
+  - OtnPatchPanel
+  - OtnRamanPump
+  - OtnOduSwitch
+  - OtnFixedAttenuator
+  - OtnVariableAttenuator
+
+# What the same sentence means by a port, monitors included. A monitor is a port
+# on the modelled device and is counted as one on the page.
+#
+# Neither transceiver kind is here. A pluggable sits *in* a port and is not one,
+# so counting it would count the same interface twice: once as the cage on the
+# device and once as the module in the cage.
+ledger_port_kinds:
+  - OtnRouterPort
+  - OtnClientPort
+  - OtnLinePort
+  - OtnRoadmAddDropPort
+  - OtnRoadmDegreePort
+  - OtnAmplifierPort
+  - OtnMuxClientPort
+  - OtnMuxLinePort
+  - OtnTributaryPort
+  - OtnAmplifierMonitor
+  - OtnRoadmDegreeMonitor
+  - OtnMuxDemuxMonitor
+  - OtnRamanMonitor
+  - OtnReceiverMonitor
+
+# Words a page may write a figure as instead of digits. The pages spell small
+# numbers and print large ones, which is ordinary English and not something a
+# test should force either way. Both readings are accepted and the comparison
+# happens on the integer.
+#
+# It stops at twenty. A figure above that is written as a numeral on every page,
+# so a word this table cannot read is a failure naming the word rather than a
+# silent pass.
+spelled:
+  one: 1
+  two: 2
+  three: 3
+  four: 4
+  five: 5
+  six: 6
+  seven: 7
+  eight: 8
+  nine: 9
+  ten: 10
+  eleven: 11
+  twelve: 12
+  thirteen: 13
+  fourteen: 14
+  fifteen: 15
+  sixteen: 16
+  seventeen: 17
+  eighteen: 18
+  nineteen: 19
+  twenty: 20
+
+# The window of spellings the check-count sweep accepts. Wide enough that adding
+# a check produces a failure naming the old word, rather than a pattern that
+# matches nothing and a message about a missing regex. It runs down to three
+# because the same table reads the split between the checks that speak about one
+# change and the checks that stay quiet.
+check_count_spellings:
+  three: 3
+  four: 4
+  five: 5
+  six: 6
+  seven: 7
+  eight: 8
+  nine: 9
+  ten: 10
+  eleven: 11
+  twelve: 12
+  thirteen: 13
+  fourteen: 14
+  fifteen: 15
+
+# The validators a proposed change runs that no entry in `.infrahub.yml` asks
+# for: one `CoreDataValidator`, one `CoreSchemaValidator` and two
+# `CoreRepositoryValidator`. Measured on a live proposed change, not declared
+# anywhere in this repository, so a stack that registers a third repository
+# moves it and then this number and the page move together.
+built_in_validators: 4
+
+# One entry per `_display` name the schema declares, with the `units.py`
+# constant its Jinja2 template must divide by.
+#
+# `test_schema_contract.py` asserts the key set against `schemas/*.yml`, so a
+# name added here still has to be declared on a kind, and asserts each divisor
+# against the one legal for the source attribute's unit suffix, so a name added
+# with the wrong constant fails on the template.
+display_divisors:
+  # Devices and ports.
+  input_power_display: MDB_PER_DB
+  output_power_display: MDB_PER_DB
+  measured_gain_display: MDB_PER_DB
+  measured_osnr_display: MDB_PER_DB
+  insertion_loss_display: MDB_PER_DB
+  center_frequency_display: MHZ_PER_THZ
+  tx_power_display: MDB_PER_DB
+  rx_sensitivity_display: MDB_PER_DB
+  # Plant and the optics catalog. The fiber type renders a coefficient, per
+  # kilometre; the two attenuators below render a loss.
+  attenuation_coefficient_display: MDB_PER_DB
+  dispersion_display: FS_PER_PS
+  length_display: M_PER_KM
+  required_osnr_display: MDB_PER_DB
+  nominal_reach_display: M_PER_KM
+  bit_rate_display: KBPS_PER_MBPS
+  # Amplifiers. Both are `_mdb`, which the suffix map already resolves.
+  # `oms_sequence` gets no display, matching the span's.
+  noise_figure_display: MDB_PER_DB
+  gain_display: MDB_PER_DB
+  # The Raman pump. Also `_mdb`.
+  on_off_gain_display: MDB_PER_DB
+  # The attenuators. Both kinds declare the loss they insert; only the variable
+  # one has a top of range to render.
+  attenuation_display: MDB_PER_DB
+  max_attenuation_display: MDB_PER_DB
+  # Services, paths and hops: six on the service and the path, four on the hop.
+  # Three of the ten render nanoseconds, the only use of `NS_PER_US` here.
+  max_latency_display: NS_PER_US
+  total_length_display: M_PER_KM
+  total_loss_display: MDB_PER_DB
+  osnr_total_display: MDB_PER_DB
+  osnr_margin_display: MDB_PER_DB
+  latency_display: NS_PER_US
+  cumulative_length_display: M_PER_KM
+  cumulative_loss_display: MDB_PER_DB
+  cumulative_osnr_display: MDB_PER_DB
+  cumulative_delay_display: NS_PER_US
+
+# The names `display_divisors` covers, stated again as a set.
+#
+# Kept as a second list rather than derived from the keys above, because the
+# assertion that the two agree is what makes either one load-bearing: a name
+# added to one and not the other fails here instead of quietly widening the
+# expected set. The redundancy is the guard.
+display_attributes:
+  - input_power_display
+  - output_power_display
+  - measured_gain_display
+  - measured_osnr_display
+  - insertion_loss_display
+  - center_frequency_display
+  - tx_power_display
+  - rx_sensitivity_display
+  - attenuation_coefficient_display
+  - dispersion_display
+  - length_display
+  - required_osnr_display
+  - nominal_reach_display
+  - bit_rate_display
+  - noise_figure_display
+  - gain_display
+  - on_off_gain_display
+  - attenuation_display
+  - max_attenuation_display
+  - max_latency_display
+  - total_length_display
+  - total_loss_display
+  - osnr_total_display
+  - osnr_margin_display
+  - latency_display
+  - cumulative_length_display
+  - cumulative_loss_display
+  - cumulative_osnr_display
+  - cumulative_delay_display
+
+# The `_display` names more than one kind declares. Pinned rather than counted,
+# because the count was written into a docstring and went stale twice without
+# anything failing: `measured_gain_display` was never in it, and
+# `attenuation_display` moved off the fiber type onto both attenuators.
+repeated_display_names:
+  - center_frequency_display
+  - measured_gain_display
+  - attenuation_display

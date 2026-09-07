@@ -1,0 +1,75 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# Scenario input: a 400ZR fitted where the wavelength runs OpenZR+ 400G.
+#
+# **What this demonstrates.** The OpenZR+ module in the Amsterdam router's line
+# port comes out and the 400ZR spare off the shelf goes in. Both are QSFP-DD,
+# DP-16QAM, 400G and tunable, so every field an operator can see matches and the
+# swap is the one a busy technician makes without noticing.
+#
+# What differs is forward error correction, and therefore reach: 400ZR carries
+# cFEC and is quoted at 120 km, OpenZR+ carries oFEC and is quoted at 1000 km.
+# `oms-ams-bru` is 220 km. So the finding has to name the part number and the
+# mode, because the cage, the constellation and the line rate say nothing.
+#
+# **The load is expected to succeed, and that is the point.** `supported_modes`
+# is cardinality-many on the part and the mode is cardinality-one on the carrier,
+# two hops apart through a port, and Infrahub has no cross-relationship
+# constraint, so no write can be refused for this.
+#
+# The check **fails**, with exactly one finding:
+#
+#     oc-ch003-ams-bru runs OpenZR+ 400G and rtr-ams-01 1/2/1 holds
+#     QDD-400G-ZR ZR-SPARE-01, which supports 400ZR. The part does not list
+#     OpenZR+ 400G, so the wavelength is planned on an optic that cannot
+#     produce it. Cage, constellation and line rate say nothing here: the part
+#     number and the mode are the whole of the difference
+#
+# and the same run states what it judged:
+#
+#     43 wavelength(s) examined, 3 judged against the parts fitted at their line
+#     ports and 40 skipped for holding no pluggable at either end. A skipped
+#     wavelength is terminated on integrated optics, which carry no part number
+#     and no mode list, so this check's silence about them is not a verdict
+#
+# `ZRP-AMS-01` moves to `1/1/2` rather than going back on the shelf because an
+# object load cannot clear a relationship: `port: null` is refused by the loader
+# with "doesn't have the right format one / NoneType". `1/1/2` is a free grey
+# client cage on the same router, and `transceiver_placement` accepts it, so that
+# check stays green and this scenario stays about one thing.
+#
+# The records are restated whole rather than patched, so the differences from
+# `objects/14a_geant_transceivers.yml` are the port on one unit and the port and
+# status on the other.
+#
+# Not in `objects/`: that tree is generated and a hand edit there fails on the
+# next run. It would also put the finding on the default branch, where nobody
+# would ever see the check go green.
+#
+# Loaded onto its own branch by `uv run invoke demo-transceiver-mode`; `demo/` is
+# not listed under `objects:` in `.infrahub.yml`.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnTransceiver
+  data:
+    - serial: ZRP-AMS-01
+      status: spare
+      type: QDD-400G-ZRP
+      # Both references name their kind because `port` peers `OtnOpticalPort`,
+      # and that generic carries no identity keys: they live on
+      # `OtnGenericPort`, a sibling generic rather than a parent.
+      port:
+        kind: OtnRouterPort
+        data:
+          device: rtr-ams-01
+          name: 1/1/2
+    - serial: ZR-SPARE-01
+      status: in_service
+      type: QDD-400G-ZR
+      port:
+        kind: OtnLinePort
+        data:
+          device: rtr-ams-01
+          name: 1/2/1

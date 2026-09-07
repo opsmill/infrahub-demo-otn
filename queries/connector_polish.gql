@@ -1,0 +1,111 @@
+# Every fibre span, the Raman pumps on it and the ports at its two ends.
+#
+# Rooted on `OtnFiberSpan` and unfiltered. The pump half is one hop from this
+# root: `raman_pumps` is the inverse of `OtnRamanPump.span` and both sides are
+# declared, so "is this span pumped" costs nothing. Rooting on the pump instead
+# would fetch nine nodes and leave the check unable to say how many spans it
+# looked at, and the count of spans it could not judge is the row that matters.
+#
+# **The port half is why `terminating_ports` exists.** Before that relationship
+# no port kind had any edge to a span or to an optical multiplex section in
+# either direction. The nearest reachable ports were three hops away through
+# the section and its ROADMs, and a ROADM carries one degree port per direction
+# whose `connected_to` is null on every one of them, so the only thing naming
+# the port facing this span was the far site's shortname inside the port's name
+# string. Parsing that string is a naming convention doing a relationship's job,
+# which this repository has shipped once and paid for.
+#
+# **`__typename` and the eight fragments are required, not stylistic.**
+# `terminating_ports` peers the generic `OtnGenericPort`, and Infrahub cannot
+# filter a relationship to a generic by the kind of its peers. `name` and
+# `device` are declared on `OtnGenericPort` itself and are selected straight off
+# the union; `polish` is declared on `OtnOpticalPort`, which only eight of the
+# fourteen port kinds inherit, so selecting it off the union fails on the copper
+# tributary port and the five monitor kinds. Every optical kind is listed
+# because the check must be able to name whatever a span is recorded as ending
+# on, not only the two kinds the generator writes. A port kind with no `polish`
+# comes back without one and is reported as stating none, which is the honest
+# answer for a port that has no endface to describe.
+#
+# `id` and `__typename` on the span, because `log_error` takes both and a
+# finding names the span it is about.
+query ConnectorPolish {
+  OtnFiberSpan {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        raman_pumps {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+        terminating_ports {
+          edges {
+            node {
+              id
+              __typename
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+              ... on OtnRouterPort {
+                polish {
+                  value
+                }
+              }
+              ... on OtnClientPort {
+                polish {
+                  value
+                }
+              }
+              ... on OtnLinePort {
+                polish {
+                  value
+                }
+              }
+              ... on OtnRoadmAddDropPort {
+                polish {
+                  value
+                }
+              }
+              ... on OtnRoadmDegreePort {
+                polish {
+                  value
+                }
+              }
+              ... on OtnAmplifierPort {
+                polish {
+                  value
+                }
+              }
+              ... on OtnMuxLinePort {
+                polish {
+                  value
+                }
+              }
+              ... on OtnMuxClientPort {
+                polish {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

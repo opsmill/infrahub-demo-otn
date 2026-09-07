@@ -73,6 +73,10 @@ MANIFEST = Path(__file__).resolve().parent / "geant_manifest.json"
 # in this file is a second place to forget.
 OPTICAL_MODES = OBJECT_DIR / "03_optical_modes.yml"
 
+# The parts catalog, hand-maintained input on the same terms. It holds what each
+# pluggable supports, so this script reads it rather than restating a mode list.
+TRANSCEIVER_TYPES = OBJECT_DIR / "06_transceiver_types.yml"
+
 # The fibre catalog, hand-maintained input on the same terms. It holds the
 # attenuation and dispersion coefficients the receiver readings are derived
 # from, and reading them keeps `objects/01_fiber_types.yml` the one place a
@@ -148,6 +152,26 @@ SECTIONS: list[tuple[str, str, int]] = [
 
 MAX_SPAN_KM = 90
 """Amplifier spacing ceiling. A section takes the fewest spans that stay under it."""
+
+OUTSIDE_PLANT_POLISH = "APC"
+"""The endface every ROADM degree port carries.
+
+A degree port is the last connector before the outside plant, and outside plant
+is angled: an APC endface sends its reflection into the cladding instead of back
+up the fibre. That is what a Raman-pumped section needs, because a pump fires
+kilowatt-class light into glass a reflection would send straight back at the
+transponder.
+"""
+
+LINE_SIDE_POLISH = "UPC"
+"""The endface every line port carries.
+
+Coloured line ports are patched into a ROADM add/drop stage inside the building,
+where return loss is somebody's specification rather than a safety limit, and
+they ship with the blue ultra-physical-contact ferrule most vendors fit. It is
+the right endface where these ports actually sit and the wrong one on pumped
+glass, which is the whole of what `checks/connector_polish.py` decides.
+"""
 
 # --------------------------------------------------------------------------
 # Seed table 3: the twelve conduits.
@@ -275,6 +299,76 @@ Both are stated figures rather than vendor ones, in the manner of
 """
 
 # --------------------------------------------------------------------------
+# Seed table 5b: the coloured pluggables.
+#
+# Three wavelengths that never touch a transponder: a coherent pluggable goes
+# into the router and terminates the line there.
+#
+# The three sections are the shortest in `SECTIONS`, `oms-ams-bru` at 220 km and
+# `oms-ber-prg` and `oms-ham-ber` at 330 km each, and all three carried no light
+# before this table existed.
+#
+# OpenZR+ rather than 400ZR, because 400ZR and 800ZR are 120 km cFEC parts and
+# reach none of the 21 sections. OpenZR+ carries oFEC, its 400G rung is a 1000 km
+# mode, and `budget.evaluate_path` over the committed plant closes all three at
+# 400G with 10.890 dB, 7.747 dB and 7.747 dB of OSNR margin. The same three
+# sections refuse 400ZR on dispersion, by 1340 and 3210 ps/nm, so the swap the
+# demo branch makes later is refused on physics and not on a rule.
+#
+# Channels 3, 4 and 6 are the three lowest that both fit the band and hold
+# nothing: `units.anchor_fits_band` refuses channel 1 for a 75,354 MHz carrier,
+# and 2 and 5 are anchors already.
+# --------------------------------------------------------------------------
+PLUGGABLE_PLAN: list[tuple[str, str, int, str]] = [
+    ("ams", "bru", 3, "OpenZR+ 400G"),
+    ("ber", "prg", 4, "OpenZR+ 400G"),
+    ("ham", "ber", 6, "OpenZR+ 400G"),
+]
+"""Near site, far site, channel anchor and mode, one row per wavelength.
+
+The channel is written rather than fitted. `carrier_anchors` first-fits the forty
+because forty carriers on one corridor is a packing problem; three carriers on
+three empty sections is not, and a written anchor is a fact a reader can check
+against the table above.
+"""
+
+PLUGGABLE_PART = "QDD-400G-ZRP"
+"""The part fitted in all six line ports, from `objects/06_transceiver_types.yml`.
+
+It lists all three OpenZR+ rungs, so a carrier that later drops to 300G or 200G
+stays supported by the optic already in the port.
+"""
+
+SPARE_PART = "QDD-400G-ZR"
+"""The 400ZR part that sits on the shelf and is fitted nowhere.
+
+Same cage, same constellation, same line rate as the ZR+ above, and 120 km of
+cFEC reach against 1000 km of oFEC. It is in the inventory because that is the
+part somebody picks up by mistake, and a demo of the refusal needs the wrong part
+to exist before anyone can fit it.
+"""
+
+PLUGGABLE_PORT_SLOT = 2
+"""The router slot the coherent optics sit in.
+
+Slot 1 holds the two grey client ports every router already carries, and the
+uniqueness constraint on a port is (device, name), so the coherent ports need a
+slot of their own rather than a suffix on the grey ones.
+"""
+
+PLUGGABLE_PORT_KIND = "OtnLinePort"
+"""The concrete kind `build_ports` racks the six coherent router ports as.
+
+`build_transceivers` has to name it, because `OtnTransceiver.port` peers the
+`OtnOpticalPort` generic and that generic carries no `human_friendly_id`: the
+identity keys live on `OtnGenericPort`, which is a sibling generic rather than a
+parent, and this repository composes flat generics instead of nesting them. A
+scalar HFID pair on that relationship is refused at load with `Unable to lookup
+node by HFID, schema 'OtnOpticalPort' does not have a HFID defined`, so the
+reference carries the concrete kind and the loader resolves the pair against it.
+"""
+
+# --------------------------------------------------------------------------
 # Seed table 6: the CWDM tail.
 #
 # One customer campus, one short span into Amsterdam, one passive multiplexer at
@@ -326,6 +420,45 @@ CWDM_TAIL_MODEL = "M-CWDM4"
 """A four-channel thin-film filter, not the 40-channel AWG the PoPs carry."""
 
 # --------------------------------------------------------------------------
+# Seed table 6a: where the attenuators go, and why those four places.
+#
+# The two VOAs sit on the add stage at Frankfurt and Milan, where the combining
+# is heaviest: every one of the 40 carriers crosses `oms-fra-mil`, 37 wavelengths
+# terminate at Milan and 25 at Frankfurt, and no third site is close. A VOA
+# anywhere else would be an adjustment nobody makes.
+#
+# The two pads sit at the ends of the CWDM tail, where the loss is known and
+# stays put. 18.4 km with no amplifier and a thin-film filter at each end is the
+# one link modelled here short enough to hand the far receiver more power than it
+# wants.
+#
+# Neither kind is on an optical path in this dataset. Both would reach one
+# through `OtnPathHop.element` the way a fibre span does, and the budget engine
+# already adds `attenuation_mdb` to the inherited `insertion_loss_mdb`.
+# --------------------------------------------------------------------------
+VOA_SITES = ("fra", "mil")
+"""The two hub sites, by measurement rather than by preference."""
+
+VOA_ATTENUATION_MDB = 3000
+"""3.0 dB dialled in, well inside the range below.
+
+`attenuator_range` compares this against the maximum beside it, so a shipped
+setting at the top of the range would leave the check nothing to be right about
+on the default branch.
+"""
+
+VOA_MAX_ATTENUATION_MDB = 20000
+"""20.0 dB of range, which is an ordinary MEMS VOA and under the 30.0 dB the
+schema refuses outright."""
+
+FIXED_PAD_ATTENUATION_MDB = 5000
+"""5.0 dB, and `insertion_loss_mdb` stays 0 beside it.
+
+A pad's own loss beyond its rating is negligible, so a second figure here would
+be the same fact written twice and the budget engine would charge it twice.
+"""
+
+# --------------------------------------------------------------------------
 # Seed table 7: fixed values that are the same everywhere.
 # --------------------------------------------------------------------------
 FIBER_TYPE = "G.652.D"
@@ -356,6 +489,12 @@ DEVICE_PROFILE: dict[str, dict[str, Any]] = {
     # still applies to the incoming segment, which is why `budget.py`'s
     # `RegeneratorInput` leaves it out of any term spanning both segments.
     "OtnOduSwitch": {"insertion_loss_mdb": 0, "role": "core", "model": "X-ODU8"},
+    # A VOA's own optics cost about a decibel before it is dialled, and
+    # `attenuation_mdb` is added on top. A pad stays at zero and carries its whole
+    # figure there: its rating is its loss, and splitting one number across two
+    # fields charges it twice.
+    "OtnVariableAttenuator": {"insertion_loss_mdb": 1000, "role": "passive", "model": "V-VOA20"},
+    "OtnFixedAttenuator": {"insertion_loss_mdb": 0, "role": "passive", "model": "F-PAD5"},
     # No insertion loss, no vendor and no model: all three live on
     # OtnOpticalElement, which OtnRouter does not inherit because light
     # terminates at a router. One inheritance left off, three attributes gone
@@ -568,7 +707,7 @@ def _route_span_inputs(carrier: dict[str, Any]) -> list[SpanInput]:
         SpanInput(
             name=f"{carrier['name']} span {index}",
             length_m=length,
-            attenuation_mdb_per_km=coefficients["attenuation_mdb_per_km"],
+            attenuation_coefficient_mdb_per_km=coefficients["attenuation_coefficient_mdb_per_km"],
             dispersion_fs_per_nm_km=coefficients["dispersion_fs_per_nm_km"],
             group_index_milli=coefficients["group_index_milli"],
             **span_fiber_geometry(length),
@@ -763,7 +902,14 @@ def carrier_plan_fit_report() -> str:
                 intervals.setdefault(section_key(x, y), []).append((lower, upper))
             cursor += 1
 
-    lines = [f"Carrier plan fit, {len(anchors)} carriers against a {CBAND_EXTENT_MHZ} MHz C-band:"]
+    # The coloured pluggables occupy spectrum too, on three sections the plan
+    # above leaves empty. Left out, this report would say those three carry none.
+    for a, b, channel, mode in PLUGGABLE_PLAN:
+        lower, upper = carrier_interval_mhz(channel_to_frequency_mhz(channel), bauds[mode])
+        intervals.setdefault(section_key(a, b), []).append((lower, upper))
+
+    total = len(anchors) + len(PLUGGABLE_PLAN)
+    lines = [f"Carrier plan fit, {total} carriers against a {CBAND_EXTENT_MHZ} MHz C-band:"]
     ordered = sorted(intervals.items(), key=lambda item: (-sum(u - lo for lo, u in item[1]), item[0]))
     for key, held in ordered:
         occupied = sum(upper - lower for lower, upper in held)
@@ -926,6 +1072,25 @@ def _mode_required_osnr_mdb() -> dict[str, int]:
 
 
 @lru_cache(maxsize=1)
+def _transceiver_modes() -> dict[str, set[str]]:
+    """Part number to the modes the parts catalog says it runs.
+
+    Same pattern and same reason as `_mode_bauds`: what a part supports is stated
+    once, in `objects/06_transceiver_types.yml`, and read here so a unit this
+    script fits into a port cannot claim a part or a mode the catalog has not
+    got.
+    """
+    supported: dict[str, set[str]] = {}
+    for document in yaml.safe_load_all(TRANSCEIVER_TYPES.read_text()):
+        spec = (document or {}).get("spec") or {}
+        if spec.get("kind") != "OtnTransceiverType":
+            continue
+        for record in spec.get("data") or []:
+            supported[str(record["part_number"])] = {str(mode) for mode in record["supported_modes"]}
+    return supported
+
+
+@lru_cache(maxsize=1)
 def _fiber_coefficients() -> dict[str, dict[str, int]]:
     """Fibre type name to its attenuation, dispersion and group index.
 
@@ -941,7 +1106,7 @@ def _fiber_coefficients() -> dict[str, dict[str, int]]:
             continue
         for record in spec.get("data") or []:
             coefficients[str(record["name"])] = {
-                "attenuation_mdb_per_km": int(record["attenuation_mdb_per_km"]),
+                "attenuation_coefficient_mdb_per_km": int(record["attenuation_coefficient_mdb_per_km"]),
                 "dispersion_fs_per_nm_km": int(record["dispersion_fs_per_nm_km"]),
                 "group_index_milli": int(record["group_index_milli"]),
             }
@@ -1249,6 +1414,9 @@ def build_devices() -> dict[str, list[dict[str, Any]]]:
 
     devices["OtnMuxDemux"].extend(_cwdm_tail_multiplexers())
 
+    for kind, records in _attenuators().items():
+        devices[kind].extend(records)
+
     # Two chains per section, one per direction of travel, N+1 amplifiers each.
     # An amplifier hut is bidirectional and this model gives each direction its
     # own object, so the hut at position 3 of a nine-span section is two records
@@ -1269,6 +1437,35 @@ def build_devices() -> dict[str, list[dict[str, Any]]]:
     devices["OtnRamanPump"].extend(build_raman_pumps())
 
     return {kind: sorted(records, key=lambda record: str(record["name"])) for kind, records in devices.items()}
+
+
+def _attenuators() -> dict[str, list[dict[str, Any]]]:
+    """The four attenuators, each racked where seed table 6a says and why.
+
+    A VOA at each hub ROADM, where many transponders are combined and one
+    channel's power is the thing an operator actually trims. A fixed pad at each
+    end of the CWDM tail, where the link is short, unamplified and will not move,
+    so a rated pad is the right part and a dialled one would be a knob nobody
+    turns.
+
+    Neither kind gets ports. Both hold none by design and reach a path through
+    `OtnPathHop.element`, which is the same way `OtnFiberSpan` does it.
+    """
+    campus = CWDM_TAIL_SITE[1]
+    variable = []
+    for site in VOA_SITES:
+        record = _device(f"voa-{site}-01", "OtnVariableAttenuator", site)
+        record["attenuation_mdb"] = VOA_ATTENUATION_MDB
+        record["max_attenuation_mdb"] = VOA_MAX_ATTENUATION_MDB
+        variable.append(record)
+
+    fixed = []
+    for site in (campus, CWDM_TAIL_PEER):
+        record = _device(f"pad-{site}-01", "OtnFixedAttenuator", site)
+        record["attenuation_mdb"] = FIXED_PAD_ATTENUATION_MDB
+        fixed.append(record)
+
+    return {"OtnVariableAttenuator": variable, "OtnFixedAttenuator": fixed}
 
 
 def _cwdm_tail_multiplexers() -> list[dict[str, Any]]:
@@ -1354,6 +1551,8 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
         "OtnLinePort": [],
         "OtnAmplifierPort": [],
         "OtnTributaryPort": [],
+        "OtnMuxLinePort": [],
+        "OtnMuxClientPort": [],
         "OtnAmplifierMonitor": [],
         "OtnRoadmDegreeMonitor": [],
         "OtnMuxDemuxMonitor": [],
@@ -1380,6 +1579,10 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
                 )
             )
 
+    # How many add/drop ports each ROADM has taken, so the coloured pluggables
+    # below can carry on numbering where the transponders stopped.
+    add_drop_used: dict[str, int] = {}
+
     for _, short, _, _ in SITES:
         roadm = f"roadm-{short}-01"
         for far in neighbours[short]:
@@ -1391,6 +1594,7 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
                     tx_power_mdbm=0,
                     rx_sensitivity_mdbm=-20000,
                     connector_type="LC",
+                    polish=OUTSIDE_PLANT_POLISH,
                 )
             )
 
@@ -1434,6 +1638,7 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
                         tx_power_mdbm=1000,
                         rx_sensitivity_mdbm=-18000,
                         connector_type="LC",
+                        polish=LINE_SIDE_POLISH,
                         connected_to=[roadm, target],
                         **colour,
                     )
@@ -1450,6 +1655,37 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
                             connector_type="RJ48",
                         )
                     )
+        add_drop_used[short] = add_drop
+
+    # The coloured pluggables. Each end of each wavelength in seed table 5b is a
+    # line port on the site's router with an add/drop port racked for it, so a
+    # wavelength terminating in a router patches into the ROADM the way one
+    # terminating in a transponder does. Without the add/drop the router would
+    # hold a lit port facing nothing.
+    #
+    # The line port carries a transponder's launch power and receiver
+    # sensitivity: a coherent pluggable is a smaller transponder, and different
+    # figures would claim knowledge of ZR+ optics the mode catalog does not hold.
+    for site, router, port, channel in pluggable_terminations():
+        roadm = f"roadm-{site}-01"
+        add_drop_used[site] += 1
+        target = f"AD-{add_drop_used[site]:02d}"
+        ports["OtnRoadmAddDropPort"].append(
+            _port(target, roadm, "add_drop", tx_power_mdbm=0, rx_sensitivity_mdbm=-20000, connector_type="LC")
+        )
+        ports[PLUGGABLE_PORT_KIND].append(
+            _port(
+                port,
+                router,
+                "line",
+                tx_power_mdbm=1000,
+                rx_sensitivity_mdbm=-18000,
+                connector_type="LC",
+                polish=LINE_SIDE_POLISH,
+                connected_to=[roadm, target],
+                center_frequency_mhz=channel_to_frequency_mhz(channel),
+            )
+        )
 
     # The role comes from the chain, not from the name. `amplifier_chain` knows
     # both the position and the chain length, so it is the only place the
@@ -1461,6 +1697,30 @@ def build_ports() -> dict[str, list[dict[str, Any]]]:
         role = roles[name]
         ports["OtnAmplifierPort"].append(_port("IN", name, role, rx_sensitivity_mdbm=-28000, connector_type="LC"))
         ports["OtnAmplifierPort"].append(_port("OUT", name, role, tx_power_mdbm=17000, connector_type="LC"))
+
+    # One line port per multiplexer, and one client port per channel the device
+    # actually lights: a coarse filter lights the wavelengths its own
+    # `cwdm_channels` names, a dense AWG the distinct channels a carrier
+    # terminates at its site. Forty client ports per dense unit would be 560 ports
+    # standing for wavelengths that do not exist.
+    #
+    # Neither kind carries a power figure. A passive filter transmits nothing and
+    # has no receiver, so tx_power_mdbm and rx_sensitivity_mdbm stay unset.
+    dense = dense_channels_by_site()
+    for mux in build_devices()["OtnMuxDemux"]:
+        name = str(mux["name"])
+        ports["OtnMuxLinePort"].append(_port("LINE", name, "line", connector_type="LC"))
+        coarse = [str(wavelength) for wavelength in mux.get("cwdm_channels") or []]
+        for wavelength in coarse:
+            ports["OtnMuxClientPort"].append(
+                _port(f"CH{wavelength}", name, "client", connector_type="LC", cwdm_channel=wavelength)
+            )
+        if coarse:
+            continue
+        for channel in dense[str(mux["site"])]:
+            ports["OtnMuxClientPort"].append(
+                _port(f"CH{channel:03d}", name, "client", connector_type="LC", dwdm_channel=str(channel))
+            )
 
     for kind, monitors in build_monitoring_ports(ports).items():
         ports[kind].extend(monitors)
@@ -1791,7 +2051,11 @@ def build_monitoring_ports(ports: dict[str, list[dict[str, Any]]]) -> dict[str, 
         )
 
     carriers = build_carriers()
-    on_section = channels_by_section(carriers, [section_key(a, b) for a, b, _ in SECTIONS])
+    # Every wavelength, not only the forty on transponders: the three coloured
+    # pluggables are light too. `channel_count_consistency` compares this reading
+    # against the carriers riding the section, so a degree that left them out
+    # would be refused on data that is correct.
+    on_section = channels_by_section(carriers + build_pluggable_carriers(), [section_key(a, b) for a, b, _ in SECTIONS])
     faced = degree_sections()
 
     for degree in ports["OtnRoadmDegreePort"]:
@@ -1814,8 +2078,14 @@ def build_monitoring_ports(ports: dict[str, list[dict[str, Any]]]) -> dict[str, 
             )
         )
 
+    # Both plans again, for the reason `on_section` gives above and
+    # `dense_channels_by_site` gives at length: a wavelength off a coloured
+    # pluggable lands on the multiplexer at its end like any other, so counting
+    # only the forty here would put this monitor and the degree monitor at the
+    # same site on different numbers.
     terminating = channels_terminating_by_site(
-        carrier_endpoints(carriers), [str(mux["site"]) for mux in devices["OtnMuxDemux"]]
+        carrier_endpoints(carriers) + pluggable_carrier_endpoints(),
+        [str(mux["site"]) for mux in devices["OtnMuxDemux"]],
     )
     for mux in devices["OtnMuxDemux"]:
         cwdm = mux.get("cwdm_channels") or []
@@ -1886,6 +2156,29 @@ def build_raman_monitors() -> list[dict[str, Any]]:
     ]
 
 
+def span_terminating_ports(a: str, b: str) -> list[list[str]]:
+    """The ports the glass between sites `a` and `b` is mated into, one per end.
+
+    At a PoP that is the ROADM degree port facing the far site, and the near and
+    far shortnames are both in hand here, so nothing has to be read back out of
+    a port name. `monitors.far_site_of_degree` is the reverse trip and only a
+    check walking the graph needs it.
+
+    **Every span of a section gets the same pair, and that follows from the
+    model rather than from convenience.** A span already writes the section's
+    two endpoints as its own `site_a` and `site_b`, whichever position it holds
+    in the chain, so those two sites are where its ends are. The amplifier ports
+    between two consecutive spans sit in huts that are at no site at all, and a
+    port `tests/unit/test_geant_dataset.py` cannot tie back to `site_a` or
+    `site_b` is a port this relationship must not carry: the check that reads it
+    treats it as authoritative, so a wrong entry buys a confident wrong verdict.
+    """
+    return [
+        [f"roadm-{a}-01", degree_port_name(b)],
+        [f"roadm-{b}-01", degree_port_name(a)],
+    ]
+
+
 def build_spans() -> list[dict[str, Any]]:
     conduits = conduit_for_span()
     names = site_names()
@@ -1905,6 +2198,7 @@ def build_spans() -> list[dict[str, Any]]:
                 "fiber_type": FIBER_TYPE,
                 "site_a": a,
                 "site_b": b,
+                "terminating_ports": span_terminating_ports(a, b),
             }
             if record["name"] in conduits:
                 record["conduit"] = conduits[str(record["name"])]
@@ -1943,6 +2237,14 @@ def _cwdm_tail_span() -> dict[str, Any]:
         "fiber_type": FIBER_TYPE,
         "site_a": campus,
         "site_b": CWDM_TAIL_PEER,
+        # The tail terminates on the two passive filters and on nothing else, so
+        # `span_terminating_ports` does not apply and the pair is named here.
+        # Neither port states a polish: the backfill covers line and degree
+        # ports, and a mux line port is outside it.
+        "terminating_ports": [
+            [f"mux-{campus}-01", "LINE"],
+            [f"mux-{CWDM_TAIL_PEER}-02", "LINE"],
+        ],
     }
 
 
@@ -2028,6 +2330,52 @@ def carrier_endpoints(carriers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def pluggable_carrier_endpoints() -> list[dict[str, Any]]:
+    """The same reading of seed table 5b, for the three router-to-router wavelengths.
+
+    Separate from `carrier_endpoints` because that one pairs the forty against
+    `CARRIER_PLAN` by position and refuses a list of another length.
+    `PLUGGABLE_PLAN` names both ends outright, so there is nothing to pair.
+
+    Every caller that counts what a site lights takes the two lists
+    concatenated. A coloured pluggable terminates in a router rather than a
+    transponder, but the wavelength it puts on the fibre still lands on the
+    multiplexer at that site, so leaving these out made two monitors at one site
+    disagree about the same light.
+    """
+    return [
+        {"name": f"oc-ch{channel:03d}-{a}-{b}", "channel": str(channel), "endpoints": [a, b]}
+        for a, b, channel, _ in PLUGGABLE_PLAN
+    ]
+
+
+@lru_cache(maxsize=1)
+def dense_channels_by_site() -> dict[str, list[int]]:
+    """shortname -> the distinct dense channels a carrier terminates there.
+
+    The channel list behind `channels_terminating_by_site`, which counts the
+    same set for the multiplexer monitor. A dense AWG gets one client port per
+    entry, so the two can never disagree about what a site lights.
+
+    Both carrier plans are read. The three coloured pluggables terminate in a
+    router, so they take no transponder slot, but each one still lands on the
+    multiplexer at both of its ends: Brussels, Prague and Hamburg light one
+    wavelength each because of them, and Amsterdam and Berlin light one more
+    than the forty alone would give.
+
+    Every site in `SITES` is present, and five of them map to an empty list:
+    all forty wavelengths cross Frankfurt to Milan and nine of the fourteen
+    sites are an end of some wavelength. A multiplexer with no client port is a
+    unit lighting nothing, which is what the two plans together say about those
+    five.
+    """
+    lit: dict[str, set[int]] = {short: set() for _, short, _, _ in SITES}
+    for record in carrier_endpoints(build_carriers()) + pluggable_carrier_endpoints():
+        for site in record["endpoints"]:
+            lit[str(site)].add(int(record["channel"]))
+    return {site: sorted(channels) for site, channels in lit.items()}
+
+
 @lru_cache(maxsize=1)
 def line_port_slots() -> dict[str, list[tuple[str, str]]]:
     """shortname -> its line ports in the order a wavelength takes them.
@@ -2105,6 +2453,117 @@ def carriers_with_line_ports(carriers: list[dict[str, Any]]) -> list[dict[str, A
         raise ValueError(f"every wavelength is terminated at both ends, so two line ports each, not {wrong}")
 
     return [{**carrier, "line_ports": bound[str(carrier["name"])]} for carrier in carriers]
+
+
+@lru_cache(maxsize=1)
+def pluggable_terminations() -> tuple[tuple[str, str, str, int], ...]:
+    """(site, router, port name, channel) for each end of each pluggable wavelength.
+
+    Six rows, two per row of `PLUGGABLE_PLAN`, near end first. This is the one
+    place the router line ports are named: `build_pluggable_carriers` writes the
+    same pairs onto the wavelength, `build_ports` racks a line port and an
+    add/drop port for each, and `build_transceivers` fits an optic in each, so
+    none of the four can name a port the others do not have.
+
+    The site travels in the row rather than being recovered from the router name.
+    A device name is an identifier and nothing here reads meaning out of one.
+    """
+    used: dict[str, int] = {}
+    rows: list[tuple[str, str, str, int]] = []
+    for a, b, channel, _ in PLUGGABLE_PLAN:
+        for site in (a, b):
+            router = f"rtr-{site}-01"
+            used[router] = used.get(router, 0) + 1
+            rows.append((site, router, f"1/{PLUGGABLE_PORT_SLOT}/{used[router]}", channel))
+    return tuple(rows)
+
+
+def build_pluggable_carriers() -> list[dict[str, Any]]:
+    """The three router-to-router wavelengths, each naming the two ports it lands on.
+
+    One record per row of seed table 5b, in that order. The line ports are written
+    from this side for the reason `carriers_with_line_ports` gives at length: a
+    port cannot name a wavelength that loads three files later.
+
+    These do not go through `carrier_anchors`, `carrier_endpoints` or
+    `line_port_bindings`. Those three size the transponder estate and assign its
+    slots, and a wavelength that terminates in a router occupies no transponder.
+    A pluggable carrier that reached them would place a transponder for a
+    wavelength that never touches one. `pluggable_carrier_endpoints` is the ends
+    of these three in the shape `carrier_endpoints` returns, for the counters
+    that have to see every wavelength rather than every transponder.
+    """
+    names = site_names()
+    rows = pluggable_terminations()
+    records: list[dict[str, Any]] = []
+    for index, (a, b, channel, mode) in enumerate(PLUGGABLE_PLAN):
+        ends = rows[index * 2 : index * 2 + 2]
+        records.append(
+            {
+                "name": f"oc-ch{channel:03d}-{a}-{b}",
+                "description": f"{names[a]} to {names[b]} on channel {channel}, router to router.",
+                # Quoted, like the forty: the human-friendly identifier is a
+                # Number attribute and a bare integer is rejected before the write.
+                "channel": str(channel),
+                "optical_mode": mode,
+                "sections": [section_key(a, b)],
+                "line_ports": [[router, port] for _, router, port, _ in ends],
+            }
+        )
+    return records
+
+
+def build_transceivers() -> list[dict[str, Any]]:
+    """One optic in each of the six router line ports, and three on a shelf.
+
+    The fitted six are what the three OpenZR+ wavelengths actually run on, and
+    the part is checked against `objects/06_transceiver_types.yml` rather than
+    trusted: a unit whose part does not list the mode its carrier runs is the
+    exact defect `transceiver_mode_support` exists to find, and shipping one in
+    the base dataset would make the check red on first run.
+
+    The three unfitted units are why `OtnTransceiver.port` is optional. A spare
+    on the shelf, a 400ZR spare and a unit gone back to the vendor are most of
+    what an optic inventory holds and none of them is in a port. The 400ZR one is
+    the part that fits the same cage and cannot run the mode, which is the
+    substitution a real operator makes by accident.
+
+    Serials are readable rather than vendor-shaped. The only thing anyone does
+    with one here is match a unit to the port it sits in.
+    """
+    supported = _transceiver_modes()
+    for part in (PLUGGABLE_PART, SPARE_PART):
+        if part not in supported:
+            raise ValueError(
+                f"{part} is fitted by this script and {TRANSCEIVER_TYPES.name} does not list it, so the load "
+                "would name a part that does not exist"
+            )
+    for *_, mode in PLUGGABLE_PLAN:
+        if mode not in supported[PLUGGABLE_PART]:
+            raise ValueError(
+                f"the pluggable plan runs {mode} on a {PLUGGABLE_PART}, which {TRANSCEIVER_TYPES.name} says "
+                "does not support it. Correct the plan or the catalog rather than shipping a carrier its own "
+                "optic cannot carry"
+            )
+
+    used: dict[str, int] = {}
+    records: list[dict[str, Any]] = []
+    for site, router, port, _ in pluggable_terminations():
+        used[site] = used.get(site, 0) + 1
+        records.append(
+            {
+                "serial": f"ZRP-{site.upper()}-{used[site]:02d}",
+                "status": "in_service",
+                "type": PLUGGABLE_PART,
+                "port": {"kind": PLUGGABLE_PORT_KIND, "data": {"device": router, "name": port}},
+            }
+        )
+    records += [
+        {"serial": "ZRP-SPARE-01", "status": "spare", "type": PLUGGABLE_PART},
+        {"serial": "ZRP-RMA-01", "status": "rma", "type": PLUGGABLE_PART},
+        {"serial": "ZR-SPARE-01", "status": "spare", "type": SPARE_PART},
+    ]
+    return records
 
 
 def build_line_containers(carriers: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -2228,6 +2687,7 @@ def build_odu_switch_ports() -> list[dict[str, Any]]:
                     tx_power_mdbm=1000,
                     rx_sensitivity_mdbm=-18000,
                     connector_type="LC",
+                    polish=LINE_SIDE_POLISH,
                 )
             )
     return records
@@ -2309,6 +2769,22 @@ def generate(target: Path) -> dict[str, int]:
                 "filters at the ends of the CWDM tail, and they are the only devices",
                 "in this file that light a CWDM wavelength.",
             ],
+            "OtnFixedAttenuator": [
+                "One pad at each end of the CWDM tail. 18.4 km with no amplifier is",
+                "the one link here short enough to overload the receiver at the far",
+                "end, and the loss a pad takes is known and will not move.",
+                "",
+                "attenuation_mdb carries the whole figure and insertion_loss_mdb",
+                "stays 0; the budget engine adds the two together.",
+            ],
+            "OtnVariableAttenuator": [
+                "One VOA on the add stage at each hub ROADM. Every one of the 40",
+                "carriers crosses oms-fra-mil, so 37 wavelengths terminate at Milan",
+                "and 25 at Frankfurt and no third site is close.",
+                "",
+                "max_attenuation_mdb is range, not loss. Nothing in the budget",
+                "reads it; checks/attenuator_range.py holds the setting against it.",
+            ],
         },
     )
     counts.update({kind: len(records) for kind, records in devices.items()})
@@ -2324,6 +2800,14 @@ def generate(target: Path) -> dict[str, int]:
             "No port writes enabled or admin_state. OtnGenericPort defaults them",
             "to true and up, which is what every port here is. oper_state is",
             "written, because what a port is doing is not what it was asked to do.",
+            "",
+            "A mux client port binds the one channel it carries and a mux line",
+            "port binds none, because it carries every channel the device lights.",
+            "",
+            "Polish is written on line and ROADM degree ports and on nothing",
+            "else. Those two kinds are what a fibre span terminates on, and the",
+            "polish check reads it there; a port that terminates no span has no",
+            "endface question to answer and leaves the attribute unset.",
         ],
         [
             _document(kind, ports[kind])
@@ -2335,6 +2819,8 @@ def generate(target: Path) -> dict[str, int]:
                 "OtnLinePort",
                 "OtnAmplifierPort",
                 "OtnTributaryPort",
+                "OtnMuxLinePort",
+                "OtnMuxClientPort",
                 "OtnAmplifierMonitor",
                 "OtnRoadmDegreeMonitor",
                 "OtnMuxDemuxMonitor",
@@ -2355,6 +2841,13 @@ def generate(target: Path) -> dict[str, int]:
             "oms because it belongs to no section at all, and that absence is the",
             "only thing keeping a coarse link out of the budget engine, which",
             "would price it at a 1550 nm attenuation coefficient.",
+            "",
+            "Every span writes terminating_ports, and the loader resolves each",
+            "entry as a [device, port] pair. The ports load in 14, five files",
+            "earlier, because object load resolves a human-friendly ID at insert",
+            "time. An empty list here is not a clean span: the polish check",
+            "reports one as unjudgeable, because a traversal that returns",
+            "nothing and a span with no fault look the same from outside.",
         ],
         [
             _document("OtnFiberSpan", spans),
@@ -2391,24 +2884,61 @@ def generate(target: Path) -> dict[str, int]:
     counts["OtnOpticalMultiplexSection"] = len(sections)
 
     carriers = build_carriers()
+    pluggable = build_pluggable_carriers()
     _write(
         target / "17_geant_carriers.yml",
         [
-            "Forty pre-provisioned wavelengths, every one crossing fra-mil so that",
-            "section holds 4,134,400 MHz of the 4,800,000 MHz C-band, with 665,600",
-            "MHz free in 26 blocks and only the widest of those, 152,800 MHz, able",
-            "to anchor anything at all. Channel references are quoted strings: a",
-            "bare integer is rejected before the write.",
+            "Forty-three pre-provisioned wavelengths. Forty run transponder to",
+            "transponder and every one of them crosses fra-mil, so that section",
+            "holds 4,134,400 MHz of the 4,800,000 MHz C-band, with 665,600 MHz free",
+            "in 26 blocks and only the widest of those, 152,800 MHz, able to anchor",
+            "anything at all. Channel references are quoted strings: a bare integer",
+            "is rejected before the write.",
+            "",
+            "The last three run router to router on an OpenZR+ pluggable, on the",
+            "three shortest sections, and are the only ones here not terminating",
+            "on a transponder.",
             "",
             "Each wavelength names the two line ports terminating it. The edge is",
             "written here and not on the port, because 14_geant_ports.yml loads",
             "first and a port cannot name a carrier that does not exist yet.",
         ],
-        [_document("OtnOpticalCarrier", carriers_with_line_ports(carriers))],
+        [_document("OtnOpticalCarrier", carriers_with_line_ports(carriers) + pluggable)],
     )
-    counts["OtnOpticalCarrier"] = len(carriers)
+    counts["OtnOpticalCarrier"] = len(carriers) + len(pluggable)
 
-    line_containers = build_line_containers(carriers)
+    transceivers = build_transceivers()
+    _write(
+        target / "14a_geant_transceivers.yml",
+        [
+            "The pluggable optics, one per router line port and three on a shelf.",
+            "",
+            "Numbered to load straight after 14_geant_ports.yml, because a fitted",
+            "unit names the port it sits in and the loader resolves that reference",
+            "at insert time. The reference carries its concrete kind, because the",
+            "port relationship peers a generic that holds no identity keys.",
+            "",
+            "A unit with no port is a spare or an RMA, which is why the port",
+            "relationship is optional and why no uniqueness constraint can hold",
+            "one port to one optic: the constraint is available on a mandatory",
+            "relationship only. The duplicate is refused by the cardinality-one",
+            "inverse the three port kinds that hold a module declare.",
+        ],
+        [_document("OtnTransceiver", transceivers)],
+        {
+            "OtnTransceiver": [
+                "The part is the same in all six ports: QDD-400G-ZRP lists all three",
+                "OpenZR+ rungs, so a carrier that later drops to 300G or 200G is",
+                "still supported by the optic already fitted.",
+                "",
+                "The 400ZR spare is the interesting one: same cage, same",
+                "constellation, same 400G, 120 km of cFEC against 1000 km of oFEC.",
+            ],
+        },
+    )
+    counts["OtnTransceiver"] = len(transceivers)
+
+    line_containers = build_line_containers(carriers + pluggable)
     _write(
         target / "18_geant_line_containers.yml",
         [
@@ -2479,6 +3009,7 @@ GENERATED_NAMES = [
     "12_geant_conduits.yml",
     "13_geant_devices.yml",
     "14_geant_ports.yml",
+    "14a_geant_transceivers.yml",
     "15_geant_spans.yml",
     "16_geant_sections.yml",
     "17_geant_carriers.yml",

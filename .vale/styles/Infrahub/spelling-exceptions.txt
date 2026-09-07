@@ -45,6 +45,8 @@ Tbps
 Terraform
 VLAN
 VLANs
+VOA
+VOAs
 Vale
 Vega
 WSS
@@ -64,6 +66,8 @@ deduplicate
 demultiplexes
 demux
 docstring
+endface
+endfaces
 enum
 enums
 flexgrid
@@ -74,6 +78,7 @@ kbps
 lossy
 millidecibel
 millidecibels
+mux
 muxponder
 mypy
 namespace
@@ -81,6 +86,7 @@ namespaces
 nm
 ns
 oFEC
+passband
 pluggable
 pluggables
 provisionable
@@ -93,6 +99,8 @@ regenerators
 ruff
 rumdl
 runbook
+shortname
+shortnames
 subcommand
 subcommands
 subprocess
@@ -104,6 +112,7 @@ transponders
 triaging
 unamplified
 unducted
+unjudgeable
 unpatched
 unprovisioned
 unpumped

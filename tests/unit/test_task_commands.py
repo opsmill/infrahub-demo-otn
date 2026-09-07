@@ -7,7 +7,7 @@ particular the `--output` plumbing. Without it a demo command that a reader
 runs to look at a render rewrites the committed tree instead.
 
 The last test is here rather than on a stack for a reason worth stating.
-`demo-clean` with no argument deletes seven branches, and the integration suite
+`demo-clean` with no argument deletes eight branches, and the integration suite
 used to run it: 1003 seconds, a third of that suite's wall clock, almost all of
 it the recomputation backlog draining rather than any deletion. The mechanism is
 still proven there, on one branch. What is left is the list, and a list built
@@ -69,7 +69,7 @@ def test_list_names_the_readers_set_by_default_and_everything_with_all(
 
     assert _names_in_listing(default) == set(DEFAULT_LISTING)
     assert _names_in_listing(everything) == set(TASK_NAMES)
-    assert len(DEFAULT_LISTING) == 27
+    assert len(DEFAULT_LISTING) == 32
     assert len(TASK_NAMES) - len(DEFAULT_LISTING) == 21
 
 

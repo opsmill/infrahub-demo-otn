@@ -58,7 +58,7 @@ def _span(name: str, km: int) -> SpanInput:
     return SpanInput(
         name=name,
         length_m=km * 1000,
-        attenuation_mdb_per_km=200,
+        attenuation_coefficient_mdb_per_km=200,
         dispersion_fs_per_nm_km=17000,
         splice_count=km // 10,
         splice_loss_mdb=50,

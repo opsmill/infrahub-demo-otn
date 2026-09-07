@@ -16,16 +16,16 @@ spec:
   data:
     - name: G.652.D
       description: Standard single-mode fiber. The default long-haul choice and most of the installed base.
-      attenuation_mdb_per_km: 200
+      attenuation_coefficient_mdb_per_km: 200
       dispersion_fs_per_nm_km: 17000
       group_index_milli: 1468
     - name: G.654.E
       description: Cut-off shifted, large effective area. Lower loss for submarine and long terrestrial spans.
-      attenuation_mdb_per_km: 170
+      attenuation_coefficient_mdb_per_km: 170
       dispersion_fs_per_nm_km: 21000
       group_index_milli: 1467
     - name: G.655
       description: Non-zero dispersion shifted. Low dispersion, but four-wave mixing limits dense channel plans.
-      attenuation_mdb_per_km: 220
+      attenuation_coefficient_mdb_per_km: 220
       dispersion_fs_per_nm_km: 4500
       group_index_milli: 1470

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 from dataclasses import dataclass
 from functools import cache
@@ -77,8 +78,8 @@ NO_PATH_YET = NeedsGenerator(
 )
 """The one check this module cannot judge at all, on any file.
 
-Named once and used twelve times so the hole is a shape a reader can see, rather
-than twelve cells that each look like a verdict.
+Named once and used on every scenario so the hole is a shape a reader can see,
+rather than a column of cells that each look like a verdict.
 """
 
 PAR_MAD = Fails(
@@ -113,6 +114,11 @@ _DEFAULT: dict[str, Outcome] = {
     "channel_count_consistency": PASSES,
     "monitor_completeness": PASSES,
     "carrier_termination": PASSES,
+    "mux_channel_binding": PASSES,
+    "attenuator_range": PASSES,
+    "transceiver_placement": PASSES,
+    "transceiver_mode_support": PASSES,
+    "connector_polish": PASSES,
 }
 """What a scenario that adds services and containers and nothing else looks like.
 
@@ -194,6 +200,65 @@ _quiet(
 )
 
 _quiet(
+    "11_mux_channel_binding.yml",
+    mux_channel_binding=Fails(
+        2,
+        "CH094 on mux-fra-01 binds neither channel kind and CH1531-2 on mux-ams-02 binds both, which is the "
+        "whole of the file. Two findings and not three: the coarse half of the double binding names 1531 nm, "
+        "which mux-ams-02 does list, so the unlisted-wavelength row stays silent and each port draws exactly "
+        "one complaint",
+    ),
+)
+
+_quiet(
+    "12_attenuator_range.yml",
+    attenuator_range=Fails(
+        1,
+        "`voa-mil-01` is restated at 24.0 dB against the 20.0 dB it can produce, which is the whole of the "
+        "file. One finding and not two: the other shipped VOA is untouched, and the two fixed pads carry no "
+        "range for the check to hold them against",
+    ),
+)
+
+_quiet(
+    "13_transceiver_placement.yml",
+    transceiver_placement=Fails(
+        1,
+        "`ZRP-BRU-01` is restated into `amp-ams-bru-08 OUT`, which is an amplifier port and holds no cage. "
+        "The port kind is the whole of what this check judges: two modules in one port is a write the "
+        "schema refuses, and `tests/unit/test_schema_contract.py` holds the edge that refuses it",
+    ),
+)
+"""The one scenario `transceiver_mode_support` answers with INFO rather than
+silence. Pulling the Brussels module leaves `oc-ch003-ams-bru` fitted at one end
+and integrated at the other, which is a mixed termination and not a fault. The
+error count is what this table declares, so the INFO row is asserted below."""
+
+_quiet(
+    "14_transceiver_mode_support.yml",
+    transceiver_mode_support=Fails(
+        1,
+        "`ZR-SPARE-01` is a QDD-400G-ZR and the wavelength it lands on runs OpenZR+ 400G, which that part "
+        "does not list. One finding and not two: the OpenZR+ module it displaces moves to a router client "
+        "port, which is a kind that can hold an optic, so `transceiver_placement` stays green and the "
+        "scenario stays about one thing",
+    ),
+)
+
+_quiet(
+    "15_connector_polish.yml",
+    connector_polish=Fails(
+        1,
+        "`span-vie-mil-01` is restated with `xpdr-vie-02 L2` on its Vienna end in place of the ROADM degree "
+        "port, which patches a transponder straight onto the one pumped section. Every line port in the "
+        "dataset is UPC and that is correct behind an add/drop stage; on pumped glass it reflects the pump. "
+        "One finding and not two: the Milan end is untouched and stays APC",
+    ),
+)
+"""The only file that puts a line port on pumped glass. No wavelength in the plan
+rides `oms-vie-mil`, so nothing in `objects/` reaches this state."""
+
+_quiet(
     "90_fra_mil_saturated.yml",
     provisionable=NeedsGenerator(
         1,
@@ -226,10 +291,18 @@ def _check_class(name: str) -> Any:
 
 
 @cache
-def _errors(check_name: str, file_name: str | None) -> tuple[str, ...]:
+def _logs(check_name: str, file_name: str | None, level: str) -> tuple[str, ...]:
     check = _check_class(check_name)(branch="scenario-sweep")
     check.validate(payload(check_name, file_name))
-    return tuple(str(log["message"]) for log in check.logs if log["level"] == "ERROR")
+    return tuple(str(log["message"]) for log in check.logs if log["level"] == level)
+
+
+def _errors(check_name: str, file_name: str | None) -> tuple[str, ...]:
+    return _logs(check_name, file_name, "ERROR")
+
+
+def _infos(check_name: str, file_name: str | None) -> tuple[str, ...]:
+    return _logs(check_name, file_name, "INFO")
 
 
 CHECKS = tuple(entry.name for entry in CONFIG.check_definitions)
@@ -250,11 +323,11 @@ def test_the_expectation_table_is_exactly_the_product_of_the_two_directories() -
     )
 
 
-def test_the_sweep_covers_twelve_scenarios_and_nine_checks() -> None:
+def test_the_sweep_covers_seventeen_scenarios_and_fourteen_checks() -> None:
     """The two numbers this module's docstring publishes, read back from the tree."""
-    assert len(SCENARIOS) == 12, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
-    assert len(CHECKS) == 9, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
-    assert len(CELLS) == 108
+    assert len(SCENARIOS) == 17, f"demo/ holds {len(SCENARIOS)} scenarios: {SCENARIOS}"
+    assert len(CHECKS) == 14, f".infrahub.yml registers {len(CHECKS)} checks: {CHECKS}"
+    assert len(CELLS) == 238
 
 
 @pytest.mark.parametrize("check_name", CHECKS)
@@ -326,7 +399,7 @@ def test_a_needs_generator_cell_names_a_check_that_reads_a_generator_relationshi
 
 
 def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
-    """The default branch, run through all nine, against what the tree already asserts."""
+    """The default branch, run through all eleven, against what the tree already asserts."""
     verdicts = {name: len(_errors(name, None)) for name in CHECKS}
     with_services = {name: len(_errors(name, "00_services.yml")) for name in CHECKS}
     assert verdicts == with_services, (
@@ -336,7 +409,17 @@ def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
     )
 
     assert verdicts["osnr_margin"] == 2, "the sweep should find the Paris to Madrid deficit in both directions"
-    for quiet in ("container_capacity", "monitor_completeness", "channel_collision", "carrier_termination"):
+    for quiet in (
+        "container_capacity",
+        "monitor_completeness",
+        "channel_collision",
+        "carrier_termination",
+        "mux_channel_binding",
+        "attenuator_range",
+        "transceiver_placement",
+        "transceiver_mode_support",
+        "connector_polish",
+    ):
         assert verdicts[quiet] == 0, f"{quiet} fails the shipped plant, which nothing else in the suite says"
 
     par_mad = _errors("osnr_margin", None)
@@ -344,12 +427,75 @@ def test_the_resolver_agrees_with_the_shipped_dataset_on_every_check() -> None:
 
 
 def test_every_shipped_carrier_is_terminated_at_both_ends_through_the_resolver() -> None:
-    """Forty wavelengths, two line ports each, read the way the check reads them."""
+    """Forty-three wavelengths, two line ports each, read the way the check reads them.
+
+    Forty land on transponders and three on routers, and the check makes no
+    distinction: a wavelength is terminated when two line ports name it,
+    whichever kind of device those ports sit on.
+    """
     carriers = payload("carrier_termination", None)["OtnOpticalCarrier"]["edges"]
-    assert len(carriers) == 40
+    assert len(carriers) == 43
     counts = {str(edge["node"]["name"]["value"]): len(edge["node"]["line_ports"]["edges"]) for edge in carriers}
     wrong = {name: count for name, count in counts.items() if count != 2}
     assert not wrong, f"shipped wavelengths not terminated at exactly two ends: {wrong}"
+
+
+def test_every_shipped_mux_client_port_binds_exactly_one_channel_through_the_resolver() -> None:
+    """Ninety-four client ports, one channel each, read the way the check reads them.
+
+    The generator derives a dense multiplexer's client ports from the same
+    carrier plan the monitor's `channel_count` comes from, so this is the
+    assertion that catches the two drifting apart: a port list built from one
+    rule and a count from another would still leave the check green until the
+    carrier plan moved.
+    """
+    devices = payload("mux_channel_binding", None)["OtnMuxDemux"]["edges"]
+    assert len(devices) == 16
+
+    bound: dict[str, int] = {}
+    for edge in devices:
+        node = edge["node"]
+        for port in node["ports"]["edges"]:
+            if port["node"]["__typename"] != "OtnMuxClientPort":
+                continue
+            plans = [name for name in ("dwdm_channel", "cwdm_channel") if port["node"][name]["node"]]
+            bound[f"{node['name']['value']}/{port['node']['name']['value']}"] = len(plans)
+
+    assert len(bound) == 94, f"the shipped dataset holds {len(bound)} mux client ports"
+    wrong = {port: plans for port, plans in bound.items() if plans != 1}
+    assert not wrong, f"shipped mux client ports not on exactly one channel: {wrong}"
+
+
+def test_a_coarse_binding_on_a_device_that_lists_none_says_so_rather_than_naming_nothing() -> None:
+    """The unlisted row on a dense unit, where the device-side list is empty.
+
+    `demo/11_mux_channel_binding.yml` reaches the double binding on a coarse
+    device, whose list does hold the wavelength named, so the unlisted row stays
+    silent there and no scenario file reaches this state. The dense units are
+    fourteen of the sixteen, so the empty list is the commoner half of this
+    finding and the one whose sentence has to read.
+    """
+    data = copy.deepcopy(payload("mux_channel_binding", None))
+    dense = next(
+        edge["node"]
+        for edge in data["OtnMuxDemux"]["edges"]
+        if edge["node"]["name"]["value"] == "mux-fra-01" and not edge["node"]["cwdm_channels"]["edges"]
+    )
+    port = next(edge["node"] for edge in dense["ports"]["edges"] if edge["node"]["__typename"] == "OtnMuxClientPort")
+    port["cwdm_channel"]["node"] = {"center_wavelength_nm": {"value": 1471}}
+
+    check = _check_class("mux_channel_binding")(branch="scenario-sweep")
+    check.validate(data)
+    errors = [str(log["message"]) for log in check.logs if log["level"] == "ERROR"]
+
+    unlisted = [message for message in errors if "lists no coarse wavelength at all" in message]
+    assert len(unlisted) == 1, errors
+    assert "mux-fra-01" in unlisted[0] and "1471 nm" in unlisted[0]
+    assert "the nothing" not in unlisted[0]
+
+    # The same port is on both plans now, so the double binding is true as well.
+    # Both rows are about one port and neither replaces the other.
+    assert [message for message in errors if "at the same time" in message]
 
 
 def test_a_regenerator_terminates_the_two_segments_it_joins_on_the_scenario_branch() -> None:
@@ -420,3 +566,160 @@ def test_the_resolver_reads_every_kind_the_object_files_declare() -> None:
 
     unkeyed = [kind for kind, records in merged(None).items() if any(part == "" for key in records for part in key)]
     assert not unkeyed, f"records whose human-friendly ID resolved to an empty part: {unkeyed}"
+
+
+# ---------------------------------------------------------------------------
+# The rules a count of errors cannot see
+# ---------------------------------------------------------------------------
+
+
+def test_the_mixed_termination_row_is_reported_and_blocks_nothing() -> None:
+    """One line port on a pluggable and the other on integrated optics.
+
+    The sweep above asserts error counts, so an INFO row is invisible to it. This
+    is the row the contract asks for and the only branch that reaches it: the
+    three router wavelengths ship with both ends fitted and the forty transponder
+    wavelengths with neither, so nothing in `objects/` is in this state.
+    """
+    infos = _infos("transceiver_mode_support", "13_transceiver_placement.yml")
+    mixed = [message for message in infos if "mixed termination" in message]
+    assert len(mixed) == 1, f"the branch reported {len(mixed)} mixed terminations: {infos}"
+    assert "oc-ch003-ams-bru" in mixed[0]
+    assert "rtr-ams-01 1/2/1" in mixed[0] and "rtr-bru-01 1/2/1" in mixed[0]
+    assert not _errors("transceiver_mode_support", "13_transceiver_placement.yml")
+
+
+def test_the_mode_check_says_how_many_wavelengths_it_judged_and_how_many_it_skipped() -> None:
+    """Silence is not a pass, and this is the sentence that keeps it from reading as one.
+
+    Three router wavelengths carry pluggables and forty transponder wavelengths
+    carry integrated optics. A run that judged none of the forty-three would log
+    the same zero errors, so the split is asserted from the dataset rather than
+    trusted.
+    """
+    carriers = payload("transceiver_mode_support", None)["OtnOpticalCarrier"]["edges"]
+    fitted_ports = {
+        str(edge["node"]["port"]["node"]["id"])
+        for edge in payload("transceiver_mode_support", None)["OtnTransceiver"]["edges"]
+        if edge["node"]["port"]["node"]
+    }
+    judged = sum(
+        1
+        for edge in carriers
+        if any(str(port["node"]["id"]) in fitted_ports for port in edge["node"]["line_ports"]["edges"])
+    )
+    assert (judged, len(carriers) - judged) == (3, 40), f"the dataset now gives {judged} judged of {len(carriers)}"
+
+    summary = [message for message in _infos("transceiver_mode_support", None) if "wavelength(s) examined" in message]
+    assert len(summary) == 1, summary
+    assert f"{len(carriers)} wavelength(s) examined" in summary[0]
+    assert f"{judged} judged" in summary[0]
+    assert f"{len(carriers) - judged} skipped" in summary[0]
+    assert "0 left unjudged" in summary[0], "every shipped wavelength declares a mode"
+
+
+def test_a_wavelength_declaring_no_mode_is_counted_and_still_reported_as_half_fitted() -> None:
+    """The unjudged bucket, and the two rows that went missing without it.
+
+    `optical_mode` is optional on the carrier and no shipped wavelength leaves
+    it out, so the payload is edited here rather than in a scenario file. It is
+    edited on the one branch that already holds a mixed termination, because
+    both of the states this covers are about the same carrier: a carrier the
+    check cannot judge belongs in neither the judged nor the skipped count, and
+    it is still fitted at one end and integrated at the other whether or not
+    anything says what the fitted end has to produce.
+    """
+    data = copy.deepcopy(payload("transceiver_mode_support", "13_transceiver_placement.yml"))
+    stripped = [
+        edge["node"]
+        for edge in data["OtnOpticalCarrier"]["edges"]
+        if edge["node"]["name"]["value"] == "oc-ch003-ams-bru"
+    ]
+    assert len(stripped) == 1, "the branch no longer holds the carrier this test edits"
+    stripped[0]["optical_mode"]["node"] = None
+
+    check = _check_class("transceiver_mode_support")(branch="scenario-sweep")
+    check.validate(data)
+    messages = {
+        level: [str(log["message"]) for log in check.logs if log["level"] == level] for level in ("ERROR", "INFO")
+    }
+
+    unjudged = [message for message in messages["ERROR"] if "declares no optical mode" in message]
+    assert len(unjudged) == 1, messages["ERROR"]
+    assert "oc-ch003-ams-bru" in unjudged[0]
+
+    mixed = [message for message in messages["INFO"] if "mixed termination" in message]
+    assert len(mixed) == 1, "the mode being unknown does not make the two ends match"
+    assert "oc-ch003-ams-bru" in mixed[0]
+
+    # 43 examined: 2 router wavelengths still fitted at both ends and judged, 40
+    # transponder wavelengths skipped, and the edited one left unjudged. That
+    # last figure is the whole point: the same run used to print 43, 2 and 40 and
+    # leave a reader to find the missing row.
+    summary = next(message for message in messages["INFO"] if "wavelength(s) examined" in message)
+    assert "43 wavelength(s) examined" in summary
+    assert "2 judged" in summary and "40 skipped" in summary and "1 left unjudged" in summary
+    assert len(data["OtnOpticalCarrier"]["edges"]) == 43
+
+
+# ---------------------------------------------------------------------------
+# The two polish rows no file under demo/ reaches
+# ---------------------------------------------------------------------------
+
+
+def _pumped_spans(built: dict[str, Any]) -> list[dict[str, Any]]:
+    return [edge["node"] for edge in built["OtnFiberSpan"]["edges"] if edge["node"]["raman_pumps"]["edges"]]
+
+
+def test_a_pumped_span_naming_no_terminating_port_is_reported_and_never_passed() -> None:
+    """The row the whole relationship exists for, and the one a branch cannot show.
+
+    Every span in `objects/` names its two ends, which is what the generator is
+    for, so no scenario file can produce this state without unwriting the
+    dataset. The payload is the shipped one with the relationship emptied, which
+    is exactly what a check would see if the generator had never populated it.
+    An empty traversal and two correct APC ends look the same from inside the
+    check, so silence here would be a green mark over nothing.
+    """
+    built = copy.deepcopy(payload("connector_polish", None))
+    emptied = _pumped_spans(built)
+    assert len(emptied) == 9, f"the dataset now pumps {len(emptied)} spans"
+    for span in emptied:
+        span["terminating_ports"] = {"edges": []}
+
+    check = _check_class("connector_polish")(branch="scenario-sweep")
+    check.validate(built)
+    errors = [str(log["message"]) for log in check.logs if log["level"] == "ERROR"]
+    infos = [str(log["message"]) for log in check.logs if log["level"] == "INFO"]
+
+    assert not errors, f"an empty relationship is not a fault in the plant: {errors}"
+    unjudged = [message for message in infos if "names no terminating port" in message]
+    assert len(unjudged) == 9, f"nine pumped spans, {len(unjudged)} reported unjudgeable"
+    assert "span-vie-mil-01" in " ".join(unjudged)
+    summary = [message for message in infos if "span(s) examined" in message]
+    assert len(summary) == 1, summary
+    assert "0 judged" in summary[0] and "9 unjudgeable" in summary[0]
+
+
+def test_a_terminating_port_with_no_polish_on_pumped_glass_is_an_error() -> None:
+    """The second error row, which the shipped data and the branches both miss.
+
+    The backfill states a polish on every line and ROADM degree port, so a
+    pumped span in this dataset always has an answer to read. A port kind
+    outside that scope, or a port loaded before the attribute existed, arrives
+    with nothing, and nothing is not a pass: the record does not say whether the
+    connector reflects the pump.
+    """
+    built = copy.deepcopy(payload("connector_polish", None))
+    span = _pumped_spans(built)[0]
+    port = span["terminating_ports"]["edges"][0]["node"]
+    assert port["polish"] == {"value": "APC"}, port["polish"]
+    port["polish"] = {"value": None}
+
+    check = _check_class("connector_polish")(branch="scenario-sweep")
+    check.validate(built)
+    errors = [str(log["message"]) for log in check.logs if log["level"] == "ERROR"]
+
+    assert len(errors) == 1, f"one unstated endface gave {len(errors)} findings: {errors}"
+    assert "states no endface polish" in errors[0]
+    assert str(span["name"]["value"]) in errors[0]

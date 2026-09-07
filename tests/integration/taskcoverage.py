@@ -155,7 +155,7 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         task="check",
         tier="stack",
         invocations=("--name units_import", ""),
-        postcondition="the named form reports that one check; the bare form names all nine in `CHECKS`",
+        postcondition="the named form reports that one check; the bare form names all eleven in `CHECKS`",
     ),
     # ------------------------------------------------------------------ #
     # Tests
@@ -309,6 +309,50 @@ COVERAGE: tuple[CoverageRecord, ...] = (
         tier="stack",
         invocations=("",),
         postcondition="`monitor-gap` holds the unmonitored amplifier and `check monitor_completeness` names it",
+    ),
+    CoverageRecord(
+        task="demo-mux-binding",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`mux-binding` holds both broken client ports and `check mux_channel_binding` reports one finding for each"
+        ),
+    ),
+    CoverageRecord(
+        task="demo-attenuator-range",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`attenuator-range` holds voa-mil-01 at 24 dB against a 20 dB maximum and "
+            "`check attenuator_range` reports that one finding"
+        ),
+    ),
+    CoverageRecord(
+        task="demo-transceiver-placement",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`transceiver-placement` holds ZRP-BRU-01 in an amplifier port and "
+            "`check transceiver_placement` reports that one finding"
+        ),
+    ),
+    CoverageRecord(
+        task="demo-transceiver-mode",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`transceiver-mode` holds a QDD-400G-ZR on an OpenZR+ 400G wavelength and "
+            "`check transceiver_mode_support` names the part number and the mode"
+        ),
+    ),
+    CoverageRecord(
+        task="demo-connector-polish",
+        tier="stack",
+        invocations=("",),
+        postcondition=(
+            "`connector-polish` terminates the first pumped Vienna to Milan span on a UPC line port and "
+            "`check connector_polish` reports that one finding over nine pumped spans and none unjudgeable"
+        ),
     ),
     # ------------------------------------------------------------------ #
     # Cleanup

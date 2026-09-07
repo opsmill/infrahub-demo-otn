@@ -1,0 +1,65 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/object/latest.json
+#
+# The pluggable optics catalog. Five parts, and between them they cover all five
+# coherent pluggable modes in objects/03_optical_modes.yml.
+#
+# What a part supports is the whole point of the catalog. A 400ZR module and an
+# OpenZR+ module are the same cage, the same constellation and the same line
+# rate; they differ in FEC and therefore in reach, and nothing on the outside of
+# the module says which one is in your hand. The mode list here is the only fact
+# that separates them, and it is what transceiver_mode_support judges a carrier
+# against.
+#
+# OpenZR+ is one optic with three rungs, not three optics: the same module steps
+# down the constellation to buy reach. A 400ZR part lists 400ZR and nothing else.
+#
+# Part numbers are the MSA and OIF designations, cage first and mode last. The
+# vendor stays Generic, as everywhere else here: attaching a real supplier to
+# stated figures would credit numbers that supplier never published.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: OtnTransceiverType
+  data:
+    - part_number: QDD-400G-ZR
+      vendor: Generic
+      description: 400ZR in a QSFP-DD. cFEC, 120 km, and it reaches no section in this network.
+      form_factor: QSFP-DD
+      tunable: true
+      supported_modes:
+        - 400ZR
+    - part_number: QDD-400G-ZRP
+      vendor: Generic
+      description: OpenZR+ in a QSFP-DD. One optic, three rungs, and the part the three router wavelengths run.
+      form_factor: QSFP-DD
+      tunable: true
+      supported_modes:
+        - OpenZR+ 400G
+        - OpenZR+ 300G
+        - OpenZR+ 200G
+    - part_number: OSFP-400G-ZRP
+      vendor: Generic
+      description: The same three OpenZR+ rungs in an OSFP cage, which has the larger thermal budget.
+      form_factor: OSFP
+      tunable: true
+      supported_modes:
+        - OpenZR+ 400G
+        - OpenZR+ 300G
+        - OpenZR+ 200G
+    - part_number: CFP2-DCO-400G-ZRP
+      vendor: Generic
+      description: OpenZR+ as a CFP2 digital coherent optic, for a line card with no QSFP-DD cage.
+      form_factor: CFP2-DCO
+      tunable: true
+      supported_modes:
+        - OpenZR+ 400G
+        - OpenZR+ 300G
+        - OpenZR+ 200G
+    - part_number: QDD-800G-ZR
+      vendor: Generic
+      description: 800ZR in a QSFP-DD. Twice the baud rate of 400ZR and the same 120 km.
+      form_factor: QSFP-DD
+      tunable: true
+      supported_modes:
+        - 800ZR

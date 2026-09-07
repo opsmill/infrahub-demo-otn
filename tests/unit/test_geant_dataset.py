@@ -188,9 +188,15 @@ def test_the_inventory_the_installation_page_promises_is_what_loads() -> None:
         "OtnReceiverMonitor",
     )
     total = sum(len((document.get("spec") or {}).get("data") or []) for document in object_documents())
-    assert total == 2344, "the pages say the load is 2344 objects"
+    assert total == 2490, "the pages say the load is 2490 objects, and this is the figure that moved them"
     assert sum(len(objects_of_kind(kind)) for kind in devices) == 441, "the pages say 441 devices"
-    assert sum(len(objects_of_kind(kind)) for kind in ports) == 1490, "the pages say 1490 ports"
+    # The two mux port kinds are absent from this tuple and from
+    # `LEDGER_PORT_KINDS` in tests/unit/test_doc_claims.py, which is its twin.
+    # The 110 of them are in the object total above; the port figure moves when
+    # both tuples move together. The two attenuator kinds are absent from the
+    # device tuple on the same terms: the four of them are in the object total
+    # and the device figure moves when this tuple and its twin move together.
+    assert sum(len(objects_of_kind(kind)) for kind in ports) == 1502, "the pages say 1490 ports"
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +274,111 @@ def test_no_span_touching_a_customer_site_declares_an_oms() -> None:
         if (str(span["site_a"]) in customers or str(span["site_b"]) in customers) and "oms" in span
     ]
     assert not offenders, "spans on a customer site declaring an oms: " + "; ".join(offenders)
+
+
+@cache
+def _kinds_inheriting(generic: str) -> tuple[str, ...]:
+    """Every concrete kind whose `inherit_from` names `generic`."""
+    return tuple(
+        str(entry["namespace"]) + str(entry["name"])
+        for path in sorted(SCHEMA_DIR.glob("*.yml"))
+        for entry in (yaml.safe_load(path.read_text()) or {}).get("nodes") or []
+        if generic in (entry.get("inherit_from") or [])
+    )
+
+
+@cache
+def _site_of_device() -> dict[str, str | None]:
+    """Device name -> its site shortname, or None for the mid-section huts."""
+    return {
+        str(device["name"]): (str(device["site"]) if device.get("site") is not None else None)
+        for kind in _kinds_inheriting("OtnGenericDevice")
+        for device in objects_of_kind(kind)
+    }
+
+
+@cache
+def _kind_of_port() -> dict[tuple[str, str], str]:
+    """(device, port name) -> the kind declaring it, which is the loader's key."""
+    return {
+        (str(port["device"]), str(port["name"])): kind
+        for kind in _kinds_inheriting("OtnGenericPort")
+        for port in objects_of_kind(kind)
+    }
+
+
+def test_every_span_names_the_ports_that_terminate_it() -> None:
+    """No span is left with an empty relationship, because empty is not clean.
+
+    `checks/connector_polish.py` reads this relationship and reports a pumped
+    span with nothing in it as unjudgeable rather than as a span with no fault.
+    That row exists so an unpopulated relationship cannot read as a pass, and
+    this test is what keeps the shipped dataset out of it.
+    """
+    spans = objects_of_kind("OtnFiberSpan")
+    assert len(spans) == 133
+    bare = [str(span["name"]) for span in spans if not (span.get("terminating_ports") or [])]
+    assert not bare, "spans naming no terminating port: " + "; ".join(bare)
+    pairs = sum(len(span["terminating_ports"]) for span in spans)
+    assert pairs == 266, f"two ends per span over 133 spans is 266 pairs, the dataset writes {pairs}"
+
+
+def test_every_terminating_port_is_racked_at_one_of_its_spans_two_sites() -> None:
+    """The one trust boundary `terminating_ports` opens, closed here.
+
+    The relationship is written by the generator and nothing else validates it.
+    An empty list is handled by the check; a wrong list is not, because the
+    check reads what it is given as authoritative and would report a confident
+    verdict about a port at the far side of the network. So every pair is
+    resolved back to a real port, and that port's device has to be racked at one
+    of the two sites the span runs between.
+    """
+    ports = _kind_of_port()
+    sites = _site_of_device()
+    offenders: list[str] = []
+    for span in objects_of_kind("OtnFiberSpan"):
+        ends = {str(span["site_a"]), str(span["site_b"])}
+        for entry in span.get("terminating_ports") or []:
+            device, port = str(entry[0]), str(entry[1])
+            if (device, port) not in ports:
+                offenders.append(f"{span['name']} names {device} {port}, which no object file declares")
+                continue
+            site = sites.get(device)
+            if site not in ends:
+                offenders.append(
+                    f"{span['name']} runs between {' and '.join(sorted(ends))} and names {device} {port}, "
+                    f"racked at {site}"
+                )
+    assert not offenders, "terminating ports at the wrong site: " + "; ".join(offenders)
+
+
+def test_every_line_and_roadm_degree_port_states_a_polish() -> None:
+    """The backfill's scope, read back from the files that carry it.
+
+    Those two kinds are what a span terminates on, so those two kinds are what
+    the polish check has to be able to read. Every other port kind may leave the
+    attribute unset, and the mux line ports at the two ends of the CWDM tail do.
+    """
+    choices = {
+        str(choice["name"])
+        for document in [yaml.safe_load((SCHEMA_DIR / "otn_base.yml").read_text())]
+        for generic in document.get("generics") or []
+        if str(generic["namespace"]) + str(generic["name"]) == "OtnOpticalPort"
+        for attribute in generic.get("attributes") or []
+        if attribute["name"] == "polish"
+        for choice in attribute["choices"]
+    }
+    assert choices == {"UPC", "APC", "PC", "none"}
+    for kind, expected in (("OtnLinePort", "UPC"), ("OtnRoadmDegreePort", "APC")):
+        stated = {
+            str(port["device"]) + " " + str(port["name"]): str(port.get("polish") or "")
+            for port in objects_of_kind(kind)
+        }
+        unset = sorted(name for name, value in stated.items() if not value)
+        assert not unset, f"{kind} without a polish: " + "; ".join(unset)
+        assert set(stated.values()) == {expected}, f"{kind} states {sorted(set(stated.values()))}"
+    assert len(objects_of_kind("OtnLinePort")) == 126
+    assert len(objects_of_kind("OtnRoadmDegreePort")) == 42
 
 
 def test_only_the_two_tail_multiplexers_light_a_cwdm_wavelength() -> None:
@@ -499,9 +610,9 @@ def test_the_connected_to_edge_is_declared_on_one_side_only() -> None:
     add_drop = [port for port in objects_of_kind("OtnRoadmAddDropPort") if "connected_to" in port]
     assert not add_drop, "connected_to declared on the ROADM side as well as the line side"
 
-    transponder_ports = _line_ports_on_transponders()
-    linked = [port for port in transponder_ports if "connected_to" in port]
-    assert len(linked) == len(transponder_ports), "some transponder line ports are unconnected"
+    into_the_roadm = _line_ports_on_transponders() + _line_ports_on_routers()
+    linked = [port for port in into_the_roadm if "connected_to" in port]
+    assert len(linked) == len(into_the_roadm), "some line ports on a transponder or a router are unconnected"
     targets = [tuple(port["connected_to"]) for port in linked]
     assert len(targets) == len(set(targets)), "two line ports share one add/drop port"
 
@@ -726,8 +837,8 @@ def test_occupancy_is_uneven_and_sixteen_sections_are_empty() -> None:
             loaded[str(section)] += 1
 
     assert loaded["oms-fra-mil"] == 40
-    assert sorted(count for count in loaded.values() if count) == [3, 3, 5, 7, 40]
-    assert sum(1 for count in loaded.values() if count == 0) == 16
+    assert sorted(count for count in loaded.values() if count) == [1, 1, 1, 3, 3, 5, 7, 40]
+    assert sum(1 for count in loaded.values() if count == 0) == 13
 
 
 def test_every_carrier_is_inside_its_modes_nominal_reach() -> None:
@@ -868,18 +979,31 @@ def test_no_monitor_reports_seventy_one_channels() -> None:
 
 
 def test_every_degree_monitor_reports_the_light_on_the_section_it_faces() -> None:
-    """42 degree monitors, and the distribution is the carrier plan's, not a constant."""
+    """42 degree monitors, and the distribution is the carrier plan's, not a constant.
+
+    The six degrees reading 1 are the ends of the three coloured pluggables, on
+    fibres that carried nothing before them."""
     counts = _channel_counts("OtnRoadmDegreeMonitor")
     assert len(counts) == 42
-    assert sorted(Counter(counts.values()).items()) == [(0, 32), (3, 4), (5, 2), (7, 2), (40, 2)]
+    assert sorted(Counter(counts.values()).items()) == [(0, 26), (1, 6), (3, 4), (5, 2), (7, 2), (40, 2)]
 
 
 def test_each_dense_multiplexer_monitor_reports_the_channels_terminating_at_its_site() -> None:
-    """The fourteen AWG multiplexers, by name, because nothing else can check them."""
+    """The fourteen AWG multiplexers, by name, because nothing else can check them.
+
+    Nine light something. Amsterdam and Berlin read one above the forty alone,
+    and Brussels, Hamburg and Prague read 1 rather than 0, because the three
+    coloured pluggables terminate there and a wavelength off a router lands on
+    the multiplexer like any other. The five reading 0 are the sites no
+    wavelength ends at.
+    """
     counts = {device: count for (device, _), count in _channel_counts("OtnMuxDemuxMonitor").items()}
     cwdm = {"mux-ams-02", "mux-asp-01"}
     dense = {device: count for device, count in counts.items() if device not in cwdm}
-    expected = {"mux-mil-01": 37, "mux-fra-01": 25, "mux-ams-01": 7, "mux-ber-01": 5, "mux-par-01": 3, "mux-vie-01": 3}
+    expected = {
+        "mux-mil-01": 37, "mux-fra-01": 25, "mux-ams-01": 8, "mux-ber-01": 7,
+        "mux-par-01": 3, "mux-vie-01": 3, "mux-bru-01": 1, "mux-ham-01": 1, "mux-prg-01": 1,
+    }  # fmt: skip
 
     assert len(dense) == 14
     for device, channels in expected.items():
@@ -895,11 +1019,39 @@ def test_the_two_cwdm_multiplexer_monitors_report_their_four_wavelengths() -> No
 
 
 @cache
+def _pluggable_carriers() -> tuple[dict[str, Any], ...]:
+    """The wavelengths terminating on a router rather than on a transponder.
+
+    Read off the carrier's own line ports against the router inventory. The name
+    carries the same information and reading it would be a naming convention
+    doing a relationship's job.
+    """
+    routers = {str(box["name"]) for box in objects_of_kind("OtnRouter")}
+    return tuple(
+        carrier
+        for carrier in objects_of_kind("OtnOpticalCarrier")
+        if any(str(device) in routers for device, _ in carrier["line_ports"])
+    )
+
+
+@cache
+def _transponder_carriers() -> tuple[dict[str, Any], ...]:
+    """The wavelengths terminating on a transponder at both ends.
+
+    What the transponder estate is sized against. A coloured pluggable occupies
+    no transponder and no transponder line port, so a rule about how many
+    transponders a PoP holds has nothing to say about one.
+    """
+    pluggable = {str(carrier["name"]) for carrier in _pluggable_carriers()}
+    return tuple(carrier for carrier in objects_of_kind("OtnOpticalCarrier") if str(carrier["name"]) not in pluggable)
+
+
+@cache
 def _terminations_from_the_object_files() -> dict[str, int]:
-    """Site shortname -> the carrier ends that land there, rebuilt from objects/."""
+    """Site shortname -> the transponder-terminated carrier ends that land there."""
     endpoints = _section_endpoints()
     counts = {str(site["shortname"]): 0 for site in objects_of_kind("OtnSite")}
-    for carrier in objects_of_kind("OtnOpticalCarrier"):
+    for carrier in _transponder_carriers():
         along: Counter[str] = Counter()
         for section in carrier["sections"]:
             along.update(endpoints[str(section)])
@@ -929,10 +1081,19 @@ def _line_ports_on_odu_switches() -> tuple[dict[str, Any], ...]:
     return tuple(port for port in objects_of_kind("OtnLinePort") if str(port["device"]) in switches)
 
 
-def test_every_line_port_sits_on_a_transponder_or_an_odu_switch() -> None:
-    """The two populations account for all of them, so neither test can miss one."""
-    counted = len(_line_ports_on_transponders()) + len(_line_ports_on_odu_switches())
-    assert counted == len(objects_of_kind("OtnLinePort")), "a line port sits on neither a transponder nor an O-E-O"
+@cache
+def _line_ports_on_routers() -> tuple[dict[str, Any], ...]:
+    """The line ports holding a coloured pluggable. `OtnLinePort.device` peers the
+    device generic, so a router carries one without any schema change."""
+    routers = {str(box["name"]) for box in objects_of_kind("OtnRouter")}
+    return tuple(port for port in objects_of_kind("OtnLinePort") if str(port["device"]) in routers)
+
+
+def test_every_line_port_sits_on_a_transponder_an_odu_switch_or_a_router() -> None:
+    """The three populations account for all of them, so no test can miss one."""
+    counted = len(_line_ports_on_transponders()) + len(_line_ports_on_odu_switches()) + len(_line_ports_on_routers())
+    assert counted == len(objects_of_kind("OtnLinePort")), "a line port sits on none of the three"
+    assert len(_line_ports_on_routers()) == 6, "three coloured pluggables at two ends each"
 
 
 def test_a_regenerator_carries_two_dark_line_ports_and_a_cross_connect_none() -> None:
@@ -989,7 +1150,7 @@ def test_every_bound_line_port_is_tuned_to_its_wavelengths_channel() -> None:
     """A port and the channel object behind it cannot disagree."""
     channel_of = {str(carrier["name"]): int(carrier["channel"]) for carrier in objects_of_kind("OtnOpticalCarrier")}
     named = _line_ports_by_carrier()
-    assert len(named) == 80, f"forty wavelengths at two ends each is eighty bound ports, not {len(named)}"
+    assert len(named) == 86, f"forty-three wavelengths at two ends each is 86 bound ports, not {len(named)}"
 
     mismatched: list[str] = []
     dark_but_coloured: list[str] = []
@@ -1068,9 +1229,17 @@ def test_no_pop_drops_below_the_floor_and_a_dark_pop_sits_on_it() -> None:
 
 
 def test_the_add_drop_client_and_line_port_populations_stay_one_to_one() -> None:
-    """Every line port needs an add/drop port to patch into and a client port beside it."""
+    """Every line port needs an add/drop port to patch into, and a transponder line
+    port needs a client port beside it.
+
+    The two counts parted when the coloured pluggables arrived. Six of the
+    add/drop ports face a router line port, which has no client port beside it:
+    a router's client side is its own grey ports, not a second port on a
+    transponder.
+    """
     line = _line_ports_on_transponders()
-    assert len(objects_of_kind("OtnRoadmAddDropPort")) == len(line)
+    patched = line + _line_ports_on_routers()
+    assert len(objects_of_kind("OtnRoadmAddDropPort")) == len(patched)
     assert len(objects_of_kind("OtnClientPort")) == len(line)
 
     per_device = {
@@ -1092,7 +1261,7 @@ def test_the_add_drop_client_and_line_port_populations_stay_one_to_one() -> None
     assert not misnumbered, f"add/drop numbering does not start at AD-01 and run contiguous: {misnumbered}"
 
     assert not [port for port in objects_of_kind("OtnRoadmAddDropPort") if "connected_to" in port]
-    assert all("connected_to" in port for port in line)
+    assert all("connected_to" in port for port in patched)
 
 
 # ---------------------------------------------------------------------------
@@ -1141,8 +1310,13 @@ def _receiver_bounds() -> dict[str, tuple[int, int]]:
 
 @cache
 def _lit_transponders() -> set[str]:
-    """The transponders holding at least one wavelength, from the carrier side of the edge."""
-    return {device for device, _ in _line_ports_by_carrier()}
+    """The transponders holding at least one wavelength, from the carrier side of the edge.
+
+    Filtered against the transponder inventory, because six of the bound ports
+    are on routers and a router carries no receiver monitor to read.
+    """
+    transponders = {str(box["name"]) for box in objects_of_kind("OtnTransponder")}
+    return {device for device, _ in _line_ports_by_carrier() if device in transponders}
 
 
 def test_every_receiver_reading_is_inside_the_bounds_its_schema_attribute_declares() -> None:
@@ -1162,7 +1336,7 @@ def test_the_lit_receivers_report_five_dispersion_figures_for_the_five_routes() 
     lengths = _section_length_m()
     by_carrier = {
         str(carrier["name"]): sum(lengths[str(section)] for section in carrier["sections"])
-        for carrier in objects_of_kind("OtnOpticalCarrier")
+        for carrier in _transponder_carriers()
     }
     expected = {round(m_to_km(metres)) * DISPERSION_FS_PER_NM_KM for metres in by_carrier.values()}
     assert len(expected) == 5, f"the carrier plan no longer walks five distinct routes: {sorted(expected)}"

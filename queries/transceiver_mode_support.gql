@@ -1,0 +1,93 @@
+# Every wavelength with the mode it runs and the line ports terminating it, and
+# every pluggable with the modes its part can run.
+#
+# Rooted on `OtnOpticalCarrier` and unfiltered. The check has to say how many
+# carriers it skipped, and a filter would leave that to be inferred from
+# silence: forty of the forty-three are transponder wavelengths on integrated
+# optics, so a run that judged nothing and a run that judged three look the same
+# from the outside.
+#
+# **Two collections rather than one nesting, and the schema is why.**
+# `OtnTransceiver.port` is declared on the transceiver alone. A relationship to
+# a generic cannot be filtered by peer kind, so declaring the inverse on
+# `OtnOpticalPort` would put a transceiver field on amplifier and ROADM degree
+# ports that never hold one. The cost is that a line port cannot be asked what
+# is fitted in it, so the pluggables come back as their own collection and the
+# check joins the two on the port `id`. `queries/channel_count_consistency.gql`
+# and `queries/channel_occupancy.gql` are shaped this way for the same reason.
+#
+# `id` on every line port and on every transceiver's port, because that join is
+# what the whole check rests on. The port's name and device come from the
+# carrier side, where the kind is known and the fields need no fragment.
+#
+# `supported_modes` is the only fact separating two modules with the same cage,
+# the same constellation and the same line rate, so it is what a finding quotes.
+query TransceiverModeSupport {
+  OtnOpticalCarrier {
+    edges {
+      node {
+        id
+        __typename
+        name {
+          value
+        }
+        optical_mode {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        line_ports {
+          edges {
+            node {
+              id
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  OtnTransceiver {
+    edges {
+      node {
+        id
+        __typename
+        serial {
+          value
+        }
+        type {
+          node {
+            part_number {
+              value
+            }
+            supported_modes {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+        port {
+          node {
+            id
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,23 +1,23 @@
 ---
 # yaml-language-server: $schema=https://schema.infrahub.app/infrahub/schema/latest.json
 #
-# The eight concrete device kinds.
+# The ten concrete device kinds.
 #
 # OtnRouter inherits OtnGenericDevice only. Every other device here also
 # inherits OtnOpticalElement. Light terminates at a router, so a router
 # contributes no insertion loss and a query against OtnOpticalElement must
-# return eight kinds and not nine. Adding the generic to the router to make the
+# return ten kinds and not eleven. Adding the generic to the router to make the
 # list look tidy breaks the query the optical budget engine depends on.
 version: "1.0"
 
-# All seven device kinds that inherit OtnOpticalElement restate element_class,
+# All nine device kinds that inherit OtnOpticalElement restate element_class,
 # to give it a default_value. The ten choices come with it, and the repetition
 # is only half guarded by the server: omitting the `choices` key from an
 # override is rejected at load with "The property 'choices' is required for kind=Dropdown",
 # while a `choices` key holding nine of the ten is accepted in silence and the
 # divergence surfaces only when an object writes the value the override left
 # out. tests/unit/test_schema_contract.py asserts every override matches the
-# generic's list, and it is the only thing that does. OtnOduSwitch is the
+# generic's list, and it is the only thing that does. OtnOduSwitch was the
 # seventh and the tenth choice `odu_switch` exists for it; the comment on that
 # node says why nothing else would have been true.
 nodes:
@@ -569,11 +569,9 @@ nodes:
     # nothing mechanically and is simply untrue in the data, which is the whole
     # argument for paying for the tenth choice instead.
     attributes:
-      # The choice cost nine blocks: the generic in otn_base.yml, the six older
-      # overrides here, this one, the span's in otn_plant.yml, and the pinned
-      # list in tests/unit/test_schema_contract.py. A block missed is a dropdown
-      # offering different options depending on the kind you look at, and the
-      # server accepts that in silence.
+      # The list now lives in eleven blocks, enumerated in otn_base.yml. A block
+      # missed is a dropdown offering different options depending on the kind you
+      # look at, and the server accepts that in silence.
       - name: element_class
         kind: Dropdown
         default_value: odu_switch
@@ -682,3 +680,171 @@ nodes:
         # the other.
         on_delete: no-action
         order_weight: 1900
+
+  # Two attenuator kinds rather than one carrying an attenuator_type Dropdown and
+  # an optional range. That is the split the five monitor kinds already argue
+  # for: a pad with a maximum is a field that should not exist, and with two
+  # kinds it does not.
+  #
+  # Neither kind declares ports. Both inherit `ports` from OtnGenericDevice and
+  # hold none, and both reach a path through OtnPathHop.element the way
+  # OtnFiberSpan does.
+  #
+  # The budget engine adds attenuation_mdb to the inherited insertion_loss_mdb
+  # itself. No summed total is stored: one number could not say which half is the
+  # device and which is the setting.
+  - name: FixedAttenuator
+    namespace: Otn
+    description: A pad. One fixed amount of loss, patched into a link that arrives too hot.
+    label: Fixed attenuator
+    icon: mdi:filter-outline
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericDevice
+      - OtnOpticalElement
+    attributes:
+      - name: element_class
+        kind: Dropdown
+        default_value: attenuator
+        choices:
+          - name: transponder
+            label: Transponder
+            color: "#2196f3"
+          - name: roadm
+            label: ROADM
+            color: "#9c27b0"
+          - name: amplifier
+            label: Amplifier
+            color: "#ff9800"
+          - name: mux_demux
+            label: Mux/demux
+            color: "#00bcd4"
+          - name: patch_panel
+            label: Patch panel
+            color: "#9e9e9e"
+          - name: fiber_span
+            label: Fiber span
+            color: "#4caf50"
+          - name: splitter
+            label: Splitter
+            color: "#8bc34a"
+          - name: attenuator
+            label: Attenuator
+            color: "#795548"
+          - name: raman_pump
+            label: Raman pump
+            color: "#e91e63"
+          - name: odu_switch
+            label: ODU switch
+            color: "#673ab7"
+        optional: false
+        description: What the optical budget engine branches on.
+        order_weight: 1800
+      - name: attenuation_mdb
+        kind: Number
+        default_value: 0
+        parameters:
+          min_value: 0
+          max_value: 30000
+        optional: false
+        description: Attenuation the pad is set to, in millidecibels. 5.0 dB is 5000.
+        order_weight: 1900
+      - name: attenuation_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if attenuation_mdb__value is not none %}{{ attenuation_mdb__value / 1000 }} dB{% endif %}
+        optional: true
+        description: Attenuation in dB. Read-only, derived from attenuation_mdb.
+        order_weight: 1910
+
+  - name: VariableAttenuator
+    namespace: Otn
+    description: A VOA. The same loss, dialled rather than fixed, within the range the hardware has.
+    label: Variable attenuator
+    icon: mdi:tune-variant
+    include_in_menu: false
+    inherit_from:
+      - OtnGenericDevice
+      - OtnOpticalElement
+    attributes:
+      - name: element_class
+        kind: Dropdown
+        default_value: attenuator
+        choices:
+          - name: transponder
+            label: Transponder
+            color: "#2196f3"
+          - name: roadm
+            label: ROADM
+            color: "#9c27b0"
+          - name: amplifier
+            label: Amplifier
+            color: "#ff9800"
+          - name: mux_demux
+            label: Mux/demux
+            color: "#00bcd4"
+          - name: patch_panel
+            label: Patch panel
+            color: "#9e9e9e"
+          - name: fiber_span
+            label: Fiber span
+            color: "#4caf50"
+          - name: splitter
+            label: Splitter
+            color: "#8bc34a"
+          - name: attenuator
+            label: Attenuator
+            color: "#795548"
+          - name: raman_pump
+            label: Raman pump
+            color: "#e91e63"
+          - name: odu_switch
+            label: ODU switch
+            color: "#673ab7"
+        optional: false
+        description: What the optical budget engine branches on.
+        order_weight: 1800
+      - name: attenuation_mdb
+        kind: Number
+        default_value: 0
+        parameters:
+          min_value: 0
+          max_value: 30000
+        optional: false
+        description: Attenuation the pad is set to, in millidecibels. 5.0 dB is 5000.
+        order_weight: 1900
+      - name: attenuation_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if attenuation_mdb__value is not none %}{{ attenuation_mdb__value / 1000 }} dB{% endif %}
+        optional: true
+        description: Attenuation in dB. Read-only, derived from attenuation_mdb.
+        order_weight: 1910
+      # The absolute ceiling is on the attribute, so the schema refuses a
+      # physically impossible figure at write time. It cannot refuse a setting
+      # past this device's own maximum, a sibling attribute's value, so
+      # attenuator_range owns that half and only that half.
+      - name: max_attenuation_mdb
+        kind: Number
+        parameters:
+          min_value: 0
+          max_value: 30000
+        optional: false
+        description: Largest attenuation this device can be dialled to, in millidecibels.
+        order_weight: 1920
+      - name: max_attenuation_display
+        kind: Text
+        read_only: true
+        computed_attribute:
+          kind: Jinja2
+          jinja2_template: >-
+            {% if max_attenuation_mdb__value is not none %}{{ max_attenuation_mdb__value / 1000 }} dB{% endif %}
+        optional: true
+        description: Maximum attenuation in dB. Read-only, derived from max_attenuation_mdb.
+        order_weight: 1930

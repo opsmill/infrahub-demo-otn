@@ -3,8 +3,8 @@
 name: Update Infrahub version
 
 # One workflow for both components, the way infrahub-demo-dc does it. There used
-# to be two, and the split was the reason the SDK arm went a year without
-# producing a pull request: it was the file nobody looked at.
+# to be two, and the SDK arm went a year without producing a pull request: it was
+# the file nobody looked at.
 #
 # The Infrahub version is the one dependency Dependabot cannot follow. The
 # Dockerfile's FROM interpolates a build arg rather than naming a tag, which the
@@ -15,21 +15,19 @@ name: Update Infrahub version
 # Six, and only six. `.env.example` and `ci.yml` each carried a seventh and an
 # eighth that nothing rewrote and nothing checked, so a bump moved six of eight.
 # Both now carry no version at all, `tests/unit/test_pins.py` fails if one
-# returns, and the sweep below names them so a reintroduction fails the bump
-# rather than shipping inside it.
+# returns, and the sweep below names them.
 #
-# The infrahub-sdk specifier is different: it is one specifier in one file, and
-# Dependabot can follow it. This workflow moves it too so that an SDK release
-# gets a pull request the moment it lands rather than on Dependabot's schedule,
-# and so that both components share one set of guards. It still races the
-# `infrahub-sdk` group in dependabot.yml, as the workflow it replaces did;
-# whichever opens first, the other closes as already applied.
+# The infrahub-sdk specifier is one specifier in one file and Dependabot can
+# follow it. This workflow moves it too, so an SDK release gets a pull request
+# the moment it lands and both components share one set of guards. It races the
+# `infrahub-sdk` group in dependabot.yml; whichever opens first, the other closes
+# as already applied.
 #
 # Driven by dispatch rather than a schedule, the way infrahub-demo-dc does it: a
-# release is an event Infrahub already knows about, and polling for it just adds
-# up to a week of latency. Until Infrahub's release pipeline is pointed at this
-# repository the workflow_dispatch inputs are how it gets used, and they are
-# also how a bump gets retried or pinned to a specific version by hand.
+# release is an event Infrahub already knows about, and polling adds up to a week
+# of latency. Until Infrahub's release pipeline is pointed at this repository the
+# workflow_dispatch inputs are how it gets used, and how a bump gets retried or
+# pinned to a version by hand.
 on:
   repository_dispatch:
     types: [trigger-infrahub-update, trigger-infrahub-sdk-python-update]
@@ -55,19 +53,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
-      # Keyed on dispatch type plus the raw payload versions. The type is what
+      # Keyed on dispatch type plus the raw payload versions: the type is what
       # disambiguates client_payload.version, and separate bracketed slots stop
-      # two manual dispatches that differ only in SDK version from serialising.
+      # two dispatches differing only in SDK version from serialising.
       group: update-infrahub-${{ github.event.action || 'manual' }}-iv[${{ github.event.client_payload.version || github.event.inputs.infrahub_version }}]-sdk[${{ github.event.inputs.infrahub_sdk_version }}]
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
 
-      # A shell `case` on the dispatch type, not a nest of ${{ }} expressions.
-      # Both producers send only the ambiguous `client_payload.version` key, and
-      # which component it names depends on the dispatch type. Attributing that
-      # inside an expression is what put an Infrahub version onto the
-      # infrahub-sdk specifier in two sibling repositories.
+      # A shell `case` on the dispatch type, not a nest of ${{ }} expressions. Both
+      # producers send only the ambiguous `client_payload.version` key, and
+      # attributing that inside an expression is what put an Infrahub version onto
+      # the infrahub-sdk specifier in two sibling repositories.
       - name: Resolve the requested versions
         id: resolve
         env:
@@ -108,7 +105,7 @@ jobs:
           fi
 
           # Validated before either value reaches a regex replacement or
-          # $GITHUB_ENV. A version carrying shell or regex metacharacters would
+          # $GITHUB_ENV: a version carrying shell or regex metacharacters would
           # otherwise be substituted into five files verbatim.
           for name in INFRAHUB_VERSION SDK_VERSION; do
             value="${!name}"
@@ -127,9 +124,8 @@ jobs:
           CURRENT_SDK=$(grep -oP '"infrahub-sdk\[all,ctl\][=<>~]+\K[^",]+' pyproject.toml)
 
           # The `chore/` names the two workflows this replaces already used.
-          # Nothing reads them: ci.yml decides the integration tier from the
-          # paths a change touches, via .github/file-filters.yml, so the prefix
-          # is a human convention rather than a gate.
+          # Nothing reads them: ci.yml decides the integration tier from the paths
+          # a change touches, so the prefix is a human convention, not a gate.
           if [ -n "${INFRAHUB_VERSION}" ] && [ -n "${SDK_VERSION}" ]; then
             BRANCH_NAME="chore/infrahub-${INFRAHUB_VERSION}-sdk-${SDK_VERSION}"
             SUBJECT="Infrahub ${INFRAHUB_VERSION} and infrahub-sdk ${SDK_VERSION}"
@@ -158,10 +154,9 @@ jobs:
           CURRENT: ${{ steps.resolve.outputs.current_infrahub }}
         run: |
           set -euo pipefail
-          # Each rewrite is anchored to the syntax around it and then read back.
-          # A pattern that silently stops matching is the failure this workflow
-          # exists to prevent, and it is invisible without the read-back: the run
-          # goes green having changed nothing in that file.
+          # Each rewrite is anchored to the syntax around it and then read back. A
+          # pattern that silently stops matching is invisible without the
+          # read-back: the run goes green having changed nothing in that file.
           rewrite() {
             path="$1"
             pattern="$2"
@@ -203,10 +198,9 @@ jobs:
             exit 1
           fi
 
-          # .env.example and ci.yml are swept but never rewritten: they are
-          # required to hold no version, so a match there is a declaration that
-          # has crept back rather than one the loop missed. The message says so,
-          # because the fix is to delete the number rather than add a rewrite.
+          # .env.example and ci.yml are swept but never rewritten: they must hold
+          # no version, so a match there is a declaration that has crept back
+          # rather than one the loop missed.
           if grep -rn --fixed-strings "${CURRENT}" .env.example .github/workflows/ci.yml; then
             echo "::error::.env.example or ci.yml states ${CURRENT}. Neither may carry a version: nothing rewrites them, so the value goes stale on the next bump. Delete the number; the Dockerfile's ARG default supplies it."
             exit 1
@@ -231,10 +225,9 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
 
-      # pyproject.toml alone is the signal, deliberately not uv.lock: a dispatch
-      # that resolved a real version can still change nothing, which is a loud
-      # no-op rather than a failure. A rewrite that was attempted and failed
-      # cannot reach here, because each rewrite verifies its own edit.
+      # pyproject.toml alone is the signal, not uv.lock: a dispatch that resolved
+      # a real version can still change nothing, which is a loud no-op rather than
+      # a failure. A failed rewrite cannot reach here; each one verifies its edit.
       - name: Detect whether anything actually changed
         id: changed
         run: |
@@ -253,9 +246,8 @@ jobs:
         run: uv lock
 
       # test_pins.py compares all six declarations against the Dockerfile and
-      # refuses a version literal in the two files that must carry none. Running
-      # it here means a missed file fails the workflow that caused it rather than
-      # the next unrelated pull request.
+      # refuses a version literal in the two files that must carry none. Run here
+      # so a missed file fails the workflow that caused it.
       - name: Check the declarations agree
         if: steps.changed.outputs.changed == 'true'
         run: uv run pytest tests/unit/test_pins.py -v
@@ -264,10 +256,9 @@ jobs:
         if: steps.changed.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
-          # GH_UPDATE_PACKAGE_OTTO, never the default GITHUB_TOKEN. A pull
-          # request opened with GITHUB_TOKEN triggers no workflow runs, and the
-          # CI run is the only thing that answers whether the new release still
-          # behaves the way this demo assumes.
+          # GH_UPDATE_PACKAGE_OTTO, never the default GITHUB_TOKEN. A pull request
+          # opened with GITHUB_TOKEN triggers no workflow runs, and the CI run is
+          # the only thing that answers whether the new release still behaves.
           token: ${{ secrets.GH_UPDATE_PACKAGE_OTTO }}
           branch: ${{ steps.resolve.outputs.branch_name }}
           title: "Bump to ${{ steps.resolve.outputs.subject }}"

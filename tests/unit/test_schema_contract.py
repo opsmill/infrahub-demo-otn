@@ -50,7 +50,7 @@ from infrahub_demo_otn.units import (
     cwdm_index_to_wavelength_nm,
     wavelength_nm_to_band,
 )
-from tests.unit.conftest import SCHEMA_DIR, objects_of_kind, schema_files
+from tests.unit.conftest import SCHEMA_DIR, objects_of_kind, pinned, pinned_tuple, schema_files
 
 # `_ohm` stays here and is deliberately absent from SUFFIX_DIVISORS below.
 # Impedance is a plain integer in ohms, not a scaled quantity, so "must be a
@@ -96,49 +96,22 @@ UNIT_SUFFIXES = (
 BANNED_KINDS = frozenset({"Float", "JSON", "Any"})
 """Infrahub has no Float; JSON and Any are not filterable."""
 
-EXPECTED_DISPLAY_ATTRIBUTES = frozenset(
-    {
-        # Devices and ports.
-        "input_power_display",
-        "output_power_display",
-        "measured_gain_display",
-        "measured_osnr_display",
-        "insertion_loss_display",
-        "center_frequency_display",
-        "tx_power_display",
-        "rx_sensitivity_display",
-        # Plant and the optics catalog.
-        "attenuation_display",
-        "dispersion_display",
-        "length_display",
-        "required_osnr_display",
-        "nominal_reach_display",
-        "bit_rate_display",
-        # Amplifiers. Both are _mdb, which SUFFIX_DIVISORS already maps to
-        # MDB_PER_DB, so the pin map below needs no new entry: only these two
-        # names. `oms_sequence` gets no display, matching the span's.
-        "noise_figure_display",
-        "gain_display",
-        # The Raman pump. Also _mdb, so the pin map below covers it too.
-        "on_off_gain_display",
-        # Services, paths and hops: six on the service and the path, four on the
-        # hop. Three of the ten render nanoseconds, which is the only use of the
-        # `_ns` entry in the pin map below.
-        "max_latency_display",
-        "total_length_display",
-        "total_loss_display",
-        "osnr_total_display",
-        "osnr_margin_display",
-        "latency_display",
-        "cumulative_length_display",
-        "cumulative_loss_display",
-        "cumulative_osnr_display",
-        "cumulative_delay_display",
-    }
-)
-"""Twenty-four declarations, twenty-three names. `center_frequency_display` is
-declared on both `OtnOpticalPort` and `OtnFrequencyGrid`; the set is over names,
-and check 13 below is what keeps the two renderings identical."""
+EXPECTED_DISPLAY_ATTRIBUTES = frozenset(pinned_tuple("display_attributes"))
+"""One entry per `_display` name, from `pinned.yml`.
+
+Several names are declared on more than one kind, so this set is smaller than
+the number of declarations; which names those are is `REPEATED_DISPLAY_NAMES`
+below, read back out of the schema rather than counted here."""
+
+REPEATED_DISPLAY_NAMES = frozenset(pinned_tuple("repeated_display_names"))
+"""The `_display` names more than one kind declares.
+
+Pinned rather than counted, because the count was written into the docstring
+above and went stale twice without anything failing: `measured_gain_display`
+was never in it, and `attenuation_display` moved off the fiber type onto both
+attenuators. `test_the_display_attributes_are_exactly_the_expected_set` derives
+this set from the schema and compares, so the note cannot drift again. Check 13
+below is what keeps each repeated name's renderings identical."""
 
 SUFFIX_DIVISORS: dict[str, dict[str, int]] = {
     "_mdb": {"MDB_PER_DB": MDB_PER_DB},
@@ -329,23 +302,25 @@ def test_no_monitor_kind_carries_a_discriminator() -> None:
     assert not offenders, "monitor kinds carrying a discriminator: " + "; ".join(offenders)
 
 
-def test_the_schema_ships_the_forty_four_kinds_the_installation_page_promises() -> None:
-    """`installation-setup.mdx` tells a reader the schema load gives them 44
+def test_the_schema_ships_the_fifty_kinds_the_installation_page_promises() -> None:
+    """`installation-setup.mdx` tells a reader the schema load gives them 50
     empty kinds, and that is the first number the demo puts on screen. Eight
-    generics and 36 nodes. A kind added without the page being updated fails
+    generics and 42 nodes. A kind added without the page being updated fails
     here rather than on the reader's screen.
 
     `provisioning-scenarios.mdx`, `developer-guide.mdx`, `schema-reference.mdx`
     and `README.md` print the same total, so all five move together. It was 41 until
     `OtnOduSwitch` made the O-E-O device a kind of its own, 42 until
     `OtnDiversityGroup` made a diversity requirement an object instead of a
-    string on the service, and 43 until `OtnFacility` made a EuroHPC facility an
-    edge instead of the text after a prefix in a tag name.
+    string on the service, 43 until `OtnFacility` made a EuroHPC facility an
+    edge instead of the text after a prefix in a tag name, and 44 until the two
+    mux port kinds, the two attenuators and the two transceiver kinds landed
+    together.
     """
     generics = [entry for _, document in _load_documents() for entry in document.get("generics") or []]
     nodes = [entry for _, document in _load_documents() for entry in document.get("nodes") or []]
-    assert (len(generics), len(nodes)) == (8, 36), (
-        f"{len(generics)} generics and {len(nodes)} nodes, the page says 8 and 36"
+    assert (len(generics), len(nodes)) == (8, 42), (
+        f"{len(generics)} generics and {len(nodes)} nodes, the page says 8 and 42"
     )
 
 
@@ -386,10 +361,29 @@ def test_unit_suffixed_attributes_are_numbers() -> None:
 def test_the_display_attributes_are_exactly_the_expected_set() -> None:
     """A paired `_display` is added only where an operator reads the number.
     Dropping one loses the only readable rendering of that quantity; adding an
-    unexpected one means a scaled integer was given a display nobody needs."""
-    found = {attribute["name"] for _, _, attribute in _all_attributes() if str(attribute["name"]).endswith("_display")}
+    unexpected one means a scaled integer was given a display nobody needs.
+
+    Which names are declared twice is asserted too, because a display moved from
+    one kind to another leaves the set of names unchanged and is exactly the
+    edit check 13 has to hear about.
+    """
+    declarations = [
+        (kind, str(attribute["name"]))
+        for _, kind, attribute in _all_attributes()
+        if str(attribute["name"]).endswith("_display")
+    ]
+    found = {name for _, name in declarations}
     assert found == EXPECTED_DISPLAY_ATTRIBUTES, (
         f"expected {sorted(EXPECTED_DISPLAY_ATTRIBUTES)}, found {sorted(found)}"
+    )
+
+    kinds_per_name: dict[str, set[str]] = {}
+    for kind, name in declarations:
+        kinds_per_name.setdefault(name, set()).add(kind)
+    repeated = {name: kinds for name, kinds in kinds_per_name.items() if len(kinds) > 1}
+    assert set(repeated) == REPEATED_DISPLAY_NAMES, (
+        "the set of _display names declared on more than one kind moved: "
+        + "; ".join(f"{name} on {sorted(kinds)}" for name, kinds in sorted(repeated.items()))
     )
 
 
@@ -480,44 +474,16 @@ def test_display_divisors_are_legal_for_the_unit_they_render() -> None:
 
 
 def test_the_declared_divisor_pin_map_agrees_with_the_schema() -> None:
-    """The map above derives the constant; this states it, so both must agree.
+    """`SUFFIX_DIVISORS` derives the constant; `pinned.yml` states it, so both must agree.
 
     Deriving alone would silently accept a display whose source attribute was
     renamed into a different unit. Stating alone is the pin-by-name map that
     has to be edited by hand for every new `_display`. Holding both and
     asserting they match is what makes either one load-bearing.
     """
-    required: dict[str, str] = {
-        "input_power_display": "MDB_PER_DB",
-        "output_power_display": "MDB_PER_DB",
-        "measured_gain_display": "MDB_PER_DB",
-        "measured_osnr_display": "MDB_PER_DB",
-        "insertion_loss_display": "MDB_PER_DB",
-        "tx_power_display": "MDB_PER_DB",
-        "rx_sensitivity_display": "MDB_PER_DB",
-        "center_frequency_display": "MHZ_PER_THZ",
-        "attenuation_display": "MDB_PER_DB",
-        "dispersion_display": "FS_PER_PS",
-        "length_display": "M_PER_KM",
-        "required_osnr_display": "MDB_PER_DB",
-        "nominal_reach_display": "M_PER_KM",
-        "bit_rate_display": "KBPS_PER_MBPS",
-        "noise_figure_display": "MDB_PER_DB",
-        "gain_display": "MDB_PER_DB",
-        "on_off_gain_display": "MDB_PER_DB",
-        "max_latency_display": "NS_PER_US",
-        "total_length_display": "M_PER_KM",
-        "total_loss_display": "MDB_PER_DB",
-        "osnr_total_display": "MDB_PER_DB",
-        "osnr_margin_display": "MDB_PER_DB",
-        "latency_display": "NS_PER_US",
-        "cumulative_length_display": "M_PER_KM",
-        "cumulative_loss_display": "MDB_PER_DB",
-        "cumulative_osnr_display": "MDB_PER_DB",
-        "cumulative_delay_display": "NS_PER_US",
-    }
+    required: dict[str, str] = {name: str(constant) for name, constant in pinned()["display_divisors"].items()}
     assert set(required) == EXPECTED_DISPLAY_ATTRIBUTES, (
-        "the divisor pin-map and EXPECTED_DISPLAY_ATTRIBUTES disagree: "
+        "pinned.yml: display_divisors and display_attributes disagree: "
         f"{sorted(set(required) ^ EXPECTED_DISPLAY_ATTRIBUTES)}"
     )
 
@@ -757,14 +723,31 @@ def test_the_g652_fiber_type_matches_the_units_default() -> None:
     assert fiber_types["G.652.D"]["group_index_milli"] == GROUP_INDEX_G652_MILLI
 
 
-def test_every_element_class_override_restates_the_generic_choices() -> None:
+def _generic_dropdowns() -> dict[str, dict[str, dict[str, Any]]]:
+    """Every Dropdown declared on a generic, as {generic: {name: attribute}}."""
+    declared: dict[str, dict[str, dict[str, Any]]] = {}
+    for _, document in _load_documents():
+        for entry in document.get("generics") or []:
+            kind = f"{entry.get('namespace', '')}{entry.get('name', '')}"
+            declared[kind] = {
+                str(attribute["name"]): attribute
+                for attribute in entry.get("attributes") or []
+                if attribute.get("kind") == "Dropdown"
+            }
+    return declared
+
+
+def test_every_restated_dropdown_repeats_every_choice_of_its_generic() -> None:
     """The one duplication in `schemas/`, held to its source, and the only guard.
 
-    `element_class` is declared on `OtnOpticalElement` and overridden on each of
-    the seven concrete kinds that inherit it, so each can carry a
-    `default_value` matching its own class. Overriding an inherited Dropdown
-    requires the full `choices` list, so the ten choices are written nine
-    times.
+    The rule, stated once for every Dropdown rather than once per attribute:
+    **a kind that restates an inherited Dropdown restates every choice of it.**
+    Restating is optional. `element_class` is restated so each device can carry
+    the `default_value` its own class needs, and `connector_type` is restated
+    because Infrahub refuses to change an attribute's kind on a generic
+    underneath kinds that have already materialised it. A kind that restates
+    neither, as the two mux port kinds do, inherits the list and is right. What
+    is never right is a restatement that is one choice short.
 
     The server catches only half of getting that wrong, which is why this test
     is load-bearing rather than belt and braces. Omitting the `choices` key
@@ -780,9 +763,46 @@ def test_every_element_class_override_restates_the_generic_choices() -> None:
     looking at, and this test is the only thing that will say so. Weakening it
     removes the guard entirely.
 
-    The default is checked too. It has to be one of the choices, and it has to
-    be the class the kind actually is, which is the whole reason the override
-    exists.
+    Nothing here counts restatements. A seventh port kind restating
+    `connector_type`, or a new generic Dropdown restated for the first time,
+    joins the loop and is checked; only a restatement that drifts fails.
+    """
+    inherited_dropdowns = _generic_dropdowns()
+    checked: list[str] = []
+    offenders: list[str] = []
+    for path, document in _load_documents():
+        for entry in document.get("nodes") or []:
+            kind = f"{entry.get('namespace', '')}{entry.get('name', '')}"
+            for parent in entry.get("inherit_from") or []:
+                for attribute in entry.get("attributes") or []:
+                    name = str(attribute.get("name", ""))
+                    generic_attribute = (inherited_dropdowns.get(parent) or {}).get(name)
+                    if generic_attribute is None:
+                        continue
+                    checked.append(f"{kind}.{name}")
+                    if attribute.get("kind") != "Dropdown":
+                        offenders.append(
+                            f"{kind}.{name} in {path.name} restates {parent}.{name} as "
+                            f"kind {attribute.get('kind')}, and a Dropdown cannot change kind underneath a generic"
+                        )
+                    elif attribute.get("choices") != generic_attribute.get("choices"):
+                        offenders.append(
+                            f"{kind}.{name} in {path.name} restates a different choice list from {parent}. "
+                            "A short list loads without complaint and fails only when an object writes the "
+                            "missing value, so the full list has to be repeated and kept in step here."
+                        )
+    assert not offenders, "; ".join(offenders)
+    assert checked, "no kind restates an inherited Dropdown, so this test asserted nothing"
+
+
+def test_every_element_class_override_declares_the_class_its_kind_is() -> None:
+    """The half of the override that is not the choice list.
+
+    The choices are held to the generic by the test above. This one pins the
+    generic's own list, which that comparison reads at runtime and so cannot
+    catch a choice deleted everywhere at once, and it pins each kind's
+    `default_value`: it has to be one of the choices, and it has to be the class
+    the kind actually is, which is the whole reason the override exists.
     """
     attributes = _attributes_by_kind()
     generic = next(
@@ -792,7 +812,7 @@ def test_every_element_class_override_restates_the_generic_choices() -> None:
     assert generic is not None, "OtnOpticalElement no longer declares element_class"
     expected = generic.get("choices")
     assert expected, "OtnOpticalElement.element_class declares no choices"
-    # Pinned. The comparison below reads the generic at runtime, so a choice
+    # Pinned. The restatement test reads the generic at runtime, so a choice
     # deleted from the generic and from every override would pass it silently.
     assert [str(choice.get("name")) for choice in expected] == [
         "transponder",
@@ -816,6 +836,10 @@ def test_every_element_class_override_restates_the_generic_choices() -> None:
         "OtnFiberSpan": "fiber_span",
         "OtnRamanPump": "raman_pump",
         "OtnOduSwitch": "odu_switch",
+        # Both attenuators default to the same choice. The kinds differ by the
+        # range one of them carries, not by what they are.
+        "OtnFixedAttenuator": "attenuator",
+        "OtnVariableAttenuator": "attenuator",
     }
 
     for kind, default in sorted(expected_defaults.items()):
@@ -824,11 +848,6 @@ def test_every_element_class_override_restates_the_generic_choices() -> None:
             None,
         )
         assert override is not None, f"{kind} no longer overrides element_class, so it has no default"
-        assert override.get("choices") == expected, (
-            f"{kind}.element_class restates a different choice list from OtnOpticalElement. "
-            "A short list loads without complaint and fails only when an object writes the "
-            "missing value, so the full list has to be repeated and kept in step here."
-        )
         assert override.get("default_value") == default, (
             f"{kind}.element_class defaults to {override.get('default_value')!r}, expected {default!r}"
         )
@@ -883,19 +902,10 @@ def test_a_running_total_is_capped_no_lower_than_the_total_it_accumulates(hop_na
             )
 
 
-# Every kind inheriting OtnOpticalElement. OtnRouter is deliberately absent:
-# light terminates at a router, so a router contributes no insertion loss and a
-# query against the generic must not return one.
-OPTICAL_ELEMENT_KINDS = (
-    "OtnAmplifier",
-    "OtnFiberSpan",
-    "OtnMuxDemux",
-    "OtnOduSwitch",
-    "OtnPatchPanel",
-    "OtnRamanPump",
-    "OtnRoadm",
-    "OtnTransponder",
-)
+# Every kind inheriting OtnOpticalElement. `pinned.yml` states which kinds and
+# why each of OtnRouter, the two mux port kinds and the two transceiver kinds is
+# absent. `test_doc_claims.py` reads the same pin and sums the manifest over it.
+OPTICAL_ELEMENT_KINDS = pinned_tuple("optical_element_kinds")
 
 
 def test_the_optical_element_generic_has_exactly_the_pinned_implementers() -> None:
@@ -923,8 +933,9 @@ def test_the_optical_element_generic_has_exactly_the_pinned_implementers() -> No
                 declared.add(f"{node['namespace']}{node['name']}")
 
     assert declared == set(OPTICAL_ELEMENT_KINDS), (
-        "the set of kinds inheriting OtnOpticalElement moved. Update the tuple here, the "
-        "matching one in tests/integration/test_infrahub.py, and the count the schema "
+        "the set of kinds inheriting OtnOpticalElement moved. Update optical_element_kinds in "
+        "tests/unit/pinned.yml, the matching tuple in tests/integration/test_infrahub.py, "
+        "and the count the schema "
         "reference and concepts pages state, or the docs go stale and the budget sums a "
         f"kind nobody decided on. Added: {sorted(declared - set(OPTICAL_ELEMENT_KINDS))}. "
         f"Removed: {sorted(set(OPTICAL_ELEMENT_KINDS) - declared)}."
@@ -1163,3 +1174,66 @@ def test_no_port_kind_but_the_line_port_carries_a_carrier() -> None:
                     continue
                 names = {item["name"] for item in node.get("relationships") or []}
                 assert "carrier" not in names, f"{kind} declares a carrier relationship, only OtnLinePort may"
+
+
+def test_a_port_holds_one_module_because_both_ends_of_the_edge_are_cardinality_one() -> None:
+    """The rule `transceiver_placement` used to carry in Python.
+
+    `OtnTransceiver.port` and the `transceiver` on each caged port kind share the
+    `otn_optical_port__transceiver` identifier, so the two sides are one edge
+    rather than two phantom one-way links. Both ends are cardinality one, which
+    is what makes the second module in a port a write the server refuses:
+
+        Node 18d19871-0d7f-6758-306b-1188b66bb9eb has 2 peers for
+        otn_optical_port__transceiver, maximum of 1 allowed
+
+    Optional on both sides, so a spare, an RMA and a decommissioned unit stay
+    modellable and no loaded port needs a value. That optionality is why a
+    `uniqueness_constraints` on `port` was refused: Infrahub takes one only on a
+    mandatory relationship.
+    """
+    unit_side = _relationship("OtnTransceiver", "port")
+    assert unit_side["identifier"] == "otn_optical_port__transceiver"
+    assert unit_side["cardinality"] == "one"
+    assert unit_side["optional"] is True
+
+    for kind in ("OtnLinePort", "OtnClientPort", "OtnRouterPort"):
+        port_side = _relationship(kind, "transceiver")
+        assert port_side["peer"] == "OtnTransceiver"
+        assert port_side["identifier"] == "otn_optical_port__transceiver", (
+            f"{kind}.transceiver is on a different identifier from OtnTransceiver.port, so the two sides are "
+            f"two one-way links and neither end limits the other"
+        )
+        assert port_side["cardinality"] == "one", (
+            f"{kind}.transceiver is cardinality {port_side['cardinality']}, so the port would accept a second "
+            f"module and the rule this replaced would be enforced nowhere"
+        )
+        assert port_side["optional"] is True
+        assert port_side["kind"] == "Attribute"
+        assert port_side["on_delete"] == "no-action"
+
+
+def test_only_the_three_caged_port_kinds_carry_a_transceiver() -> None:
+    """Not on `OtnOpticalPort`, and not on the five kinds that hold no module.
+
+    The generic is inherited by all eight optical port kinds, five of which are
+    fixed interfaces on the equipment. A field they can never fill invites a null
+    check and lets a write record a pluggable in an amplifier port with the
+    schema's blessing. Declaring the edge on the three concrete kinds gives the
+    field to exactly the kinds that have a cage.
+    """
+    caged = {"OtnLinePort", "OtnClientPort", "OtnRouterPort"}
+    port_generics = ("OtnGenericPort", "OtnOpticalPort")
+    for _, document in _load_documents():
+        for group in ("generics", "nodes"):
+            for node in document.get(group) or []:
+                kind = f"{node['namespace']}{node['name']}"
+                if kind in caged:
+                    continue
+                inherited = set(node.get("inherit_from") or [])
+                if kind not in port_generics and not inherited & set(port_generics):
+                    continue
+                names = {item["name"] for item in node.get("relationships") or []}
+                assert "transceiver" not in names, (
+                    f"{kind} declares a transceiver relationship, and only the three port kinds with a cage may"
+                )

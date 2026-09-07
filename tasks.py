@@ -89,6 +89,11 @@ CHECKS = (
     "channel_count_consistency",
     "monitor_completeness",
     "carrier_termination",
+    "mux_channel_binding",
+    "attenuator_range",
+    "transceiver_placement",
+    "transceiver_mode_support",
+    "connector_polish",
 )
 
 DEMO_BRANCH = "demo"
@@ -103,6 +108,11 @@ OEO_REFUSED_BRANCH = "oeo-refused"
 OEO_CLOSED_BRANCH = "oeo-closed"
 DIVERSITY_BRANCH = "diversity-demo"
 MONITOR_GAP_BRANCH = "monitor-gap"
+MUX_BINDING_BRANCH = "mux-binding"
+ATTENUATOR_RANGE_BRANCH = "attenuator-range"
+TRANSCEIVER_PLACEMENT_BRANCH = "transceiver-placement"
+TRANSCEIVER_MODE_BRANCH = "transceiver-mode"
+CONNECTOR_POLISH_BRANCH = "connector-polish"
 
 DEMO_SERVICES = (
     "svc-ber-ams-400g",
@@ -208,6 +218,36 @@ SCENARIO_BRANCHES: tuple[ScenarioBranch, ...] = (
         branch=MONITOR_GAP_BRANCH,
         files=("demo/10_amplifier_without_monitor.yml",),
         check="monitor_completeness",
+    ),
+    ScenarioBranch(
+        task="demo-mux-binding",
+        branch=MUX_BINDING_BRANCH,
+        files=("demo/11_mux_channel_binding.yml",),
+        check="mux_channel_binding",
+    ),
+    ScenarioBranch(
+        task="demo-attenuator-range",
+        branch=ATTENUATOR_RANGE_BRANCH,
+        files=("demo/12_attenuator_range.yml",),
+        check="attenuator_range",
+    ),
+    ScenarioBranch(
+        task="demo-transceiver-placement",
+        branch=TRANSCEIVER_PLACEMENT_BRANCH,
+        files=("demo/13_transceiver_placement.yml",),
+        check="transceiver_placement",
+    ),
+    ScenarioBranch(
+        task="demo-transceiver-mode",
+        branch=TRANSCEIVER_MODE_BRANCH,
+        files=("demo/14_transceiver_mode_support.yml",),
+        check="transceiver_mode_support",
+    ),
+    ScenarioBranch(
+        task="demo-connector-polish",
+        branch=CONNECTOR_POLISH_BRANCH,
+        files=("demo/15_connector_polish.yml",),
+        check="connector_polish",
     ),
 )
 
@@ -502,7 +542,7 @@ def _ensure_dataset(context: Context, branch: str, files: tuple[str, ...] = ()) 
 
     The stack check stays a refusal because a stack that is not answering is the
     one precondition a task cannot satisfy for itself. Everything after it is
-    narrated: a task that silently spends a minute loading 2344 objects looks
+    narrated: a task that silently spends a minute loading 2484 objects looks
     hung.
     """
     _require_stack()
@@ -567,7 +607,19 @@ TASK_GROUPS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ("The walkthrough", ("demo-setup", "demo", *WALKTHROUGH, "demo-budget", "demo-drift"), ()),
     (
         "The loadable scenarios",
-        ("demo-raman", "demo-odu", "demo-regenerator", "demo-diversity", "demo-monitor-gap", "demo-clean"),
+        (
+            "demo-raman",
+            "demo-odu",
+            "demo-regenerator",
+            "demo-diversity",
+            "demo-monitor-gap",
+            "demo-mux-binding",
+            "demo-attenuator-range",
+            "demo-transceiver-placement",
+            "demo-transceiver-mode",
+            "demo-connector-polish",
+            "demo-clean",
+        ),
         (),
     ),
     ("Read the data", ("inventory",), ("dataset-generate", "dataset-check", "maps-regenerate")),
@@ -1069,7 +1121,7 @@ def load(context: Context, branch: str = "main") -> None:
     load_schema(context, branch)
     console.print("[cyan]2/3[/cyan] menu")
     load_menu(context, branch)
-    console.print("[cyan]3/3[/cyan] objects, about a minute for 2344 of them")
+    console.print("[cyan]3/3[/cyan] objects, about a minute for 2484 of them")
     load_objects(context, branch)
     console.print(f"[green]ok[/green] loaded onto {branch}")
 
@@ -1820,6 +1872,140 @@ def demo_monitor_gap(context: Context, branch: str = MONITOR_GAP_BRANCH) -> None
         "  than as one total, because 306 covered amplifiers would hide nine\n"
         "  uncovered Raman pumps inside a single percentage. No other check moves on\n"
         "  this branch: an amplifier lights no wavelength and carries no service."
+    )
+    _next_step("demo-mux-binding")
+
+
+@task
+def demo_mux_binding(context: Context, branch: str = MUX_BINDING_BRANCH) -> None:
+    """A multiplexer port on no channel and one on two, and the check that finds both.
+
+    Both records load, because the two channel relationships are optional and
+    Infrahub has no cross-relationship constraint, so the schema cannot say
+    "exactly one of these two".
+    """
+    _banner("The multiplexer port on the wrong number of channels", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-mux-binding")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  Two findings, one per port. CH094 on mux-fra-01 binds neither plan, so\n"
+        "  nothing says what light it passes. CH1531-2 on mux-ams-02 binds dense\n"
+        "  channel 94 and coarse 1531 nm at once, where one filter slot passes one\n"
+        "  wavelength. The same run reports what it judged and what it did not: a\n"
+        "  mux line port binds no channel by design, and a dense binding is compared\n"
+        "  against nothing, because the graph holds no dense equivalent of\n"
+        "  cwdm_channels. No other check moves on this branch."
+    )
+    _next_step("demo-attenuator-range")
+
+
+@task
+def demo_attenuator_range(context: Context, branch: str = ATTENUATOR_RANGE_BRANCH) -> None:
+    """A VOA asked for more attenuation than it has, and the check that says so.
+
+    The record loads, because the schema owns the absolute range and not the
+    per-device one: 24.0 dB is inside the 0 to 30 dB the attribute allows, and
+    "not more than this device's own maximum" is a sibling attribute's value
+    that no cross-attribute constraint can reach.
+    """
+    _banner("The attenuator dialled past its own maximum", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-attenuator-range")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  One finding. voa-mil-01 is set to 24.000 dB and can produce 20.000 dB,\n"
+        "  so the device sits at its stop and the plant delivers 4.000 dB more power\n"
+        "  than the record claims. The same run says what it judged: both variable\n"
+        "  attenuators, neither of them at exactly its maximum, which would pass\n"
+        "  because the bound is inclusive. The two fixed pads are not judged and\n"
+        "  have no range to judge. No other check moves on this branch."
+    )
+    _next_step("demo-transceiver-placement")
+
+
+@task
+def demo_transceiver_placement(context: Context, branch: str = TRANSCEIVER_PLACEMENT_BRANCH) -> None:
+    """A pluggable optic in a port with no cage, and the check that finds it.
+
+    The record loads, because a relationship to a generic cannot be filtered by
+    peer kind: the schema can offer the port field or withhold it and cannot say
+    "any of these three kinds and none of the other five".
+    """
+    _banner("The pluggable in a port that cannot hold one", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-transceiver-placement")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  One finding. ZRP-BRU-01 is recorded in amp-ams-bru-08 OUT, which is an\n"
+        "  amplifier port and a fixed interface on the equipment. The same run says\n"
+        "  what it judged: nine units, six fitted and three on a shelf, and a unit on\n"
+        "  a shelf is what the optional port relationship exists to hold. That\n"
+        "  optionality is also why no uniqueness constraint can refuse two optics in\n"
+        "  one port, which is the other half this check owns.\n"
+        "  transceiver_mode_support speaks too, and does not block: pulling the\n"
+        "  module leaves oc-ch003-ams-bru with a pluggable at one end and integrated\n"
+        "  optics at the other, which it reports as INFO."
+    )
+    _next_step("demo-transceiver-mode")
+
+
+@task
+def demo_transceiver_mode(context: Context, branch: str = TRANSCEIVER_MODE_BRANCH) -> None:
+    """A 400ZR where the wavelength runs OpenZR+ 400G, and the check that says no.
+
+    Both parts are QSFP-DD, both DP-16QAM, both 400G. They differ in forward
+    error correction and therefore in reach, 120 km against 1000 km on a 220 km
+    section, and no schema constraint reaches across two nodes to say so.
+    """
+    _banner("The pluggable that cannot run the mode it is fitted for", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-transceiver-mode")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  One finding, and it names a part number and a mode because nothing else\n"
+        "  separates the two modules. QDD-400G-ZR ZR-SPARE-01 sits in rtr-ams-01\n"
+        "  1/2/1 and supports 400ZR alone, where oc-ch003-ams-bru runs OpenZR+ 400G.\n"
+        "  The same run says what it judged: three wavelengths against the parts at\n"
+        "  their line ports and forty skipped on integrated optics, which carry no\n"
+        "  part number to compare. A run with no findings and forty-three skips would\n"
+        "  have seen nothing, so the split is printed rather than left to silence."
+    )
+    _next_step("demo-connector-polish")
+
+
+@task
+def demo_connector_polish(context: Context, branch: str = CONNECTOR_POLISH_BRANCH) -> None:
+    """A blue jumper on Raman-pumped glass, and the check that refuses it.
+
+    Nothing about the port changed. A transponder is patched past the ROADM
+    straight onto the pumped line, so a UPC endface that was correct behind an
+    add/drop stage is now facing half a watt of pump light.
+    """
+    _banner("The endface that is right everywhere except here", f"[dim]branch {branch}[/dim]", "magenta")
+    scenario = _scenario("demo-connector-polish")
+    _scenario_branch(context, scenario, branch)
+
+    console.print(f"\n[cyan]->[/cyan] {scenario.check} on {branch}")
+    _ctl(context, f"check {scenario.check} --branch {branch}", warn=True)
+    console.print(
+        "\n  One finding. xpdr-vie-02 L2 now terminates span-vie-mil-01, which nine\n"
+        "  pumps fire into, and its endface is UPC. Polish is an attribute on the\n"
+        "  port and the pump is a relationship on the span, two hops apart, so no\n"
+        "  write could have been refused for this.\n"
+        "  The same run says what it judged: 133 spans, nine of them pumped, nine\n"
+        "  judged and none unjudgeable. That last figure is the one to read. A\n"
+        "  pumped span naming no terminating port is reported as unjudgeable rather\n"
+        "  than clean, because an empty traversal and two correct APC ends look the\n"
+        "  same from outside the check."
     )
     _next_step("demo-clean")
 

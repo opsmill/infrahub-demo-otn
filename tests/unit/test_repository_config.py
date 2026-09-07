@@ -428,7 +428,7 @@ def test_each_map_transform_binds_its_own_query_and_not_the_other_one() -> None:
     assert bound == {name: name for name in MAP_ARTIFACTS}
 
 
-def test_the_pipeline_runs_nine_checks() -> None:
+def test_the_pipeline_runs_fourteen_checks() -> None:
     """Nine, and one of them carries a name that was deleted in `ef89265`.
 
     The deleted `monitor_completeness` asserted that a monitor carried the
@@ -458,14 +458,19 @@ def test_the_pipeline_runs_nine_checks() -> None:
     """
     names = sorted(entry.name for entry in CONFIG.check_definitions)
     assert names == [
+        "attenuator_range",
         "carrier_termination",
         "channel_collision",
         "channel_count_consistency",
+        "connector_polish",
         "container_capacity",
         "diversity",
         "monitor_completeness",
+        "mux_channel_binding",
         "osnr_margin",
         "provisionable",
+        "transceiver_mode_support",
+        "transceiver_placement",
         "units_import",
     ]
     assert "monitor_completeness" in {entry.name for entry in CONFIG.queries}
