@@ -17,6 +17,7 @@ import shutil
 import subprocess  # noqa: S404
 import sys
 import time
+from functools import cache
 from typing import Any, NamedTuple
 
 import httpx
@@ -35,33 +36,12 @@ REPO_ROOT = pathlib.Path(__file__).parent.resolve()
 ENV_FILE = REPO_ROOT / ".env"
 DOCS_DIRECTORY = REPO_ROOT / "docs"
 
-BASE_VERSION = base_version()
-IMAGE = image_reference()
-"""The release this repository builds, and the image tag it produces.
-
-Derived from the installed `infrahub-testcontainers` rather than declared, so
-a lock refresh moves it and nothing here needs rewriting. Set
-`INFRAHUB_BASE_VERSION` to build against another release.
-"""
-
-# Written back so `docker compose` sees it. The override file reads
-# `${INFRAHUB_BASE_VERSION:?...}` and fails without it rather than falling back to
-# a literal, and every compose command below inherits this environment. Exported
-# once at the definition rather than passed at each call site, which is the thing
-# a sixth call site would forget.
-os.environ[OVERRIDE_VARIABLE] = BASE_VERSION
-
 PROJECT = os.getenv("INFRAHUB_DEMO_PROJECT", "infrahub-demo-otn")
 """The Compose project the lifecycle tasks build their commands from.
 
 Overridable, with the three port variables `docker-compose.override.yml` reads,
 so a test stack cannot collide with a developer's. `destroy` runs `down -v`.
 """
-
-COMPOSE = (
-    f"curl -sL https://infrahub.opsmill.io/{BASE_VERSION} | "
-    f"docker compose -f - -f docker-compose.override.yml -p {PROJECT}"
-)
 
 REMOTE_DIRECTORY = REPO_ROOT / ".remote"
 """Where `load-repository` writes the export the containers clone from.
@@ -318,6 +298,48 @@ def _env() -> dict[str, str]:
     return {**_load_env(), **os.environ}
 
 
+@cache
+def _base_version() -> str:
+    """The Infrahub release every command here builds and runs against.
+
+    Read through `_env()`, so an override set in `.env` counts as well as one
+    exported in the shell, and derived from the installed
+    infrahub-testcontainers when neither sets it. Resolved on use rather than at
+    import, so `invoke list` still works in a tree that has not been synced.
+    """
+    return base_version(_env())
+
+
+@cache
+def _image() -> str:
+    """The image tag `build` produces and `start` looks for."""
+    return image_reference(_env())
+
+
+def _compose() -> str:
+    """The compose command the lifecycle tasks run.
+
+    The upstream compose file is fetched by version, so the version selects the
+    stack as well as the tag on the image built from it.
+    """
+    return (
+        f"curl -sL https://infrahub.opsmill.io/{_base_version()} | "
+        f"docker compose -f - -f docker-compose.override.yml -p {PROJECT}"
+    )
+
+
+def _compose_env() -> dict[str, str]:
+    """The variable `docker-compose.override.yml` requires of every compose call.
+
+    Passed at each call rather than exported once at import. The override file
+    reads `${INFRAHUB_BASE_VERSION:?...}` and stops without it instead of
+    falling back to a literal, and passing it explicitly also beats a stale copy
+    Compose would otherwise read from `.env`, so the tag Compose resolves cannot
+    disagree with the one `_image()` reports.
+    """
+    return {OVERRIDE_VARIABLE: _base_version()}
+
+
 def _address() -> str:
     return _env().get("INFRAHUB_ADDRESS", "http://localhost:8000")
 
@@ -363,7 +385,7 @@ def _image_exists() -> bool:
     if shutil.which("docker") is None:
         return False
     result = subprocess.run(  # noqa: S603
-        ["docker", "image", "inspect", IMAGE],  # noqa: S607
+        ["docker", "image", "inspect", _image()],  # noqa: S607
         capture_output=True,
         check=False,
     )
@@ -701,8 +723,8 @@ def info(context: Context, branch: str = "main") -> None:  # noqa: ARG001
 
     lines = [
         f"[cyan]Address[/cyan]        {_address()}",
-        f"[cyan]Base version[/cyan]   {BASE_VERSION}",
-        f"[cyan]Image[/cyan]          {IMAGE} "
+        f"[cyan]Base version[/cyan]   {_base_version()}",
+        f"[cyan]Image[/cyan]          {_image()} "
         + ("[green]present[/green]" if _image_exists() else "[yellow]not built[/yellow]"),
         "[cyan]API token[/cyan]      " + ("[green]set[/green]" if _token() else "[red]missing[/red]"),
         "[cyan]Stack[/cyan]          " + ("[green]answering[/green]" if reachable else "[red]not answering[/red]"),
@@ -735,12 +757,12 @@ def info(context: Context, branch: str = "main") -> None:  # noqa: ARG001
 @task
 def build(context: Context, no_cache: bool = False) -> None:
     """Build the Infrahub image with infrahub_demo_otn installed."""
-    _banner("Building", f"[dim]{IMAGE}[/dim]", "green")
-    command = f"{COMPOSE} build"
+    _banner("Building", f"[dim]{_image()}[/dim]", "green")
+    command = f"{_compose()} build"
     if no_cache:
         command += " --no-cache"
-    context.run(command, pty=True)
-    console.print(f"[green]ok[/green] {IMAGE}")
+    context.run(command, pty=True, env=_compose_env())
+    console.print(f"[green]ok[/green] {_image()}")
 
 
 @task
@@ -754,7 +776,7 @@ def start(context: Context, rebuild: bool = False) -> None:
     # export then cannot write into it and `invoke init` fails on the one
     # command the docs tell a reader to run.
     REMOTE_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    context.run(f"{COMPOSE} up -d", pty=True)
+    context.run(f"{_compose()} up -d", pty=True, env=_compose_env())
     console.print(f"[green]ok[/green] Infrahub is starting at {_address()}")
     console.print("  It takes about a minute to answer. Check with [cyan]uv run invoke info[/cyan].")
 
@@ -763,7 +785,7 @@ def start(context: Context, rebuild: bool = False) -> None:
 def stop(context: Context) -> None:
     """Stop the stack. Volumes and data survive."""
     _banner("Stopping", style="yellow")
-    context.run(f"{COMPOSE} down", pty=True)
+    context.run(f"{_compose()} down", pty=True, env=_compose_env())
     console.print("[green]ok[/green] stopped, data kept")
 
 
@@ -772,7 +794,7 @@ def restart(context: Context, component: str = "") -> None:
     """Restart the stack, or one service with --component. Never rebuilds."""
     target = f" {component}" if component else ""
     _banner("Restarting", f"[dim]{component or 'every service'}[/dim]", "yellow")
-    context.run(f"{COMPOSE} restart{target}", pty=True)
+    context.run(f"{_compose()} restart{target}", pty=True, env=_compose_env())
     console.print("[green]ok[/green] restarted")
 
 
@@ -780,7 +802,7 @@ def restart(context: Context, component: str = "") -> None:
 def destroy(context: Context) -> None:
     """Stop the stack and delete its volumes. Every loaded object goes."""
     _banner("Destroying", "[red]Containers and volumes. Every loaded object goes.[/red]", "red")
-    context.run(f"{COMPOSE} down -v", pty=True)
+    context.run(f"{_compose()} down -v", pty=True, env=_compose_env())
     console.print("[green]ok[/green] destroyed")
 
 
@@ -1284,7 +1306,7 @@ def test_integration(context: Context, tier: str = "full") -> None:
     if tier not in TIERS:
         _fail(f"unknown tier {tier!r}; the tiers are {', '.join(sorted(TIERS))}")
     if not _image_exists():
-        _fail(f"The image {IMAGE} is missing.", "build")
+        _fail(f"The image {_image()} is missing.", "build")
     context.run(f"uv run pytest tests/integration -v{TIERS[tier]}", pty=True)
 
 
