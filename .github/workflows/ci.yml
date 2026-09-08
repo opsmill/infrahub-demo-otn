@@ -168,16 +168,32 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync
+      # The version comes from the installed infrahub-testcontainers, never from
+      # a literal here: this job passing the same number was a seventh
+      # declaration nothing rewrote and nothing guarded, so a bump left it
+      # building the release it had just moved off, silently and green. The
+      # Dockerfile's ARG has no default, so a missing build arg fails the build
+      # rather than quietly selecting one. `test_pins.py` fails if a literal
+      # returns here.
+      - name: Resolve the Infrahub version this build runs
+        id: version
+        run: |
+          set -euo pipefail
+          version=$(uv run python -c \
+            'from infrahub_demo_otn.baseversion import base_version; print(base_version())')
+          echo "base=${version}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Building against Infrahub ${version}"
       # The shared package reaching the worker is the assumption every check,
       # generator and transform rests on. Prove it on every change.
-      #
-      # No --build-arg. The Dockerfile's own `ARG INFRAHUB_BASE_VERSION=` default
-      # is the version. Passing the same literal here was a seventh declaration
-      # nothing rewrote and nothing guarded, so a bump left this job building the
-      # release it had just moved off, silently and green. `test_pins.py` now
-      # fails if a version literal returns here.
       - name: Build the custom Infrahub image
-        run: docker build -t infrahub-demo-otn:ci .
+        run: |
+          docker build \
+            --build-arg "INFRAHUB_BASE_VERSION=${{ steps.version.outputs.base }}" \
+            -t infrahub-demo-otn:ci .
       - name: Verify the worker can import the shared package
         run: |
           docker run --rm --entrypoint /.venv/bin/python infrahub-demo-otn:ci -c "

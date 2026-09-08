@@ -26,6 +26,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from infrahub_demo_otn.baseversion import OVERRIDE_VARIABLE, base_version, image_reference
 from infrahub_demo_otn.units import CBAND_EXTENT_MHZ, occupied_width_mhz
 
 console = Console()
@@ -34,8 +35,22 @@ REPO_ROOT = pathlib.Path(__file__).parent.resolve()
 ENV_FILE = REPO_ROOT / ".env"
 DOCS_DIRECTORY = REPO_ROOT / "docs"
 
-BASE_VERSION = os.getenv("INFRAHUB_BASE_VERSION", "1.11.0")
-IMAGE = f"opsmill/infrahub-demo-otn:{BASE_VERSION}"
+BASE_VERSION = base_version()
+IMAGE = image_reference()
+"""The release this repository builds, and the image tag it produces.
+
+Derived from the installed `infrahub-testcontainers` rather than declared, so
+a lock refresh moves it and nothing here needs rewriting. Set
+`INFRAHUB_BASE_VERSION` to build against another release.
+"""
+
+# Written back so `docker compose` sees it. The override file reads
+# `${INFRAHUB_BASE_VERSION:?...}` and fails without it rather than falling back to
+# a literal, and every compose command below inherits this environment. Exported
+# once at the definition rather than passed at each call site, which is the thing
+# a sixth call site would forget.
+os.environ[OVERRIDE_VARIABLE] = BASE_VERSION
+
 PROJECT = os.getenv("INFRAHUB_DEMO_PROJECT", "infrahub-demo-otn")
 """The Compose project the lifecycle tasks build their commands from.
 

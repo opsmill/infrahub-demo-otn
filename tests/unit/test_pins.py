@@ -1,37 +1,41 @@
-"""The Infrahub version is declared in six places; they must agree.
+"""The Infrahub version is declared once, and no file may restate it.
 
-Seven things are held to it, because `uv.lock` is not a declaration a bump
-writes but it is what decides which testcontainers release installs, and the
-specifier that names it is a floor rather than a pin.
+`src/infrahub_demo_otn/baseversion.py` resolves it from the installed
+`infrahub-testcontainers`. That is the whole model, and these tests hold the
+tree to it: the resolver behaves, and nothing anywhere writes a version literal
+that could go stale beside it.
 
-Nothing derives this version from anything else. The Dockerfile needs it as a
-build arg before any Python runs, Compose needs it to tag the image it builds,
-and the test stack needs it to know which image to pull, so each states it
-independently. That is six literals that a bump has to move together, and the
-failure when one is missed is not a syntax error: the stack builds one version
-and the tests exercise another, which surfaces as behaviour nobody can
-reproduce locally.
+It used to be six literals across five files that a bump had to move together,
+guarded by a module that compared all six against the Dockerfile. The failure
+was never a syntax error: the stack built one version and the tests exercised
+another. Worse, the six could only be moved by the one workflow that knew all
+five files, so a Dependabot lock refresh, which moves the version that actually
+installs, produced a pull request that could not be made green.
 
-`update-infrahub.yml` moves all six. This module is what makes that claim
-checkable, and what fails the moment a seventh declaration appears somewhere
-the workflow does not know about.
-
-That promise was made before and not kept: `.env.example` and `ci.yml` each
-held one, neither was rewritten and neither was checked, so a bump moved six of
-eight. Both now carry none, and the last two tests here hold them to it.
-
-The Dockerfile is the reference because it is the one the image is actually
-built from. Everything else is compared against it rather than against a
-constant restated here, so this file needs no edit when the version moves.
+Deriving instead of declaring removes both problems. What has to be guarded is
+no longer agreement between six copies but the absence of a second copy, which
+is what most of this module now checks. `.env.example` and `ci.yml` are here for
+their own reason: each once carried a seventh and an eighth declaration that
+nothing rewrote and nothing checked.
 """
 
 from __future__ import annotations
 
 import re
 import tomllib
+from fnmatch import fnmatch
 from pathlib import Path
 
 import pytest
+import yaml
+
+from infrahub_demo_otn.baseversion import (
+    IMAGE_REPOSITORY,
+    OVERRIDE_VARIABLE,
+    PACKAGED_VERSION,
+    base_version,
+    image_reference,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -41,187 +45,220 @@ TASKS = REPO_ROOT / "tasks.py"
 INTEGRATION_CONFTEST = REPO_ROOT / "tests" / "integration" / "conftest.py"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 UV_LOCK = REPO_ROOT / "uv.lock"
-
-# Files that must state the version NOWHERE. The six declarations above are the
-# ones a bump moves; these two were a seventh and an eighth that nothing moved
-# and nothing checked, so the rule for them is not "agree with the Dockerfile"
-# but "carry no version at all".
 ENV_EXAMPLE = REPO_ROOT / ".env.example"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+DEPENDABOT = REPO_ROOT / ".github" / "dependabot.yml"
+
+TESTCONTAINERS = "infrahub-testcontainers"
 
 
-def _base_version() -> str:
-    """The version the image is built from, read from the Dockerfile.
-
-    Returns:
-        The default value of the ``INFRAHUB_BASE_VERSION`` build arg.
-    """
-    match = re.search(r"^ARG INFRAHUB_BASE_VERSION=(\S+)$", DOCKERFILE.read_text(), re.MULTILINE)
-    assert match, "Dockerfile no longer declares `ARG INFRAHUB_BASE_VERSION=<version>`"
-    return match.group(1)
+def test_the_resolver_returns_the_installed_version() -> None:
+    """With no override, the version is the one that installed."""
+    assert base_version({}, packaged="1.11.2") == "1.11.2"
 
 
-def test_the_dockerfile_declares_a_base_version() -> None:
-    """The reference every other assertion here is made against."""
-    assert re.fullmatch(r"\d+\.\d+\.\d+[0-9a-z.]*", _base_version()), (
-        f"the base version {_base_version()!r} does not look like an Infrahub release"
-    )
+def test_an_override_wins_over_the_installed_version() -> None:
+    """How CI and a developer build against a release other than the locked one."""
+    assert base_version({OVERRIDE_VARIABLE: "1.12.0"}, packaged="1.11.2") == "1.12.0"
 
 
-def test_the_dockerfile_builds_from_the_arg_it_declares() -> None:
-    """A `FROM` with a literal tag would silently ignore the arg."""
-    assert "FROM registry.opsmill.io/opsmill/infrahub:${INFRAHUB_BASE_VERSION}" in DOCKERFILE.read_text(), (
-        "the FROM line no longer interpolates INFRAHUB_BASE_VERSION, so the build arg does nothing"
-    )
+@pytest.mark.parametrize("value", ["", "   "])
+def test_an_empty_override_is_not_a_version(value: str) -> None:
+    """`INFRAHUB_BASE_VERSION=` in a `.env` must not resolve to the empty tag.
 
-
-@pytest.mark.parametrize(
-    ("path", "pattern", "what"),
-    [
-        (COMPOSE_OVERRIDE, r"image: opsmill/infrahub-demo-otn:\$\{INFRAHUB_BASE_VERSION:-([^}]+)\}", "the image tag"),
-        (
-            COMPOSE_OVERRIDE,
-            r"INFRAHUB_BASE_VERSION: \"\$\{INFRAHUB_BASE_VERSION:-([^}]+)\}\"",
-            "the build arg passed to the Dockerfile",
-        ),
-        (TASKS, r'BASE_VERSION = os\.getenv\("INFRAHUB_BASE_VERSION", "([^"]+)"\)', "the version `invoke build` tags"),
-        (
-            INTEGRATION_CONFTEST,
-            r'TESTING_IMAGE_VERSION = os\.environ\.get\("INFRAHUB_BASE_VERSION", "([^"]+)"\)',
-            "the image the test stack runs",
-        ),
-    ],
-)
-def test_every_fallback_matches_the_dockerfile(path: Path, pattern: str, what: str) -> None:
-    """Each site states the same version as its own environment-variable fallback.
+    `.env` is layered over the environment, so a line someone uncommented and
+    left blank would otherwise produce `opsmill/infrahub-demo-otn:`.
 
     Args:
-        path: File declaring the version.
-        pattern: Expression whose first group is the declared version.
-        what: What that declaration controls, for the failure message.
+        value: A blank override spelling.
     """
-    match = re.search(pattern, path.read_text())
-    assert match, f"{path.relative_to(REPO_ROOT)} no longer declares {what} in the shape this guard expects"
-    assert match.group(1) == _base_version(), (
-        f"{path.relative_to(REPO_ROOT)} sets {what} to {match.group(1)}, "
-        f"but the Dockerfile builds {_base_version()}. A bump moved one and not the other."
+    assert base_version({OVERRIDE_VARIABLE: value}, packaged="1.11.2") == "1.11.2"
+
+
+def test_no_version_at_all_is_an_error_naming_the_fix() -> None:
+    """The one unresolvable case fails loudly rather than guessing a release."""
+    with pytest.raises(RuntimeError, match="uv sync"):
+        base_version({}, packaged="")
+
+
+def test_the_image_reference_is_the_repository_at_the_resolved_version() -> None:
+    """What `invoke build` tags and what the integration stack inspects."""
+    assert image_reference({}, packaged="1.11.2") == f"{IMAGE_REPOSITORY}:1.11.2"
+
+
+def test_the_installed_version_resolves_in_this_environment() -> None:
+    """The derivation works here, not just in principle.
+
+    Guards the import too: `infrahub_testcontainers.__version__` disappearing
+    would otherwise surface as a stack that pulls a strange tag.
+    """
+    assert PACKAGED_VERSION, "infrahub-testcontainers exports no __version__, so no version can be derived"
+    assert re.fullmatch(r"\d+\.\d+\.\d+[0-9a-z.]*", PACKAGED_VERSION), (
+        f"the installed testcontainers version {PACKAGED_VERSION!r} does not look like an Infrahub release"
     )
 
 
+def test_the_lock_resolves_the_version_the_derivation_returns() -> None:
+    """`uv.lock` is what installs, so it is what the resolver must report.
+
+    The check that closes the loop: everything else here trusts the installed
+    package, and this proves the installed package is the one the repository
+    committed rather than a stale local sync.
+    """
+    for entry in tomllib.loads(UV_LOCK.read_text())["package"]:
+        if entry["name"] == TESTCONTAINERS:
+            locked = str(entry["version"])
+            break
+    else:
+        raise AssertionError(f"uv.lock resolves no {TESTCONTAINERS}, so the stack cannot start")
+    assert locked == PACKAGED_VERSION, (
+        f"uv.lock resolves {TESTCONTAINERS} {locked} but {PACKAGED_VERSION} is installed. "
+        f"Run `uv sync` to install what the lock selects."
+    )
+
+
+def test_testcontainers_is_declared_so_there_is_something_to_derive_from() -> None:
+    """The single declaration. Read operator-agnostically: the floor is house policy."""
+    dependencies = tomllib.loads(PYPROJECT.read_text())["dependency-groups"]["dev"]
+    declarations = [d for d in dependencies if d.startswith(TESTCONTAINERS)]
+    assert len(declarations) == 1, f"expected exactly one {TESTCONTAINERS} declaration, found {declarations}"
+    assert re.fullmatch(rf"{TESTCONTAINERS}(\[[^]]*\])?[=<>~!]+[^,]+", declarations[0]), (
+        f"{declarations[0]!r} is not a specifier this guard knows how to read"
+    )
+
+
+def test_the_dockerfile_declares_the_arg_without_a_default() -> None:
+    """A default would be a second declaration, and a silent one.
+
+    `FROM` interpolates the arg, so a default does not fail when it goes stale:
+    it builds the previous release and says nothing. Without one, a build that
+    forgets to pass the version cannot resolve a tag and stops.
+    """
+    content = DOCKERFILE.read_text()
+    assert re.search(rf"^ARG {OVERRIDE_VARIABLE}$", content, re.MULTILINE), (
+        f"the Dockerfile must declare `ARG {OVERRIDE_VARIABLE}` with no default; "
+        f"a default is a version literal that nothing updates"
+    )
+    assert f"FROM registry.opsmill.io/opsmill/infrahub:${{{OVERRIDE_VARIABLE}}}" in content, (
+        f"the FROM line no longer interpolates {OVERRIDE_VARIABLE}, so the build arg does nothing"
+    )
+
+
+def test_the_compose_override_requires_the_version_rather_than_defaulting() -> None:
+    """`:?` over `:-`, so a missing version is an error and not last release.
+
+    `tasks.py` exports the resolved version, so the substitution always has a
+    value on the supported path. The spelling matters for every other path: a
+    bare `docker compose` with `:-` would silently start whatever number was
+    committed here.
+    """
+    content = COMPOSE_OVERRIDE.read_text()
+    fallbacks = re.findall(rf"\$\{{{OVERRIDE_VARIABLE}:-([^}}]*)\}}", content)
+    assert not fallbacks, (
+        f"docker-compose.override.yml gives {OVERRIDE_VARIABLE} the fallback {fallbacks[0]!r}. "
+        f"Use `:?` so compose fails when the version is unset instead of starting a stale release."
+    )
+    required = re.findall(rf"\$\{{{OVERRIDE_VARIABLE}:\?[^}}]*\}}", content)
+    assert len(required) == 2, (
+        f"expected the image tag and the build arg to read ${{{OVERRIDE_VARIABLE}:?...}}, found {len(required)}"
+    )
+
+
+# Every file that once held a declaration, plus the two that held one nobody
+# knew about. The rule for all of them is the same now: state no version.
 LEAK_CANDIDATES = [
     (
+        DOCKERFILE,
+        "the ARG default is the declaration a bump used to have to move, and a stale one builds the "
+        "previous release without failing",
+    ),
+    (
+        COMPOSE_OVERRIDE,
+        "a `:-` fallback here is what `docker compose` resolves to when nothing exports the version, "
+        "so the stack would run a release the lock does not select",
+    ),
+    (
+        TASKS,
+        "`BASE_VERSION` is derived from the installed package, so a literal beside it would tag the "
+        "image and pick the upstream compose file by a number nothing moves",
+    ),
+    (
+        INTEGRATION_CONFTEST,
+        "the integration stack would run an image other than the one `invoke build` produced",
+    ),
+    (
         ENV_EXAMPLE,
-        "`cp .env.example .env` hands a fresh clone a version no bump moves. `tasks.py::_run` "
-        "passes `_env()`, which layers `.env` over the process environment, to every subprocess, "
-        "so the stale value reaches `docker compose` and the override file's "
-        "`${INFRAHUB_BASE_VERSION:-...}` resolves to it. `BASE_VERSION` in tasks.py reads "
-        "`os.getenv` and does not see `.env`, so `invoke build` tags the new release while the "
-        "stack it starts asks for the old one",
+        "`cp .env.example .env` hands a fresh clone a version no bump moves, and `tasks.py::_env` "
+        "layers `.env` over the environment, so it reaches compose",
     ),
     (
         CI_WORKFLOW,
-        "the docker-build job would keep building the previous release after a bump, proving the "
-        "worker imports the shared package against the wrong version",
+        "the docker-build job would keep building a pinned release rather than the one under test",
     ),
 ]
 
-# The `why` strings are paragraphs, so pytest's generated ids are unreadable in a
-# failure summary. Name the cases by file instead.
 LEAK_IDS = [path.name for path, _ in LEAK_CANDIDATES]
 
 
 @pytest.mark.parametrize(("path", "why"), LEAK_CANDIDATES, ids=LEAK_IDS)
-def test_neither_file_declares_the_base_version_at_any_value(path: Path, why: str) -> None:
-    """Neither file may assign `INFRAHUB_BASE_VERSION` a version, current or stale.
+def test_no_file_assigns_the_version_a_value(path: Path, why: str) -> None:
+    """No file may assign `INFRAHUB_BASE_VERSION` a version, current or stale.
 
-    Keyed on the variable name rather than on the value, which is what makes this
-    catch the case that matters. A declaration left behind by a bump holds the
-    version being moved *off*, so a check comparing against the Dockerfile would
-    pass it: the number no longer matches, which is precisely the bug. Matching
-    the assignment catches it whatever it says.
+    Keyed on the variable name rather than on a value, which is what makes this
+    catch the case that matters. A declaration left behind holds the version
+    being moved *off*, so a check comparing against the resolved version would
+    pass it: the number no longer matching is precisely the bug.
 
-    `UV_VERSION` and the pinned actions in ci.yml are versions of other things and
-    are not what a bump moves, so naming the variable also avoids them without a
-    value allowlist.
+    `UV_VERSION` and the pinned actions in `ci.yml` are versions of other things,
+    so naming the variable also avoids them without a value allowlist.
 
     Args:
-        path: File that must declare no base version.
+        path: File that must declare no version.
         why: What goes wrong when it does, for the failure message.
     """
-    declarations = re.findall(r"INFRAHUB_BASE_VERSION[=:\s]+[\"']?(\d+\.\d+\.\d+[0-9a-z.]*)", path.read_text())
+    declarations = re.findall(
+        rf"{OVERRIDE_VARIABLE}[=:\s]+[\"']?(\d+\.\d+\.\d+[0-9a-z.]*)",
+        path.read_text(),
+    )
     assert not declarations, (
-        f"{path.relative_to(REPO_ROOT)} sets INFRAHUB_BASE_VERSION to {declarations[0]}, which it must not: "
-        f"{why}. Take the assignment out; the Dockerfile's ARG default supplies the value."
+        f"{path.relative_to(REPO_ROOT)} sets {OVERRIDE_VARIABLE} to {declarations[0]}, which it must not: "
+        f"{why}. Take the value out; `infrahub_demo_otn.baseversion` resolves it."
     )
 
 
 @pytest.mark.parametrize(("path", "why"), LEAK_CANDIDATES, ids=LEAK_IDS)
-def test_neither_file_mentions_the_version_the_dockerfile_builds(path: Path, why: str) -> None:
-    """Neither file may contain the current version anywhere, prose included.
+def test_no_file_names_the_version_now_installed(path: Path, why: str) -> None:
+    """No file may contain the current version anywhere, prose included.
 
-    The second layer, and it guards the bump rather than the repository. The sweep
-    at the end of `update-infrahub.yml` is a fixed-string search for the version
-    being moved off, so a number left in a comment fails the bump run just as a
-    live declaration would, and the fix would land under time pressure. Catching
-    it here means it fails on the pull request that wrote the comment.
+    The second layer, and it catches the spellings the first cannot: an image
+    tag, a compose URL, or a number sitting in a comment beside the variable.
 
     Args:
-        path: File that must not name the current version.
+        path: File that must not name the installed version.
         why: What goes wrong when it does, for the failure message.
     """
     found = re.findall(r"\b\d+\.\d+\.\d+[0-9a-z.]*\b", path.read_text())
-    leaked = [version for version in found if version == _base_version()]
+    leaked = [version for version in found if version == base_version()]
     assert not leaked, (
-        f"{path.relative_to(REPO_ROOT)} names the Infrahub version {_base_version()}, which it must not: {why}. "
-        f"`update-infrahub.yml` sweeps both files for the outgoing version, and a mention in prose trips it."
+        f"{path.relative_to(REPO_ROOT)} names the Infrahub version {base_version()}, which it must not: {why}."
     )
 
 
-def test_testcontainers_declares_the_version_the_stack_runs() -> None:
-    """The package that starts the stack and the image it starts must match.
+def test_dependabot_may_move_the_version() -> None:
+    """The point of deriving it: a lock refresh is a complete bump.
 
-    `infrahub-testcontainers` ships the compose file the stack is built from, so
-    a mismatch pairs one release's topology with another's server.
-
-    Read operator-agnostically. The specifier is a floor rather than a pin, so
-    what has to equal the Dockerfile is the *version named in it*, not the whole
-    string. Asserting the string meant this test had to be edited the day the
-    house specifier policy changed, which is exactly the coupling the rest of
-    this module avoids by deriving everything from the Dockerfile.
+    Held explicitly because this repository once had to ignore the package. Six
+    declarations meant Dependabot could only ever move the lock, which the tests
+    then refused, so its pull requests could not be made green. One declaration
+    means the lock *is* the bump, and an `ignore` rule here would now only stop
+    the version from being upgraded at all.
     """
-    dependencies = tomllib.loads(PYPROJECT.read_text())["dependency-groups"]["dev"]
-    declarations = [d for d in dependencies if d.startswith("infrahub-testcontainers")]
-    assert len(declarations) == 1, f"expected exactly one infrahub-testcontainers declaration, found {declarations}"
-    match = re.fullmatch(r"infrahub-testcontainers(\[[^]]*\])?[=<>~!]+([^,]+)", declarations[0])
-    assert match, f"{declarations[0]!r} is not a specifier this guard knows how to read"
-    assert match.group(2) == _base_version(), (
-        f"{declarations[0]!r} names {match.group(2)}, but the Dockerfile builds {_base_version()}. "
-        f"A bump moved one and not the other."
-    )
-
-
-def test_the_lock_resolves_testcontainers_to_the_version_the_stack_runs() -> None:
-    """The floor is a floor; this is the version that installs.
-
-    The test above reads the number in `pyproject.toml`, and that number is the
-    bottom of a `>=` range. A `uv lock --upgrade` that resolves testcontainers
-    past the server image the compose file starts moves nothing that test looks
-    at, so it stays green while the package that builds the topology and the
-    image running under it come from different releases.
-
-    The lock is the other half of that declaration and `update-infrahub.yml`
-    re-runs `uv lock` in the same commit, so holding it to the Dockerfile costs
-    a bump nothing and closes the one path into divergence that the rest of this
-    module does not watch.
-    """
-    for entry in tomllib.loads(UV_LOCK.read_text())["package"]:
-        if entry["name"] == "infrahub-testcontainers":
-            locked = str(entry["version"])
-            break
-    else:
-        raise AssertionError("uv.lock resolves no infrahub-testcontainers, so the stack cannot start")
-    assert locked == _base_version(), (
-        f"uv.lock resolves infrahub-testcontainers {locked}, but the Dockerfile builds {_base_version()}. "
-        f"The specifier is a floor, so a lock refresh can move this on its own: either bump the six "
-        f"declarations or hold the lock back."
+    ecosystems = yaml.safe_load(DEPENDABOT.read_text())["updates"]
+    uv = [entry for entry in ecosystems if entry["package-ecosystem"] == "uv"]
+    assert len(uv) == 1, f"expected exactly one uv ecosystem in dependabot.yml, found {len(uv)}"
+    ignored = [str(rule["dependency-name"]) for rule in uv[0].get("ignore", [])]
+    blocked = [pattern for pattern in ignored if fnmatch(TESTCONTAINERS, pattern)]
+    assert not blocked, (
+        f"dependabot.yml ignores {TESTCONTAINERS} via {blocked[0]!r}, so the Infrahub version can no longer "
+        f"be upgraded by a lock refresh. Nothing restates the version now, so the rule is not needed."
     )

@@ -6,16 +6,18 @@ name: Update Infrahub version
 # to be two, and the SDK arm went a year without producing a pull request: it was
 # the file nobody looked at.
 #
-# The Infrahub version is the one dependency Dependabot cannot follow. The
-# Dockerfile's FROM interpolates a build arg rather than naming a tag, which the
-# docker ecosystem cannot resolve, and the same version is restated in Compose,
-# tasks.py, the integration conftest and the infrahub-testcontainers specifier.
-# Six declarations across five files, so it takes a workflow.
+# The Infrahub version is now one specifier in one file. It used to be six
+# declarations across five, because the Dockerfile's FROM interpolates a build
+# arg rather than naming a tag and Compose, tasks.py and the integration conftest
+# each restated the same number. `src/infrahub_demo_otn/baseversion.py` derives
+# all of them from the installed infrahub-testcontainers instead, so this
+# workflow moves the specifier and relocks.
 #
-# Six, and only six. `.env.example` and `ci.yml` each carried a seventh and an
-# eighth that nothing rewrote and nothing checked, so a bump moved six of eight.
-# Both now carry no version at all, `tests/unit/test_pins.py` fails if one
-# returns, and the sweep below names them.
+# That also means Dependabot can do this without help: a lock refresh moves the
+# only declaration there is. The `infrahub-testcontainers` group in
+# dependabot.yml is that path, and this workflow is the one that reacts to a
+# release the moment it lands rather than on Dependabot's weekly schedule.
+# Whichever opens first, the other closes as already applied.
 #
 # The infrahub-sdk specifier is one specifier in one file and Dependabot can
 # follow it. This workflow moves it too, so an SDK release gets a pull request
@@ -120,7 +122,8 @@ jobs:
             exit 1
           fi
 
-          CURRENT_INFRAHUB=$(grep -oP '^ARG INFRAHUB_BASE_VERSION=\K\S+' Dockerfile)
+          # The specifier is the only declaration left, so it is what "current" means.
+          CURRENT_INFRAHUB=$(grep -oP '"infrahub-testcontainers(\[[^]]*\])?[=<>~]+\K[^",]+' pyproject.toml)
           CURRENT_SDK=$(grep -oP '"infrahub-sdk\[all,ctl\][=<>~]+\K[^",]+' pyproject.toml)
 
           # The `chore/` names the two workflows this replaces already used.
@@ -147,64 +150,29 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Infrahub ${CURRENT_INFRAHUB:-<none>} -> ${INFRAHUB_VERSION:-<unchanged>}, SDK ${CURRENT_SDK:-<none>} -> ${SDK_VERSION:-<unchanged>}"
 
-      - name: Rewrite every Infrahub declaration
+      # One specifier, not six declarations. `src/infrahub_demo_otn/baseversion.py`
+      # derives the tag the image is built from, the tag Compose runs and the tag
+      # the test stack starts from whichever release installs, so moving the
+      # specifier and relocking moves all of them.
+      #
+      # This used to rewrite five files with anchored perl substitutions and then
+      # sweep for survivors. That is what the derivation replaced, and with it the
+      # reason Dependabot could not do this itself.
+      - name: Bump the testcontainers specifier
         if: steps.resolve.outputs.infrahub_version != '' && steps.resolve.outputs.infrahub_version != steps.resolve.outputs.current_infrahub
         env:
           VERSION: ${{ steps.resolve.outputs.infrahub_version }}
-          CURRENT: ${{ steps.resolve.outputs.current_infrahub }}
         run: |
           set -euo pipefail
-          # Each rewrite is anchored to the syntax around it and then read back. A
-          # pattern that silently stops matching is invisible without the
-          # read-back: the run goes green having changed nothing in that file.
-          rewrite() {
-            path="$1"
-            pattern="$2"
-            expected="$3"
-            perl -pi -e "${pattern}" "${path}"
-            grep -qF "${expected}" "${path}" || {
-              echo "::error::${path} did not take the rewrite; its syntax has changed and this workflow needs updating."
-              exit 1
-            }
+          # In place rather than `uv add infrahub-testcontainers==X`, which
+          # rewrites the whole specifier and drops the bounds and the extras.
+          # Operator- and extras-agnostic, and [^,"]+ stops at the comma so an
+          # upper bound survives.
+          perl -pi -e "s/(\"infrahub-testcontainers(\[[^]]*\])?[=<>~]+)[^,\"]+/\${1}${VERSION}/" pyproject.toml
+          grep -qE "\"infrahub-testcontainers(\[[^]]*\])?[=<>~]+${VERSION//./\\.}" pyproject.toml || {
+            echo "::error::The infrahub-testcontainers specifier did not take the rewrite; its syntax has changed and this workflow needs updating."
+            exit 1
           }
-
-          rewrite Dockerfile \
-            "s/^ARG INFRAHUB_BASE_VERSION=\Q${CURRENT}\E$/ARG INFRAHUB_BASE_VERSION=${VERSION}/" \
-            "ARG INFRAHUB_BASE_VERSION=${VERSION}"
-
-          rewrite docker-compose.override.yml \
-            "s/\\\$\{INFRAHUB_BASE_VERSION:-\Q${CURRENT}\E\}/\\\$\{INFRAHUB_BASE_VERSION:-${VERSION}\}/g" \
-            "INFRAHUB_BASE_VERSION:-${VERSION}}"
-
-          rewrite tasks.py \
-            "s/(os\.getenv\(\"INFRAHUB_BASE_VERSION\", \")\Q${CURRENT}\E(\")/\${1}${VERSION}\${2}/" \
-            "os.getenv(\"INFRAHUB_BASE_VERSION\", \"${VERSION}\")"
-
-          rewrite tests/integration/conftest.py \
-            "s/(os\.environ\.get\(\"INFRAHUB_BASE_VERSION\", \")\Q${CURRENT}\E(\")/\${1}${VERSION}\${2}/" \
-            "os.environ.get(\"INFRAHUB_BASE_VERSION\", \"${VERSION}\")"
-
-          # Operator- and extras-agnostic, so the floor keeps its operator and a
-          # specifier that later grows a bound or an extra still matches.
-          # [^,"]+ stops at the comma, so an upper bound survives.
-          rewrite pyproject.toml \
-            "s/(\"infrahub-testcontainers(\[[^]]*\])?[=<>~]+)[^,\"]+/\${1}${VERSION}/" \
-            "infrahub-testcontainers>=${VERSION}"
-
-          # Compose declares it twice and the loop above rewrites both, so prove
-          # no copy of the old version survived anywhere.
-          if grep -rn --fixed-strings "${CURRENT}" Dockerfile docker-compose.override.yml tasks.py tests/integration/conftest.py pyproject.toml; then
-            echo "::error::A declaration of ${CURRENT} survived the rewrite; see the matches above."
-            exit 1
-          fi
-
-          # .env.example and ci.yml are swept but never rewritten: they must hold
-          # no version, so a match there is a declaration that has crept back
-          # rather than one the loop missed.
-          if grep -rn --fixed-strings "${CURRENT}" .env.example .github/workflows/ci.yml; then
-            echo "::error::.env.example or ci.yml states ${CURRENT}. Neither may carry a version: nothing rewrites them, so the value goes stale on the next bump. Delete the number; the Dockerfile's ARG default supplies it."
-            exit 1
-          fi
 
       - name: Rewrite the infrahub-sdk specifier
         if: steps.resolve.outputs.sdk_version != '' && steps.resolve.outputs.sdk_version != steps.resolve.outputs.current_sdk
@@ -232,7 +200,7 @@ jobs:
         id: changed
         run: |
           set -euo pipefail
-          if git diff --quiet -- pyproject.toml Dockerfile docker-compose.override.yml tasks.py tests/integration/conftest.py; then
+          if git diff --quiet -- pyproject.toml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Nothing to bump. Either the versions requested are already declared, or the dependency named is not declared here. No pull request opened."
           else
@@ -245,10 +213,10 @@ jobs:
         if: steps.changed.outputs.changed == 'true'
         run: uv lock
 
-      # test_pins.py compares all six declarations against the Dockerfile and
-      # refuses a version literal in the two files that must carry none. Run here
-      # so a missed file fails the workflow that caused it.
-      - name: Check the declarations agree
+      # test_pins.py checks that the derivation resolves and that no file states a
+      # version literal. Run here so a bump that reintroduces one fails the
+      # workflow that caused it.
+      - name: Check that nothing restates the version
         if: steps.changed.outputs.changed == 'true'
         run: uv run pytest tests/unit/test_pins.py -v
 
@@ -267,21 +235,21 @@ jobs:
           body: |
             Automated bump to ${{ steps.resolve.outputs.subject }}.
 
-            An Infrahub bump moves the six declarations of the version together:
-            the Dockerfile build arg, both Compose fallbacks, `tasks.py`, the
-            integration conftest and the `infrahub-testcontainers` specifier.
-            `tests/unit/test_pins.py` has already confirmed they agree and that
-            no version has crept back into `.env.example` or `ci.yml`.
+            An Infrahub bump moves one specifier and the lock.
+            `src/infrahub_demo_otn/baseversion.py` derives the rest: the tag the
+            image is built from, the tag Compose runs and the tag the test stack
+            starts. `tests/unit/test_pins.py` has already confirmed the
+            derivation resolves and that no file has grown a version literal
+            beside it.
 
             What that cannot tell you is whether the new release still behaves
             the way this demo assumes. The `integration-test` job answers that:
             it builds the image, loads the dataset, registers the repository and
             runs a proposed change through the pipeline against the version this
-            pull request selects. A bump rewrites `tasks.py`, the Dockerfile,
-            `pyproject.toml` and the integration conftest, all of which are in
-            `demo_all` in `.github/file-filters.yml`, so it runs the full tier
-            rather than the core one. That is the intent: a bump is the change
-            with the widest blast radius.
+            pull request selects. `pyproject.toml` and `uv.lock` are both in
+            `demo_all` in `.github/file-filters.yml`, so a bump runs the full
+            tier rather than the core one. That is the intent: a bump is the
+            change with the widest blast radius.
 
             An SDK bump additionally deserves a look at `traverse_paths()`
             signatures before merging. The routing and impact features depend on
