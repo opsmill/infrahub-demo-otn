@@ -50,6 +50,30 @@ updates:
         patterns:
           - "infrahub-testcontainers*"
 
+    # `rich` and `ruff` are capped transitively by infrahub-sdk, so Dependabot
+    # cannot move them and fails the whole uv job trying. It reports both as
+    # `dependency_file_not_resolvable` on every run:
+    #
+    #   rich  infrahub-sdk[all] requires rich>=12,<14; Dependabot offers 15.0.0
+    #   ruff  ariadne-codegen==0.18.0, via infrahub-sdk[all], requires
+    #         ruff>=0.15.0,<0.16.0; Dependabot offers 0.16.6
+    #
+    # Our own specifiers are floors, and a floor cannot lead the cap above it.
+    # The lock already resolves each to the newest release the cap allows, so
+    # what these bumps would move is a lower bound nothing reads, at the price of
+    # a red job every Monday.
+    #
+    # Ignored by name and not by version range on purpose. `versions: [">=14"]`
+    # would state the cap a second time, in a file that does not move when
+    # infrahub-sdk relaxes it, which is the stale-declaration shape #27 removed.
+    #
+    # The cost is that neither is offered again once the caps do lift. Drop the
+    # rule that no longer applies when bumping infrahub-sdk past a release that
+    # widens either range.
+    ignore:
+      - dependency-name: "rich"
+      - dependency-name: "ruff"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
