@@ -1,4 +1,12 @@
-ARG INFRAHUB_BASE_VERSION=1.11.0
+# No default on purpose. `FROM` interpolates this, so a stale default would build
+# the previous release and say nothing; `invoke build` and ci.yml pass the version
+# `infrahub_demo_otn.baseversion` derives from the installed infrahub-testcontainers.
+#
+# `docker build --check` reports InvalidDefaultArgInFrom here and wants a default.
+# Do not add one: that is the silent stale declaration this repository removed,
+# and `tests/unit/test_pins.py` fails if it returns. A plain build without the arg
+# stops at `invalid reference format`, which is the intended loud failure.
+ARG INFRAHUB_BASE_VERSION
 FROM registry.opsmill.io/opsmill/infrahub:${INFRAHUB_BASE_VERSION}
 
 # Install into the image's existing virtualenv rather than a new one.

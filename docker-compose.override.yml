@@ -1,6 +1,6 @@
 ---
 x-infrahub-custom-build: &infrahub_custom_build
-  image: opsmill/infrahub-demo-otn:${INFRAHUB_BASE_VERSION:-1.11.0}
+  image: opsmill/infrahub-demo-otn:${INFRAHUB_BASE_VERSION:?set by tasks.py from the installed infrahub-testcontainers; run through invoke}
   environment:
     INFRAHUB_GIT_USER_NAME: "infrahub"
     INFRAHUB_GIT_EMAIL: "no-reply@opsmill.com"
@@ -10,7 +10,7 @@ x-infrahub-custom-build: &infrahub_custom_build
     context: .
     dockerfile: Dockerfile
     args:
-      INFRAHUB_BASE_VERSION: "${INFRAHUB_BASE_VERSION:-1.11.0}"
+      INFRAHUB_BASE_VERSION: "${INFRAHUB_BASE_VERSION:?set by tasks.py from the installed infrahub-testcontainers; run through invoke}"
 
 # `./.remote` is where `invoke load-repository` writes an export of the committed
 # tree, and `/remote` is where the containers read it. Infrahub clones a

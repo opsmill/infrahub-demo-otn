@@ -31,9 +31,24 @@ updates:
           - "*"
         exclude-patterns:
           - "infrahub-sdk*"
+          - "infrahub-testcontainers*"
       infrahub-sdk:
         patterns:
           - "infrahub-sdk*"
+      # infrahub-testcontainers is the Infrahub version. Nothing else declares
+      # it: `src/infrahub_demo_otn/baseversion.py` derives the tag the image is
+      # built from, the tag Compose runs and the tag the test stack starts from
+      # whichever release installs here, so this bump is the whole bump and
+      # Dependabot can make it.
+      #
+      # Its own group, not part of `all`. A bump touches `tasks.py`, `Dockerfile`
+      # and `pyproject.toml` by implication, so `.github/file-filters.yml` puts
+      # it in `demo_all` and it runs the full integration tier: the widest blast
+      # radius of any change here, which should not arrive in a request titled
+      # after a linter.
+      infrahub-testcontainers:
+        patterns:
+          - "infrahub-testcontainers*"
 
   - package-ecosystem: "github-actions"
     directory: "/"

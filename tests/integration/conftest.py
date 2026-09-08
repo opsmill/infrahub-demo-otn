@@ -70,12 +70,15 @@ from typing import Any
 import pytest
 from infrahub_sdk.yaml import SchemaFile
 
+from infrahub_demo_otn.baseversion import IMAGE_REPOSITORY, base_version
+
 CURRENT_DIRECTORY = Path(__file__).parent.resolve()
 REPO_ROOT = CURRENT_DIRECTORY.parent.parent
 
-TESTING_IMAGE = "opsmill/infrahub-demo-otn"
-# Mirrors the tag docker-compose.override.yml builds and the Dockerfile default.
-TESTING_IMAGE_VERSION = os.environ.get("INFRAHUB_BASE_VERSION", "1.11.0")
+# The tag `invoke build` produced, derived from the installed infrahub-testcontainers
+# rather than restated here. See `infrahub_demo_otn.baseversion`.
+TESTING_IMAGE = IMAGE_REPOSITORY
+TESTING_IMAGE_VERSION = base_version()
 
 os.environ.setdefault("INFRAHUB_TESTING_DOCKER_IMAGE", TESTING_IMAGE)
 os.environ.setdefault("INFRAHUB_TESTING_IMAGE_VERSION", TESTING_IMAGE_VERSION)
