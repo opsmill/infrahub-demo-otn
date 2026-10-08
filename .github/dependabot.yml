@@ -1,75 +1,32 @@
 ---
 version: 2
 updates:
+  # Regular dependency upgrades target main after cooldown.
+  # Security updates target the default branch and are reviewed manually.
   - package-ecosystem: "uv"
     directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "12:00"
-    open-pull-requests-limit: 10
     target-branch: main
-    labels:
-      - "dependencies"
-    groups:
-      all:
-        # infrahub-sdk is excluded here and grouped alone below. An SDK bump
-        # can change traverse_paths signatures, so it gets a reviewable PR of
-        # its own rather than being buried in a bundle.
-        #
-        # `exclude-patterns`, not a regex lookahead in `patterns`. Dependabot
-        # matches these as globs, so `^(?!infrahub-sdk$).*` matched nothing and
-        # the group silently covered no package: #2 and #3 arrived as separate
-        # pull requests where one grouped request was intended.
-        #
-        # The trailing `*` is not decoration. Dependabot names this dependency
-        # by its specifier including extras, `infrahub-sdk[all,ctl]`, so a bare
-        # `infrahub-sdk` matches neither the exclusion here nor the group below.
-        # #9 arrived titled "Bump infrahub-sdk[all,ctl] ... in the all group",
-        # which is the bundle both rules exist to keep it out of.
-        patterns:
-          - "*"
-        exclude-patterns:
-          - "infrahub-sdk*"
-          - "infrahub-testcontainers*"
-      infrahub-sdk:
-        patterns:
-          - "infrahub-sdk*"
-      # infrahub-testcontainers is the Infrahub version. Nothing else declares
-      # it: `src/infrahub_demo_otn/baseversion.py` derives the tag the image is
-      # built from, the tag Compose runs and the tag the test stack starts from
-      # whichever release installs here, so this bump is the whole bump and
-      # Dependabot can make it.
-      #
-      # Its own group, not part of `all`. A bump touches `tasks.py`, `Dockerfile`
-      # and `pyproject.toml` by implication, so `.github/file-filters.yml` puts
-      # it in `demo_all` and it runs the full integration tier: the widest blast
-      # radius of any change here, which should not arrive in a request titled
-      # after a linter.
-      infrahub-testcontainers:
-        patterns:
-          - "infrahub-testcontainers*"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+      semver-minor-days: 14
+      semver-major-days: 30
 
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
     target-branch: main
-    labels:
-      - "dependencies"
-    groups:
-      all-actions:
-        patterns:
-          - "*"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+    ignore:
+      - dependency-name: "github/gh-aw-actions/**"  # managed by gh aw compile
 
+  # Keep this repository's existing Docker image update stream.
   - package-ecosystem: "docker"
     directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
     target-branch: main
-    labels:
-      - "dependencies"
+    schedule:
+      interval: weekly
