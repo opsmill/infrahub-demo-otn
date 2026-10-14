@@ -65,7 +65,12 @@ indent-style = "space"
 # would put every pair on its own line, turn 89 KB into 5,600 lines and roughly
 # double the file, and the next run of the script would undo it. Only the
 # formatter is switched off here: `ruff check` and mypy still read the file.
-exclude = ["src/infrahub_demo_otn/basemap.py"]
+#
+# scripts/update_infrahub_pins.py is kept byte-identical to the copy in every
+# other OpsMill demo and solution repository, which are formatted at a shorter
+# line length. Reformatting it here would make it drift from them. `ruff check`
+# and mypy still read it.
+exclude = ["src/infrahub_demo_otn/basemap.py", "scripts/update_infrahub_pins.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
