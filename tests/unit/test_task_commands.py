@@ -153,6 +153,16 @@ class RecordingContext:
         return FakeResult(ok=self.outcomes[min(len(self.commands) - 1, len(self.outcomes) - 1)])
 
 
+class StrictContext(RecordingContext):
+    """A `RecordingContext` that fails a non-zero exit unless asked to warn, as `invoke` does."""
+
+    def run(self, command: str, **kwargs: object) -> FakeResult:
+        result = super().run(command, **kwargs)
+        if not result.ok and not kwargs.get("warn"):
+            raise AssertionError(f"{command!r} failed without warn=True, so invoke would have raised")
+        return result
+
+
 def undecorated(name: str) -> Any:
     """One task's plain function.
 
@@ -223,6 +233,50 @@ def test_the_sync_with_git_flag_survives_the_retry(monkeypatch: pytest.MonkeyPat
     undecorated("branch-create")(context, "demo")
 
     assert all("--sync-with-git" in command for command in context.commands), context.commands
+
+
+def test_a_branch_delete_that_errors_after_deleting_is_done(
+    monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]
+) -> None:
+    """The failure in run 38628699181: the branch went, the mutation answered 500.
+
+    The task purge for the deleted branch removed the flow run `BranchDelete`
+    was about to read, and `infrahubctl` exited 1. Judged on the server, the
+    delete is done.
+    """
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: False)
+    context = StrictContext(False)
+
+    undecorated("branch-delete")(context, "demo")
+
+    assert context.commands == ["uv run infrahubctl branch delete demo"]
+
+
+def test_a_branch_delete_that_left_the_branch_stops_the_task(
+    monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]
+) -> None:
+    """A failed delete that left the branch in place is a real failure."""
+    monkeypatch.setattr(tasks, "_branch_exists", lambda _: True)
+    context = RecordingContext(False)
+
+    with pytest.raises(SystemExit):
+        undecorated("branch-delete")(context, "demo")
+
+
+def test_a_branch_delete_that_succeeded_does_not_ask_the_server(
+    monkeypatch: pytest.MonkeyPatch, no_waiting: list[float]
+) -> None:
+    """A clean exit is trusted, so a working delete costs no extra request."""
+
+    def unexpected(_: str) -> bool:
+        raise AssertionError("asked the server after a clean delete")
+
+    monkeypatch.setattr(tasks, "_branch_exists", unexpected)
+    context = RecordingContext(True)
+
+    undecorated("branch-delete")(context, "demo")
+
+    assert len(context.commands) == 1
 
 
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
