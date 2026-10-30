@@ -15,7 +15,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "infrahub-testcontainers>=1.11.7",
+    "infrahub-testcontainers>=1.12.0b0",
     "mypy>=1.19.1",
     "pytest>=9.0.0",
     "pytest-asyncio>=1.3.0",
