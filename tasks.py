@@ -1238,8 +1238,17 @@ def branch_list(context: Context) -> None:
 
 @task
 def branch_delete(context: Context, name: str) -> None:
-    """Delete a branch."""
-    _ctl(context, f"branch delete {name}")
+    """Delete a branch.
+
+    Judged by whether the branch is gone afterwards, not by the exit code. The
+    server can finish the deletion and still answer `BranchDelete` with a 500:
+    the task purge for the deleted branch removes the flow run the mutation is
+    about to read, and `infrahubctl` prints `['BranchDelete'] None`. Run
+    38628699181 failed `demo-clean --branch demo` exactly that way, twice.
+    """
+    result = _ctl(context, f"branch delete {name}", warn=True)
+    if not result.ok and _branch_exists(name):
+        _fail(f"branch {name} is still there after deleting it")
 
 
 # --------------------------------------------------------------------------- #

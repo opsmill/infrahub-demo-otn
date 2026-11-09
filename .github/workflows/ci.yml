@@ -40,6 +40,7 @@ jobs:
       schema: ${{ steps.changes.outputs.schema_all }}
       documentation: ${{ steps.changes.outputs.documentation_all }}
       tier: ${{ steps.tier.outputs.tier }}
+      infrahub_bump: ${{ steps.tier.outputs.infrahub_bump }}
     steps:
       - uses: actions/checkout@v7
       - uses: opsmill/paths-filter@v3.0.2
@@ -50,16 +51,33 @@ jobs:
       # Full when the change can reach a scenario, core otherwise, and whatever a
       # dispatch asked for over both. Decided here rather than in an `if:` on the
       # steps below, so the answer is one value the job cannot disagree with.
+      #
+      # An Infrahub bump pull request opened by update-infrahub.yml runs full
+      # whatever it touches: it is the test of the new release, and
+      # auto-merge-testcontainers.yml merges it only when that run passes. An
+      # infrahub-sdk bump branch (update-infrahub-sdk-<s> or
+      # update-infrahub-<v>-sdk-<s>) falls through to the path rule like any
+      # other pull request.
       - name: Decide the integration tier
         id: tier
         env:
           DEMO_CHANGED: ${{ steps.changes.outputs.demo_all }}
           DISPATCH_TIER: ${{ github.event.inputs.tier }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
+          INFRAHUB_BUMP="false"
+          case "${HEAD_REF}" in
+            update-infrahub-sdk-*|*-sdk-*) ;;
+            update-infrahub-*) INFRAHUB_BUMP="true" ;;
+          esac
+          echo "infrahub_bump=${INFRAHUB_BUMP}" >> "$GITHUB_OUTPUT"
           if [ -n "${DISPATCH_TIER}" ]; then
             TIER="${DISPATCH_TIER}"
             WHY="asked for by this dispatch"
+          elif [ "${INFRAHUB_BUMP}" = "true" ]; then
+            TIER="full"
+            WHY="this pull request moves the Infrahub version"
           elif [ "${DEMO_CHANGED}" = "true" ]; then
             TIER="full"
             WHY="this change touches a path that can break a scenario"
@@ -234,11 +252,15 @@ jobs:
     # against `main` as touching nothing, so without that first clause the one
     # way to ask for the full tier would select every scenario and then run
     # none of them.
+    #
+    # An Infrahub bump pull request runs it whatever changed, for the same
+    # reason: it is the test of the new release.
     if: |
       always() && !cancelled() &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
       (github.event_name == 'workflow_dispatch' ||
+       needs.files-changed.outputs.infrahub_bump == 'true' ||
        needs.files-changed.outputs.python == 'true' ||
        needs.files-changed.outputs.schema == 'true')
     needs: ["files-changed", "python-lint", "yaml-lint", "schema-validate", "budget-unit-tests"]
