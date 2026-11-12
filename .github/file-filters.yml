@@ -20,6 +20,14 @@ python_all:
   # output matches a fresh run. A generator-only change that skipped this job
   # would go green on precisely the edit the determinism test exists to catch.
   - "scripts/**"
+  # The image and the stack definition. docker-build and integration-test both
+  # wait on this filter, so without these globs a change that touches only the
+  # image skips the build that checks it and the tests that run on it. The
+  # workflow is here so a change to these jobs runs them.
+  - "Dockerfile"
+  - "docker-compose*.yml"
+  - ".github/workflows/ci.yml"
+  - ".github/file-filters.yml"
 
 yaml_all:
   - "**/*.yml"
