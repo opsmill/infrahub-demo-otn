@@ -219,6 +219,20 @@ jobs:
           assert db_to_mdb(0.21) == 210
           print('shared package importable in the worker image')
           "
+      # Importing our package proves nothing about the image's own workers. A
+      # package this build overwrites can break the 'infrahubasync' worker type
+      # while the step above stays green; loading the Prefect collections is
+      # what the task-worker does at startup.
+      - name: Verify the image's task-worker plugins still load
+        run: |
+          docker run --rm --entrypoint /.venv/bin/python infrahub-demo-otn:ci -c "
+          import importlib.metadata as m
+          eps = list(m.entry_points(group='prefect.collections'))
+          assert eps, 'no prefect.collections entry points found'
+          for e in eps:
+              e.load()
+          print('task-worker plugins load:', [e.name for e in eps])
+          "
 
   schema-validate:
     if: needs.files-changed.outputs.schema == 'true'
