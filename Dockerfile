@@ -9,18 +9,23 @@
 ARG INFRAHUB_BASE_VERSION
 FROM registry.opsmill.io/opsmill/infrahub:${INFRAHUB_BASE_VERSION}
 
-# Install into the image's existing virtualenv rather than a new one.
-ENV UV_PROJECT_ENVIRONMENT="/.venv"
-
 WORKDIR /opt/local
 
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml README.md ./
 COPY src/ src/
 
-# --no-dev keeps the dev group out, which would otherwise drag in a second
-# infrahub-sdk and fight the one the base image ships.
-# --inexact leaves the existing infrahub environment in place instead of
-# pruning everything uv did not put there.
-RUN uv sync --no-dev --frozen --inexact
+# Install only this repository's package, into the image's existing virtualenv.
+#
+# --no-deps is the point. The base image ships the infrahub-sdk, opentelemetry,
+# pydantic and prefect versions its server and workers were built and tested
+# with. `uv sync` from uv.lock replaced about 50 of them with the versions this
+# repository resolved for the host, and the image's task workers then failed
+# to start: first on an older infrahub-sdk, then on an opentelemetry-api that
+# no longer matched opentelemetry-sdk.
+#
+# What the workers import from here is infrahub_demo_otn, which needs only the
+# standard library, and infrahub_sdk, which the image already provides.
+# `uv pip` does not read UV_PROJECT_ENVIRONMENT, so the target is explicit.
+RUN uv pip install --python /.venv/bin/python --no-deps .
 
 WORKDIR /source
